@@ -7,7 +7,12 @@ from sqlalchemy import Engine, func
 from sqlmodel import Session, col, select
 
 from app.models import Invoice, InvoiceStatus, get_datetime_utc
-from app.services.checks import DUPLICATE_OF, check_invoice, review_extraction
+from app.services.checks import (
+    NUMBER_ISSUES,
+    check_invoice,
+    number_issue,
+    review_extraction,
+)
 from app.services.extraction import ExtractedInvoice, ExtractionError, InvoiceExtractor
 from app.services.pdf_reader import PdfReader
 
@@ -67,7 +72,10 @@ def find_duplicate(session: Session, invoice: Invoice) -> Invoice | None:
         Invoice.invoice_number == invoice.invoice_number,
         func.lower(col(Invoice.supplier)) == invoice.supplier.lower(),
     )
-    return session.exec(statement).first()
+    matches = session.exec(statement).all()
+    same_amount = [m for m in matches if m.amount_incl_tax == invoice.amount_incl_tax]
+    best = same_amount or matches
+    return best[0] if best else None
 
 
 def expire_stale(session: Session) -> None:
@@ -99,9 +107,9 @@ def recheck_duplicates_of(session: Session, deleted: Invoice) -> None:
         )
     ).all()
     for invoice in flagged:
-        issues = [i for i in invoice.issues if not i.startswith(DUPLICATE_OF)]
+        issues = [i for i in invoice.issues if not i.startswith(NUMBER_ISSUES)]
         if original := find_duplicate(session, invoice):
-            issues.append(f"{DUPLICATE_OF} « {original.filename} »")
+            issues.append(number_issue(invoice, original))
         invoice.issues = issues
         invoice.status = InvoiceStatus.to_check if issues else InvoiceStatus.ok
         session.add(invoice)

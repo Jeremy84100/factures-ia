@@ -9,7 +9,7 @@ Exemple d'usage : un cabinet comptable reçoit 300 factures par mois et ne veut 
 ## Ce que fait l'application
 
 1. **Dépôt** : jusqu'à 50 PDF par envoi, 10 Mo maximum chacun. Le fichier est contrôlé (signature `%PDF`) puis stocké en base.
-2. **Lecture** : [Docling](https://github.com/docling-project/docling) transforme le PDF en texte structuré, OCR compris pour les scans.
+2. **Lecture** : [Docling](https://github.com/docling-project/docling) transforme le PDF en texte structuré, tableaux compris. Son OCR est coupé : il faisait monter la mémoire à 2,5 Go, au-delà des 2 Go de Vercel, et Gemini lit déjà les scans à partir du PDF (10 scans sur 10 justes sans lui).
 3. **Extraction** : Gemini 3.5 Flash-Lite reçoit le PDF lui-même **et** le texte Docling. Il voit ainsi les logos et la mise en page, et le texte l'aide à lire les chiffres. Il renvoie fournisseur, numéro, date, HT, TVA, TTC et devise, dans un JSON imposé par un schéma Pydantic.
 4. **Vérifications**, dans [`app/services/checks.py`](backend/app/services/checks.py) :
    - HT + TVA = TTC, à 2 centimes près ;
@@ -18,6 +18,7 @@ Exemple d'usage : un cabinet comptable reçoit 300 factures par mois et ne veut 
    - pas de date dans le futur ;
    - montant négatif accepté seulement sur un avoir ; les avoirs sont comptés en négatif, même quand ils sont écrits en positif comme le prévoit la norme EN 16931 ;
    - TVA à 0 acceptée seulement avec une mention d'exonération (article 262 du CGI, autoliquidation…), obligatoire sur une facture française ;
+   - même numéro qu'une autre facture du même fournisseur : « doublon » si le montant est identique, « même numéro mais un autre montant » sinon (un numéro de facture ne se réutilise pas) ;
    - date américaine ambiguë (06/02 : 6 février ou 2 juin ?) signalée si l'IA l'a lue à l'européenne.
 5. **Statut** de chaque facture : `Validée`, `À vérifier`, `Illisible` ou `Erreur IA`, avec la raison en clair.
 6. **Correction** à la main, après quoi les vérifications sont relancées. On peut aussi relancer la lecture par l'IA.

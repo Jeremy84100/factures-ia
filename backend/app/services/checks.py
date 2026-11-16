@@ -7,6 +7,16 @@ from app.services.extraction import ExtractedInvoice
 
 TOLERANCE = Decimal("0.02")
 DUPLICATE_OF = "Doublon possible de"
+SAME_NUMBER_AS = "Même numéro que"
+NUMBER_ISSUES = (DUPLICATE_OF, SAME_NUMBER_AS)
+
+
+def number_issue(invoice: Invoice, other: Invoice) -> str:
+    if other.amount_incl_tax == invoice.amount_incl_tax:
+        return f"{DUPLICATE_OF} « {other.filename} »"
+    return f"{SAME_NUMBER_AS} « {other.filename} » mais un autre montant"
+
+
 MONTH_FIRST_CURRENCIES = {"USD"}
 NUMERIC_DATE = re.compile(r"^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\s*$")
 
@@ -67,14 +77,16 @@ def check_invoice(
     if not invoice.is_credit_note and any(amount < 0 for amount in amounts):
         issues.append("Montant négatif sur une facture (avoir ?)")
 
-    no_vat = vat == 0 or (vat is None and excl is not None and excl == incl)
-    if no_vat and incl and not invoice.vat_exemption:
-        issues.append("TVA à 0 sans mention d'exonération")
+    if incl and not invoice.vat_exemption:
+        if vat == 0:
+            issues.append("TVA à 0 sans mention d'exonération")
+        elif vat is None:
+            issues.append("Montant de TVA introuvable")
 
     if invoice.invoice_date and invoice.invoice_date > (today or date.today()):
         issues.append("Date dans le futur")
 
     if duplicate_of is not None:
-        issues.append(f"{DUPLICATE_OF} « {duplicate_of.filename} »")
+        issues.append(number_issue(invoice, duplicate_of))
 
     return (InvoiceStatus.to_check if issues else InvoiceStatus.ok), issues

@@ -50,9 +50,12 @@ def test_missing_fields_is_unreadable() -> None:
     assert issues == ["Champ introuvable : fournisseur, montant TTC"]
 
 
-def test_total_alone_is_enough() -> None:
+def test_total_alone_is_readable_but_needs_vat() -> None:
     invoice = make_invoice(amount_excl_tax=None, vat_amount=None)
-    assert check_invoice(invoice, None, TODAY)[0] == InvoiceStatus.ok
+    assert check_invoice(invoice, None, TODAY) == (
+        InvoiceStatus.to_check,
+        ["Montant de TVA introuvable"],
+    )
 
 
 def test_future_date_needs_check() -> None:
@@ -99,10 +102,20 @@ def test_zero_vat_with_mention_is_ok() -> None:
     assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
 
 
-def test_missing_vat_with_equal_totals_counts_as_zero() -> None:
+def test_missing_vat_needs_check() -> None:
     invoice = make_invoice(**{**ZERO_VAT, "vat_amount": None})
-    assert check_invoice(invoice, None, TODAY)[1] == [
-        "TVA à 0 sans mention d'exonération"
+    assert check_invoice(invoice, None, TODAY)[1] == ["Montant de TVA introuvable"]
+
+
+def test_missing_vat_with_mention_is_ok() -> None:
+    invoice = make_invoice(vat_amount=None, vat_exemption="TVA incluse")
+    assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
+
+
+def test_same_number_other_amount_is_reported_separately() -> None:
+    other = make_invoice(filename="autre.pdf", amount_incl_tax=Decimal("99.00"))
+    assert check_invoice(make_invoice(), other, TODAY)[1] == [
+        "Même numéro que « autre.pdf » mais un autre montant"
     ]
 
 

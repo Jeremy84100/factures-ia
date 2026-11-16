@@ -16,9 +16,14 @@ class PdfReader(Protocol):
 
 @lru_cache
 def _converter() -> DocumentConverter:
-    from docling.document_converter import DocumentConverter
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    return DocumentConverter()
+    options = PdfPipelineOptions(do_ocr=False)
+    return DocumentConverter(
+        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=options)}
+    )
 
 
 class DoclingReader:
