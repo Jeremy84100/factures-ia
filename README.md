@@ -9,7 +9,7 @@ Exemple d'usage : un cabinet comptable reçoit 300 factures par mois et ne veut 
 ## Ce que fait l'application
 
 1. **Dépôt** : jusqu'à 50 PDF par envoi, 10 Mo maximum chacun. Le fichier est contrôlé (signature `%PDF`) puis stocké en base.
-2. **Lecture** : [Docling](https://github.com/docling-project/docling) transforme le PDF en texte structuré, tableaux compris. Son OCR est coupé : il faisait monter la mémoire à 2,5 Go, au-delà des 2 Go de Vercel, et Gemini lit déjà les scans à partir du PDF (10 scans sur 10 justes sans lui).
+2. **Lecture** : [Docling](https://github.com/docling-project/docling) transforme le PDF en texte structuré, tableaux compris. Son OCR est coupé : il faisait monter la mémoire à 2,5 Go, au-delà des 2 Go de Vercel, et Gemini lit déjà les scans à partir du PDF (10 scans sur 10 justes sans lui). Docling lit au plus les 5 premières pages, une par une : un PDF de 40 pages reste à 1,2 Go de mémoire au lieu de 2,1 Go. Gemini reçoit toujours le PDF entier.
 3. **Extraction** : Gemini 3.5 Flash-Lite reçoit le PDF lui-même **et** le texte Docling. Il voit ainsi les logos et la mise en page, et le texte l'aide à lire les chiffres. Il renvoie fournisseur, numéro, date, HT, TVA, TTC et devise, dans un JSON imposé par un schéma Pydantic.
 4. **Vérifications**, dans [`app/services/checks.py`](backend/app/services/checks.py) :
    - HT + TVA = TTC, à 2 centimes près ;
