@@ -30,7 +30,7 @@ La première lecture prend jusqu'à une minute, le temps que le serveur gratuit 
 ```mermaid
 flowchart LR
     A[PDF déposé] --> B[Docling<br>texte et tableaux]
-    A --> C[Gemini 3.5 Flash-Lite]
+    A --> C[Gemini<br>3.5 Flash-Lite]
     B --> C
     C -->|JSON validé par Pydantic| D[Règles en Python]
     D --> E{Statut}
