@@ -4,6 +4,8 @@ Déposez des factures PDF : elles sont lues par une IA, **vérifiées automatiqu
 
 Exemple d'usage : un cabinet comptable reçoit 300 factures par mois et ne veut plus les saisir à la main.
 
+**En ligne : https://factures-ia.vercel.app**. Créez un compte, puis déposez une des factures d'exemple de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices).
+
 ## Ce que fait l'application
 
 1. **Dépôt** : jusqu'à 50 PDF par envoi, 10 Mo maximum chacun. Le fichier est contrôlé (signature `%PDF`) puis stocké en base.
@@ -51,6 +53,10 @@ L'IA est isolée derrière deux interfaces (`PdfReader`, `InvoiceExtractor`). Le
 
 FastAPI, SQLModel, Pydantic, PostgreSQL, Alembic, Docling, Gemini (`google-genai`), React, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv et bun.
 
+## Mise en ligne
+
+Vercel (fonction Python, région Francfort) et PostgreSQL chez Neon. [`backend/scripts/vercel-build.sh`](backend/scripts/vercel-build.sh) construit l'interface, télécharge les modèles Docling et applique les migrations à chaque déploiement. PyTorch est installé en version CPU pour garder la fonction sous la limite de taille.
+
 ## Lancer en local
 
 Il faut Docker Desktop, [uv](https://docs.astral.sh/uv/) et [bun](https://bun.sh).
@@ -59,16 +65,16 @@ Il faut Docker Desktop, [uv](https://docs.astral.sh/uv/) et [bun](https://bun.sh
 cp .env.example .env
 ```
 
-Dans `.env`, mettez vos propres mots de passe et votre `GEMINI_API_KEY` ([Google AI Studio](https://aistudio.google.com)). Ensuite :
+Dans `.env`, mettez votre propre `SECRET_KEY`, le mot de passe Postgres et votre `GEMINI_API_KEY` ([Google AI Studio](https://aistudio.google.com)). Ensuite :
 
 ```bash
 docker compose up -d db
-cd backend && uv sync && uv run alembic upgrade head && uv run python app/initial_data.py
+cd backend && uv sync && uv run alembic upgrade head && uv run python scripts/create_admin.py
 cd ../frontend && bun install && bun run build
 cd ../backend && uv run fastapi dev
 ```
 
-L'application est sur http://localhost:8000. Connectez-vous avec `FIRST_SUPERUSER` et `FIRST_SUPERUSER_PASSWORD`.
+`create_admin.py` demande l'e-mail et le mot de passe de l'administrateur au clavier : ils ne sont écrits dans aucun fichier. L'application est sur http://localhost:8000.
 
 ```bash
 cd backend && uv run pytest

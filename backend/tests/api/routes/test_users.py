@@ -9,7 +9,12 @@ from app.core.config import settings
 from app.core.security import verify_password
 from app.models import User, UserCreate
 from tests.utils.user import create_random_user
-from tests.utils.utils import random_email, random_lower_string
+from tests.utils.utils import (
+    SUPERUSER_EMAIL,
+    SUPERUSER_PASSWORD,
+    random_email,
+    random_lower_string,
+)
 
 
 def test_get_users_superuser_me(
@@ -20,7 +25,7 @@ def test_get_users_superuser_me(
     assert current_user
     assert current_user["is_active"] is True
     assert current_user["is_superuser"]
-    assert current_user["email"] == settings.FIRST_SUPERUSER
+    assert current_user["email"] == SUPERUSER_EMAIL
 
 
 def test_get_users_normal_user_me(
@@ -226,7 +231,7 @@ def test_update_password_me(
 ) -> None:
     new_password = random_lower_string()
     data = {
-        "current_password": settings.FIRST_SUPERUSER_PASSWORD,
+        "current_password": SUPERUSER_PASSWORD,
         "new_password": new_password,
     }
     r = client.patch(
@@ -238,17 +243,17 @@ def test_update_password_me(
     updated_user = r.json()
     assert updated_user["message"] == "Password updated successfully"
 
-    user_query = select(User).where(User.email == settings.FIRST_SUPERUSER)
+    user_query = select(User).where(User.email == SUPERUSER_EMAIL)
     user_db = db.exec(user_query).first()
     assert user_db
-    assert user_db.email == settings.FIRST_SUPERUSER
+    assert user_db.email == SUPERUSER_EMAIL
     verified, _ = verify_password(new_password, user_db.hashed_password)
     assert verified
 
     # Revert to the old password to keep consistency in test
     old_data = {
         "current_password": new_password,
-        "new_password": settings.FIRST_SUPERUSER_PASSWORD,
+        "new_password": SUPERUSER_PASSWORD,
     }
     r = client.patch(
         f"{settings.API_V1_STR}/users/me/password",
@@ -258,9 +263,7 @@ def test_update_password_me(
     db.refresh(user_db)
 
     assert r.status_code == 200
-    verified, _ = verify_password(
-        settings.FIRST_SUPERUSER_PASSWORD, user_db.hashed_password
-    )
+    verified, _ = verify_password(SUPERUSER_PASSWORD, user_db.hashed_password)
     assert verified
 
 
@@ -301,8 +304,8 @@ def test_update_password_me_same_password_error(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     data = {
-        "current_password": settings.FIRST_SUPERUSER_PASSWORD,
-        "new_password": settings.FIRST_SUPERUSER_PASSWORD,
+        "current_password": SUPERUSER_PASSWORD,
+        "new_password": SUPERUSER_PASSWORD,
     }
     r = client.patch(
         f"{settings.API_V1_STR}/users/me/password",
@@ -343,7 +346,7 @@ def test_register_user_already_exists_error(client: TestClient) -> None:
     password = random_lower_string()
     full_name = random_lower_string()
     data = {
-        "email": settings.FIRST_SUPERUSER,
+        "email": SUPERUSER_EMAIL,
         "password": password,
         "full_name": full_name,
     }
@@ -493,7 +496,7 @@ def test_delete_user_not_found(
 def test_delete_user_current_super_user_error(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    super_user = crud.get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
+    super_user = crud.get_user_by_email(session=db, email=SUPERUSER_EMAIL)
     assert super_user
     user_id = super_user.id
 

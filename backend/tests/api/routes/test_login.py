@@ -10,13 +10,18 @@ from app.crud import create_user
 from app.models import User, UserCreate
 from app.utils import generate_password_reset_token
 from tests.utils.user import user_authentication_headers
-from tests.utils.utils import random_email, random_lower_string
+from tests.utils.utils import (
+    SUPERUSER_EMAIL,
+    SUPERUSER_PASSWORD,
+    random_email,
+    random_lower_string,
+)
 
 
 def test_get_access_token(client: TestClient) -> None:
     login_data = {
-        "username": settings.FIRST_SUPERUSER,
-        "password": settings.FIRST_SUPERUSER_PASSWORD,
+        "username": SUPERUSER_EMAIL,
+        "password": SUPERUSER_PASSWORD,
     }
     r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
     tokens = r.json()
@@ -27,7 +32,7 @@ def test_get_access_token(client: TestClient) -> None:
 
 def test_get_access_token_incorrect_password(client: TestClient) -> None:
     login_data = {
-        "username": settings.FIRST_SUPERUSER,
+        "username": SUPERUSER_EMAIL,
         "password": "incorrect",
     }
     r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)

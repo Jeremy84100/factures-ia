@@ -95,7 +95,7 @@ def build(
     day: str,
     lines: list[tuple[str, float]],
     rate: float,
-) -> dict:
+) -> dict[str, str | float]:
     excl = cents(sum(price for _, price in lines))
     vat = cents(excl * rate)
     incl = cents(excl + vat)
