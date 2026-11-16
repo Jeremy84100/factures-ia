@@ -38,8 +38,10 @@ class FakeExtractor:
     ) -> None:
         self.result = result
         self.error = error
+        self.calls: list[tuple[str, bytes]] = []
 
-    def extract(self, text: str) -> ExtractedInvoice:  # noqa: ARG002
+    def extract(self, text: str, pdf: bytes) -> ExtractedInvoice:
+        self.calls.append((text, pdf))
         if self.error:
             raise ExtractionError(self.error)
         return self.result

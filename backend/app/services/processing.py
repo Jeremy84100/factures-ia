@@ -7,7 +7,7 @@ from sqlalchemy import Engine, func
 from sqlmodel import Session, col, select
 
 from app.models import Invoice, InvoiceStatus, get_datetime_utc
-from app.services.checks import check_invoice
+from app.services.checks import check_invoice, review_extraction
 from app.services.extraction import ExtractedInvoice, ExtractionError, InvoiceExtractor
 from app.services.pdf_reader import PdfReader
 
@@ -56,8 +56,12 @@ def find_duplicate(session: Session, invoice: Invoice) -> Invoice | None:
     return session.exec(statement).first()
 
 
-def run_checks(session: Session, invoice: Invoice) -> None:
-    status, issues = check_invoice(invoice, find_duplicate(session, invoice))
+def run_checks(
+    session: Session, invoice: Invoice, extraction_issues: list[str] | None = None
+) -> None:
+    status, issues = check_invoice(
+        invoice, find_duplicate(session, invoice), extraction_issues=extraction_issues
+    )
     invoice.status = status
     invoice.issues = issues
 
@@ -89,28 +93,17 @@ def process_invoice(
         try:
             text = reader.read(invoice.file, invoice.filename)
         except Exception:
-            logger.exception("Lecture impossible de %s", invoice.filename)
-            _finish(
-                session, invoice, InvoiceStatus.unreadable, "Le PDF n'a pas pu être lu"
-            )
-            return
-        if not text.strip():
-            _finish(
-                session,
-                invoice,
-                InvoiceStatus.unreadable,
-                "Aucun texte trouvé dans le PDF",
-            )
-            return
+            logger.exception("Lecture OCR impossible de %s", invoice.filename)
+            text = ""
 
         try:
-            extracted = extractor.extract(text)
+            extracted = extractor.extract(text, invoice.file)
         except ExtractionError as e:
             _finish(session, invoice, InvoiceStatus.failed, str(e))
             return
 
         apply_extraction(invoice, extracted)
-        run_checks(session, invoice)
+        run_checks(session, invoice, review_extraction(extracted))
         invoice.processed_at = get_datetime_utc()
         session.add(invoice)
         session.commit()

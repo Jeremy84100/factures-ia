@@ -40,7 +40,8 @@ def main() -> None:
     for case in expected:
         path = FIXTURES / case["filename"]
         try:
-            result = extractor.extract(reader.read(path.read_bytes(), path.name))
+            data = path.read_bytes()
+            result = extractor.extract(reader.read(data, path.name), data)
         except ExtractionError as e:
             print(f"ÉCHEC {case['filename']} : {e}")
             continue

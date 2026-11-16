@@ -2,27 +2,38 @@ from typing import Protocol
 
 from pydantic import BaseModel, Field
 
-PROMPT = """Tu lis le texte d'une facture française et tu remplis les champs demandés.
+PROMPT = """Tu es un assistant comptable. Tu reçois une facture en PDF et le texte qu'un OCR en a tiré.
+Le PDF fait foi : regarde aussi le logo, l'en-tête et la mise en page. Le texte t'aide à lire les chiffres.
 Règles :
-- Recopie les valeurs telles qu'elles figurent sur la facture, n'invente rien.
-- Si une valeur est absente ou illisible, mets null.
-- Les montants sont des nombres avec un point décimal, sans symbole (1234.50).
-- La date est celle d'émission de la facture, au format AAAA-MM-JJ.
-- supplier est l'entreprise qui émet la facture, pas le client.
-- currency est le code ISO à 3 lettres (EUR par défaut si le symbole € apparaît).
+- Recopie les valeurs telles qu'elles figurent sur la facture. N'invente jamais rien : si une valeur est absente ou illisible, mets null.
+- Les montants sont des nombres avec un point décimal, sans symbole (1234.50). Un avoir a des montants négatifs.
 
-Texte de la facture :
+Texte OCR de la facture :
 """
 
 
 class ExtractedInvoice(BaseModel):
-    supplier: str | None = Field(default=None, description="Nom du fournisseur")
-    invoice_number: str | None = Field(default=None, description="Numéro de facture")
-    invoice_date: str | None = Field(default=None, description="Date AAAA-MM-JJ")
+    supplier: str | None = Field(
+        default=None,
+        description="Raison sociale de l'entreprise qui émet la facture, souvent dans le logo ou l'en-tête. Jamais le client, jamais une personne de contact.",
+    )
+    invoice_number: str | None = Field(
+        default=None, description="Numéro de la facture ou de l'avoir"
+    )
+    invoice_date_raw: str | None = Field(
+        default=None,
+        description="Date d'émission recopiée exactement comme elle est écrite",
+    )
+    invoice_date: str | None = Field(
+        default=None,
+        description="Date d'émission au format AAAA-MM-JJ. Lis la date selon le pays de la facture : JJ/MM en Europe, MM/JJ aux États-Unis.",
+    )
     amount_excl_tax: float | None = Field(default=None, description="Total HT")
     vat_amount: float | None = Field(default=None, description="Total TVA")
     amount_incl_tax: float | None = Field(default=None, description="Total TTC")
-    currency: str | None = Field(default=None, description="Code devise ISO")
+    currency: str | None = Field(
+        default=None, description="Code devise ISO à 3 lettres (EUR, USD, GBP…)"
+    )
 
 
 class ExtractionError(Exception):
@@ -30,7 +41,7 @@ class ExtractionError(Exception):
 
 
 class InvoiceExtractor(Protocol):
-    def extract(self, text: str) -> ExtractedInvoice: ...
+    def extract(self, text: str, pdf: bytes) -> ExtractedInvoice: ...
 
 
 class GeminiExtractor:
@@ -38,7 +49,7 @@ class GeminiExtractor:
         self.api_key = api_key
         self.model = model
 
-    def extract(self, text: str) -> ExtractedInvoice:
+    def extract(self, text: str, pdf: bytes) -> ExtractedInvoice:
         if not self.api_key:
             raise ExtractionError("Clé GEMINI_API_KEY manquante dans .env")
 
@@ -46,10 +57,14 @@ class GeminiExtractor:
         from google.genai import errors, types
 
         client = genai.Client(api_key=self.api_key)
+        contents: list[types.PartUnionDict] = [
+            types.Part.from_bytes(data=pdf, mime_type="application/pdf"),
+            PROMPT + (text or "(aucun texte extrait)"),
+        ]
         try:
             response = client.models.generate_content(
                 model=self.model,
-                contents=PROMPT + text,
+                contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=ExtractedInvoice,

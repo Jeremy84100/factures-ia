@@ -6,8 +6,15 @@ from sqlmodel import Session
 
 from app.core.db import engine
 from app.models import Invoice, InvoiceStatus
+from app.services.extraction import ExtractedInvoice
 from app.services.processing import process_invoice, to_amount, to_date
-from tests.utils.invoice import EDF, FakeExtractor, FakeReader, create_random_invoice
+from tests.utils.invoice import (
+    EDF,
+    PDF_BYTES,
+    FakeExtractor,
+    FakeReader,
+    create_random_invoice,
+)
 
 
 def reload(db: Session, invoice: Invoice) -> Invoice:
@@ -40,18 +47,44 @@ def test_process_fills_fields(db: Session) -> None:
     assert invoice.processed_at is not None
 
 
-def test_unreadable_pdf(db: Session) -> None:
+def test_pdf_and_text_are_sent_to_the_ai(db: Session) -> None:
     invoice = create_random_invoice(db)
-    process_invoice(invoice.id, engine, FakeReader(error=True), FakeExtractor())
+    extractor = FakeExtractor()
+    process_invoice(invoice.id, engine, FakeReader(text="EDF 84,20"), extractor)
+    assert extractor.calls == [("EDF 84,20", PDF_BYTES)]
+
+
+def test_ocr_failure_still_sends_the_pdf(db: Session) -> None:
+    invoice = create_random_invoice(db)
+    extractor = FakeExtractor()
+    process_invoice(invoice.id, engine, FakeReader(error=True), extractor)
+    assert extractor.calls == [("", PDF_BYTES)]
+    assert reload(db, invoice).status == InvoiceStatus.ok
+
+
+def test_nothing_found_is_unreadable(db: Session) -> None:
+    invoice = create_random_invoice(db)
+    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor(ExtractedInvoice()))
     invoice = reload(db, invoice)
     assert invoice.status == InvoiceStatus.unreadable
-    assert invoice.issues == ["Le PDF n'a pas pu être lu"]
+    assert invoice.issues == ["Champ introuvable : fournisseur, date, montant TTC"]
 
 
-def test_empty_text(db: Session) -> None:
+def test_ambiguous_us_date_sends_to_review(db: Session) -> None:
     invoice = create_random_invoice(db)
-    process_invoice(invoice.id, engine, FakeReader(text="  \n"), FakeExtractor())
-    assert reload(db, invoice).issues == ["Aucun texte trouvé dans le PDF"]
+    us = EDF.model_copy(
+        update={
+            "invoice_date_raw": "03/04/2026",
+            "invoice_date": "2026-04-03",
+            "currency": "USD",
+        }
+    )
+    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor(us))
+    invoice = reload(db, invoice)
+    assert invoice.status == InvoiceStatus.to_check
+    assert invoice.issues == [
+        "Date « 03/04/2026 » à vérifier : jour et mois peuvent être inversés"
+    ]
 
 
 def test_ai_error_is_kept(db: Session) -> None:

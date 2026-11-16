@@ -10,12 +10,13 @@ Exemple d'usage : un cabinet comptable reçoit 300 factures par mois et ne veut 
 
 1. **Dépôt** : jusqu'à 50 PDF par envoi, 10 Mo maximum chacun. Le fichier est contrôlé (signature `%PDF`) puis stocké en base.
 2. **Lecture** : [Docling](https://github.com/docling-project/docling) transforme le PDF en texte structuré, OCR compris pour les scans.
-3. **Extraction** : Gemini 3.5 Flash-Lite renvoie fournisseur, numéro, date, HT, TVA, TTC et devise. Le format JSON est imposé par un schéma Pydantic.
+3. **Extraction** : Gemini 3.5 Flash-Lite reçoit le PDF lui-même **et** le texte Docling. Il voit ainsi les logos et la mise en page, et le texte l'aide à lire les chiffres. Il renvoie fournisseur, numéro, date, HT, TVA, TTC et devise, dans un JSON imposé par un schéma Pydantic.
 4. **Vérifications**, dans [`app/services/checks.py`](backend/app/services/checks.py) :
    - HT + TVA = TTC, à 2 centimes près ;
    - champs obligatoires présents (fournisseur, date, TTC) ;
    - pas de doublon (même fournisseur et même numéro pour un même utilisateur) ;
-   - pas de date dans le futur, pas de montant négatif.
+   - pas de date dans le futur, pas de montant négatif ;
+   - date américaine ambiguë (06/02 : 6 février ou 2 juin ?) signalée si l'IA l'a lue à l'européenne.
 5. **Statut** de chaque facture : `Validée`, `À vérifier`, `Illisible` ou `Erreur IA`, avec la raison en clair.
 6. **Correction** à la main, après quoi les vérifications sont relancées. On peut aussi relancer la lecture par l'IA.
 7. **Tableau de bord** : compteurs par statut et dépenses de l'année par fournisseur (factures validées uniquement).
@@ -31,7 +32,19 @@ Le traitement se fait en arrière-plan. L'interface se met à jour toute seule p
 | Fournisseur, numéro, date | 100 % |
 | HT, TVA, TTC | 100 % |
 
-Ces factures sont propres et générées par programme. Le vrai test, ce sont des scans réels : c'est le rôle des vérifications automatiques, qui attrapent les erreurs au lieu de les laisser passer en silence.
+Ces factures sont propres et générées par programme. Le vrai test a été fait sur **42 factures publiques** : exemples officiels Factur-X de la FNFE, factures réelles d'AWS, Free, Coolblue, Hetzner ou Flipkart ([invoice2data](https://github.com/invoice-x/invoice2data), [ZUGFeRD corpus](https://github.com/ZUGFeRD/corpus)), et 10 scans sans texte ([jeu de données de sparrow](https://huggingface.co/datasets/katanaml-org/invoices-donut-data-v1)).
+
+| | Texte seul | PDF + texte et règle des dates |
+|---|---|---|
+| Fournisseur faux ou introuvable | 4 | **0** |
+| Date américaine inversée | 3, passées **en silence** | 3, **toutes signalées** |
+| Erreur de montant non signalée | 0 | 0 |
+
+Ce qui n'a pas marché, et a été retiré :
+- préciser le format des dates dans la consigne : Gemini inverse toujours les dates américaines, seule la règle dans le code les attrape ;
+- demander à l'IA sa confiance pour chaque champ : elle se donne 100 % même sur une date fausse.
+
+D'où le principe du projet : **l'IA lit, le code vérifie.**
 
 ## Architecture
 
