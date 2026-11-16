@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 
 import type { InvoicePublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
+import { Badge } from "@/components/ui/badge"
 import { formatAmount, formatDate } from "@/lib/invoices"
 import { InvoiceActionsMenu } from "./InvoiceActionsMenu"
 import { StatusBadge } from "./StatusBadge"
@@ -20,7 +21,12 @@ export const columns: ColumnDef<DataTableFeatures, InvoicePublic>[] = [
     header: "Fournisseur",
     cell: ({ row }) => (
       <div className="flex flex-col">
-        <span className="font-medium">{row.original.supplier ?? "—"}</span>
+        <span className="flex items-center gap-2 font-medium">
+          {row.original.supplier ?? "—"}
+          {row.original.is_credit_note && (
+            <Badge variant="outline">Avoir</Badge>
+          )}
+        </span>
         <span className="max-w-48 truncate text-xs text-muted-foreground">
           {row.original.filename}
         </span>

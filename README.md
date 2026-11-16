@@ -15,7 +15,9 @@ Exemple d'usage : un cabinet comptable reçoit 300 factures par mois et ne veut 
    - HT + TVA = TTC, à 2 centimes près ;
    - champs obligatoires présents (fournisseur, date, TTC) ;
    - pas de doublon (même fournisseur et même numéro pour un même utilisateur) ;
-   - pas de date dans le futur, pas de montant négatif ;
+   - pas de date dans le futur ;
+   - montant négatif accepté seulement sur un avoir ; les avoirs sont comptés en négatif, même quand ils sont écrits en positif comme le prévoit la norme EN 16931 ;
+   - TVA à 0 acceptée seulement avec une mention d'exonération (article 262 du CGI, autoliquidation…), obligatoire sur une facture française ;
    - date américaine ambiguë (06/02 : 6 février ou 2 juin ?) signalée si l'IA l'a lue à l'européenne.
 5. **Statut** de chaque facture : `Validée`, `À vérifier`, `Illisible` ou `Erreur IA`, avec la raison en clair.
 6. **Correction** à la main, après quoi les vérifications sont relancées. On peut aussi relancer la lecture par l'IA.
@@ -43,6 +45,8 @@ Ces factures sont propres et générées par programme. Le vrai test a été fai
 Ce qui n'a pas marché, et a été retiré :
 - préciser le format des dates dans la consigne : Gemini inverse toujours les dates américaines, seule la règle dans le code les attrape ;
 - demander à l'IA sa confiance pour chaque champ : elle se donne 100 % même sur une date fausse.
+
+Les règles « avoir » et « TVA à 0 » ont été vérifiées sur les mêmes 42 factures : les 3 avoirs et les 4 factures exonérées passent sans fausse alerte, et les 3 factures sans TVA ni mention (AWS, QualityHosting, une facture de test) sont signalées.
 
 D'où le principe du projet : **l'IA lit, le code vérifie.**
 

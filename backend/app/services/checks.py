@@ -63,8 +63,13 @@ def check_invoice(
         if abs(excl + vat - incl) > TOLERANCE:
             issues.append(f"HT + TVA = {excl + vat} mais TTC = {incl}")
 
-    if any(amount is not None and amount < 0 for amount in (excl, vat, incl)):
-        issues.append("Montant négatif (avoir ?)")
+    amounts = [amount for amount in (excl, vat, incl) if amount is not None]
+    if not invoice.is_credit_note and any(amount < 0 for amount in amounts):
+        issues.append("Montant négatif sur une facture (avoir ?)")
+
+    no_vat = vat == 0 or (vat is None and excl is not None and excl == incl)
+    if no_vat and incl and not invoice.vat_exemption:
+        issues.append("TVA à 0 sans mention d'exonération")
 
     if invoice.invoice_date and invoice.invoice_date > (today or date.today()):
         issues.append("Date dans le futur")

@@ -138,3 +138,13 @@ def test_processing_records_its_start(db: Session) -> None:
     invoice = create_random_invoice(db)
     process_invoice(invoice.id, engine, FakeReader(), FakeExtractor())
     assert reload(db, invoice).started_at is not None
+
+
+def test_credit_note_amounts_become_negative(db: Session) -> None:
+    invoice = create_random_invoice(db)
+    credit = EDF.model_copy(update={"is_credit_note": True, "invoice_number": "AV-1"})
+    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor(credit))
+    invoice = reload(db, invoice)
+    assert invoice.status == InvoiceStatus.ok
+    assert invoice.amount_incl_tax == Decimal("-84.20")
+    assert invoice.vat_amount == Decimal("-14.03")

@@ -90,6 +90,8 @@ class InvoiceFields(SQLModel):
         default=None, max_digits=12, decimal_places=2
     )
     currency: str | None = Field(default=None, max_length=3)
+    is_credit_note: bool = False
+    vat_exemption: str | None = Field(default=None, max_length=255)
 
 
 class InvoiceUpdate(InvoiceFields):

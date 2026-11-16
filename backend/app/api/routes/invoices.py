@@ -23,6 +23,7 @@ from app.services.processing import (
     process_invoice,
     recheck_duplicates_of,
     run_checks,
+    sign_credit_note,
 )
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -186,6 +187,7 @@ def update_invoice(
     if invoice.status in (InvoiceStatus.pending, InvoiceStatus.processing):
         raise HTTPException(status_code=409, detail="Facture en cours de lecture")
     invoice.sqlmodel_update(invoice_in.model_dump(exclude_unset=True))
+    sign_credit_note(invoice)
     run_checks(session, invoice)
     session.add(invoice)
     session.commit()

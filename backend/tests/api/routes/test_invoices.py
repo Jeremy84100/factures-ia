@@ -218,3 +218,26 @@ def test_deleting_the_original_clears_only_its_duplicates(
     client.delete(f"{URL}{original['id']}", headers=normal_user_token_headers)
     assert status(copy) == "ok"
     assert status(other_copy) == "to_check"
+
+
+def test_manual_credit_note_is_signed(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    invoice = create_random_invoice(db, status=InvoiceStatus.to_check)
+    r = client.put(
+        f"{URL}{invoice.id}",
+        headers=superuser_token_headers,
+        json={
+            "supplier": "Avoir SARL",
+            "invoice_number": "AV-9",
+            "invoice_date": "2026-03-04",
+            "amount_excl_tax": "10.00",
+            "vat_amount": "2.00",
+            "amount_incl_tax": "12.00",
+            "is_credit_note": True,
+            "vat_exemption": None,
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["amount_incl_tax"] == "-12.00"
+    assert r.json()["status"] == "ok"

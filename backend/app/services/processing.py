@@ -36,6 +36,15 @@ def to_date(value: str | None) -> date | None:
         return None
 
 
+def sign_credit_note(invoice: Invoice) -> None:
+    if not invoice.is_credit_note:
+        return
+    for field in ("amount_excl_tax", "vat_amount", "amount_incl_tax"):
+        amount = getattr(invoice, field)
+        if amount is not None:
+            setattr(invoice, field, -abs(amount))
+
+
 def apply_extraction(invoice: Invoice, extracted: ExtractedInvoice) -> None:
     invoice.supplier = extracted.supplier
     invoice.invoice_number = extracted.invoice_number
@@ -44,6 +53,9 @@ def apply_extraction(invoice: Invoice, extracted: ExtractedInvoice) -> None:
     invoice.vat_amount = to_amount(extracted.vat_amount)
     invoice.amount_incl_tax = to_amount(extracted.amount_incl_tax)
     invoice.currency = (extracted.currency or "").upper()[:3] or None
+    invoice.is_credit_note = bool(extracted.is_credit_note)
+    invoice.vat_exemption = (extracted.vat_exemption or "").strip()[:255] or None
+    sign_credit_note(invoice)
 
 
 def find_duplicate(session: Session, invoice: Invoice) -> Invoice | None:

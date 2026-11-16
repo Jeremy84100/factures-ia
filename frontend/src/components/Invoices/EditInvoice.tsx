@@ -7,6 +7,7 @@ import { z } from "zod"
 
 import { type InvoicePublic, InvoicesService } from "@/client"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogClose,
@@ -43,12 +44,17 @@ const formSchema = z.object({
   vat_amount: amount,
   amount_incl_tax: amount,
   currency: z.string().max(3),
+  vat_exemption: z.string().max(255),
+  is_credit_note: z.boolean(),
 })
 
 type FormData = z.infer<typeof formSchema>
+type TextField = Exclude<keyof FormData, "is_credit_note">
+
+const WIDE: TextField[] = ["supplier", "vat_exemption"]
 
 const FIELDS: {
-  name: keyof FormData
+  name: TextField
   label: string
   type?: string
   required?: boolean
@@ -60,6 +66,7 @@ const FIELDS: {
   { name: "vat_amount", label: "TVA" },
   { name: "amount_incl_tax", label: "Total TTC", required: true },
   { name: "currency", label: "Devise" },
+  { name: "vat_exemption", label: "Mention d'exonération de TVA" },
 ]
 
 const toText = (value: string | number | null | undefined) =>
@@ -84,18 +91,24 @@ const EditInvoice = ({ invoice, onSuccess }: EditInvoiceProps) => {
     resolver: zodResolver(formSchema),
     mode: "onBlur",
     criteriaMode: "all",
-    defaultValues: Object.fromEntries(
-      FIELDS.map(({ name }) => [name, toText(invoice[name])]),
-    ) as FormData,
+    defaultValues: {
+      ...Object.fromEntries(
+        FIELDS.map(({ name }) => [name, toText(invoice[name])]),
+      ),
+      is_credit_note: invoice.is_credit_note ?? false,
+    } as FormData,
   })
 
   const mutation = useMutation({
-    mutationFn: (data: FormData) =>
+    mutationFn: ({ is_credit_note, ...text }: FormData) =>
       InvoicesService.updateInvoice({
         path: { id: invoice.id },
-        body: Object.fromEntries(
-          Object.entries(data).map(([key, value]) => [key, toValue(value)]),
-        ),
+        body: {
+          ...Object.fromEntries(
+            Object.entries(text).map(([key, value]) => [key, toValue(value)]),
+          ),
+          is_credit_note,
+        },
       }),
     onSuccess: ({ data }) => {
       showSuccessToast(
@@ -144,7 +157,7 @@ const EditInvoice = ({ invoice, onSuccess }: EditInvoiceProps) => {
                   name={name}
                   render={({ field }) => (
                     <FormItem
-                      className={name === "supplier" ? "col-span-2" : ""}
+                      className={WIDE.includes(name) ? "col-span-2" : ""}
                     >
                       <FormLabel>
                         {label}
@@ -166,6 +179,25 @@ const EditInvoice = ({ invoice, onSuccess }: EditInvoiceProps) => {
                   )}
                 />
               ))}
+              <FormField
+                control={form.control}
+                name="is_credit_note"
+                render={({ field }) => (
+                  <FormItem className="col-span-2 flex items-center gap-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <FormLabel>
+                      C'est un avoir (les montants seront comptés en négatif)
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
             </div>
             <DialogFooter>
               <DialogClose asChild>

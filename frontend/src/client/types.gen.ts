@@ -87,6 +87,14 @@ export type InvoicePublic = {
      */
     currency?: string | null;
     /**
+     * Is Credit Note
+     */
+    is_credit_note?: boolean;
+    /**
+     * Vat Exemption
+     */
+    vat_exemption?: string | null;
+    /**
      * Id
      */
     id: string;
@@ -150,6 +158,14 @@ export type InvoiceUpdate = {
      * Currency
      */
     currency?: string | null;
+    /**
+     * Is Credit Note
+     */
+    is_credit_note?: boolean;
+    /**
+     * Vat Exemption
+     */
+    vat_exemption?: string | null;
 };
 
 /**

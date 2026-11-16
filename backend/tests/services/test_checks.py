@@ -63,13 +63,47 @@ def test_future_date_needs_check() -> None:
     assert issues == ["Date dans le futur"]
 
 
-def test_negative_amount_needs_check() -> None:
-    invoice = make_invoice(
-        amount_excl_tax=Decimal("-10"),
-        vat_amount=Decimal("-2"),
-        amount_incl_tax=Decimal("-12"),
-    )
-    assert check_invoice(invoice, None, TODAY)[1] == ["Montant négatif (avoir ?)"]
+NEGATIVE = {
+    "amount_excl_tax": Decimal("-10"),
+    "vat_amount": Decimal("-2"),
+    "amount_incl_tax": Decimal("-12"),
+}
+
+
+def test_negative_invoice_needs_check() -> None:
+    assert check_invoice(make_invoice(**NEGATIVE), None, TODAY)[1] == [
+        "Montant négatif sur une facture (avoir ?)"
+    ]
+
+
+def test_negative_credit_note_is_ok() -> None:
+    invoice = make_invoice(**NEGATIVE, is_credit_note=True)
+    assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
+
+
+ZERO_VAT = {
+    "amount_excl_tax": Decimal("530.75"),
+    "vat_amount": Decimal("0"),
+    "amount_incl_tax": Decimal("530.75"),
+}
+
+
+def test_zero_vat_without_mention_needs_check() -> None:
+    assert check_invoice(make_invoice(**ZERO_VAT), None, TODAY)[1] == [
+        "TVA à 0 sans mention d'exonération"
+    ]
+
+
+def test_zero_vat_with_mention_is_ok() -> None:
+    invoice = make_invoice(**ZERO_VAT, vat_exemption="Article 262 I du CGI")
+    assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
+
+
+def test_missing_vat_with_equal_totals_counts_as_zero() -> None:
+    invoice = make_invoice(**{**ZERO_VAT, "vat_amount": None})
+    assert check_invoice(invoice, None, TODAY)[1] == [
+        "TVA à 0 sans mention d'exonération"
+    ]
 
 
 def test_duplicate_needs_check() -> None:

@@ -30,9 +30,20 @@ class ExtractedInvoice(BaseModel):
     )
     amount_excl_tax: float | None = Field(default=None, description="Total HT")
     vat_amount: float | None = Field(default=None, description="Total TVA")
-    amount_incl_tax: float | None = Field(default=None, description="Total TTC")
+    amount_incl_tax: float | None = Field(
+        default=None,
+        description="Total TTC de ce document, pas le montant restant à payer qui peut inclure des arriérés ou des acomptes",
+    )
     currency: str | None = Field(
         default=None, description="Code devise ISO à 3 lettres (EUR, USD, GBP…)"
+    )
+    is_credit_note: bool | None = Field(
+        default=None,
+        description="true si le document est un avoir (credit note, Gutschrift) qui rembourse le client, false pour une facture",
+    )
+    vat_exemption: str | None = Field(
+        default=None,
+        description="Mention qui justifie l'absence de TVA, recopiée telle quelle (« TVA non applicable, art. 293 B du CGI », « Autoliquidation », « Exonération de TVA, article 262 ter I du CGI », « §4 UStG »…). null si la facture n'en contient pas.",
     )
 
 
