@@ -18,7 +18,12 @@ from app.models import (
     User,
     get_datetime_utc,
 )
-from app.services.processing import expire_stale, process_invoice, run_checks
+from app.services.processing import (
+    expire_stale,
+    process_invoice,
+    recheck_duplicates_of,
+    run_checks,
+)
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -224,5 +229,7 @@ def delete_invoice(
     """
     invoice = get_owned_invoice(session, current_user, id)
     session.delete(invoice)
+    session.flush()
+    recheck_duplicates_of(session, invoice)
     session.commit()
     return Message(message="Facture supprimée")

@@ -7,7 +7,7 @@ from sqlalchemy import Engine, func
 from sqlmodel import Session, col, select
 
 from app.models import Invoice, InvoiceStatus, get_datetime_utc
-from app.services.checks import check_invoice, review_extraction
+from app.services.checks import DUPLICATE_OF, check_invoice, review_extraction
 from app.services.extraction import ExtractedInvoice, ExtractionError, InvoiceExtractor
 from app.services.pdf_reader import PdfReader
 
@@ -72,6 +72,27 @@ def expire_stale(session: Session) -> None:
         session.add(invoice)
     if stale:
         session.commit()
+
+
+def recheck_duplicates_of(session: Session, deleted: Invoice) -> None:
+    if not deleted.supplier or not deleted.invoice_number:
+        return
+    flagged = session.exec(
+        select(Invoice).where(
+            Invoice.owner_id == deleted.owner_id,
+            Invoice.id != deleted.id,
+            Invoice.status == InvoiceStatus.to_check,
+            Invoice.invoice_number == deleted.invoice_number,
+            func.lower(col(Invoice.supplier)) == deleted.supplier.lower(),
+        )
+    ).all()
+    for invoice in flagged:
+        issues = [i for i in invoice.issues if not i.startswith(DUPLICATE_OF)]
+        if original := find_duplicate(session, invoice):
+            issues.append(f"{DUPLICATE_OF} « {original.filename} »")
+        invoice.issues = issues
+        invoice.status = InvoiceStatus.to_check if issues else InvoiceStatus.ok
+        session.add(invoice)
 
 
 def run_checks(

@@ -193,3 +193,28 @@ def test_delete_invoice(
     url = f"{URL}{created[0]['id']}"
     assert client.delete(url, headers=normal_user_token_headers).status_code == 200
     assert client.get(url, headers=normal_user_token_headers).status_code == 404
+
+
+def test_deleting_the_original_clears_only_its_duplicates(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    def extractor_for(number: str) -> FakeExtractor:
+        return FakeExtractor(EDF.model_copy(update={"invoice_number": number}))
+
+    app.dependency_overrides[get_extractor] = lambda: extractor_for("DEL-1")
+    original, copy = upload(
+        client, normal_user_token_headers, ("a.pdf", PDF_BYTES), ("b.pdf", PDF_BYTES)
+    )
+    app.dependency_overrides[get_extractor] = lambda: extractor_for("DEL-2")
+    other, other_copy = upload(
+        client, normal_user_token_headers, ("c.pdf", PDF_BYTES), ("d.pdf", PDF_BYTES)
+    )
+
+    def status(invoice: dict[str, object]) -> object:
+        url = f"{URL}{invoice['id']}"
+        return client.get(url, headers=normal_user_token_headers).json()["status"]
+
+    assert status(copy) == "to_check"
+    client.delete(f"{URL}{original['id']}", headers=normal_user_token_headers)
+    assert status(copy) == "ok"
+    assert status(other_copy) == "to_check"

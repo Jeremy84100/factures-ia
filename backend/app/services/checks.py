@@ -6,6 +6,7 @@ from app.models import Invoice, InvoiceStatus
 from app.services.extraction import ExtractedInvoice
 
 TOLERANCE = Decimal("0.02")
+DUPLICATE_OF = "Doublon possible de"
 MONTH_FIRST_CURRENCIES = {"USD"}
 NUMERIC_DATE = re.compile(r"^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\s*$")
 
@@ -69,6 +70,6 @@ def check_invoice(
         issues.append("Date dans le futur")
 
     if duplicate_of is not None:
-        issues.append(f"Doublon possible de « {duplicate_of.filename} »")
+        issues.append(f"{DUPLICATE_OF} « {duplicate_of.filename} »")
 
     return (InvoiceStatus.to_check if issues else InvoiceStatus.ok), issues
