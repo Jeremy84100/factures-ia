@@ -145,6 +145,14 @@ def test_correction_blocked_while_processing(
     assert r.status_code == 409
 
 
+def test_retry_blocked_while_processing(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    invoice = create_random_invoice(db, status=InvoiceStatus.processing)
+    r = client.post(f"{URL}{invoice.id}/retry", headers=superuser_token_headers)
+    assert r.status_code == 409
+
+
 def test_retry_after_ai_error(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:

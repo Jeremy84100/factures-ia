@@ -1,9 +1,13 @@
+import threading
 from functools import lru_cache
 from io import BytesIO
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from docling.document_converter import DocumentConverter
+
+
+_one_at_a_time = threading.Lock()
 
 
 class PdfReader(Protocol):
@@ -22,5 +26,6 @@ class DoclingReader:
         from docling.datamodel.base_models import DocumentStream
 
         source = DocumentStream(name=filename, stream=BytesIO(data))
-        result = _converter().convert(source)
+        with _one_at_a_time:
+            result = _converter().convert(source)
         return result.document.export_to_markdown()

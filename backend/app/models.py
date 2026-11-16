@@ -105,6 +105,7 @@ class Invoice(InvoiceFields, table=True):
     )
     issues: list[str] = Field(default_factory=list, sa_type=JSON)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
+    started_at: datetime | None = None
     processed_at: datetime | None = None
     owner_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"

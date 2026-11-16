@@ -16,8 +16,9 @@ from app.models import (
     SupplierTotal,
     SupplierTotals,
     User,
+    get_datetime_utc,
 )
-from app.services.processing import process_invoice, run_checks
+from app.services.processing import expire_stale, process_invoice, run_checks
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -45,6 +46,7 @@ def read_invoices(
     """
     Retrieve invoices.
     """
+    expire_stale(session)
     conditions = []
     if not current_user.is_superuser:
         conditions.append(Invoice.owner_id == current_user.id)
@@ -199,9 +201,13 @@ def retry_invoice(
     """
     Read the invoice again with the AI.
     """
+    expire_stale(session)
     invoice = get_owned_invoice(session, current_user, id)
+    if invoice.status in (InvoiceStatus.pending, InvoiceStatus.processing):
+        raise HTTPException(status_code=409, detail="Facture en cours de lecture")
     invoice.status = InvoiceStatus.pending
     invoice.issues = []
+    invoice.started_at = get_datetime_utc()
     session.add(invoice)
     session.commit()
     session.refresh(invoice)

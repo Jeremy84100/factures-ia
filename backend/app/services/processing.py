@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import Engine, func
@@ -14,6 +14,8 @@ from app.services.pdf_reader import PdfReader
 logger = logging.getLogger(__name__)
 
 CENT = Decimal("0.01")
+STALE_AFTER = timedelta(minutes=10)
+INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
 
 
 def to_amount(value: float | None) -> Decimal | None:
@@ -56,6 +58,22 @@ def find_duplicate(session: Session, invoice: Invoice) -> Invoice | None:
     return session.exec(statement).first()
 
 
+def expire_stale(session: Session) -> None:
+    cutoff = get_datetime_utc() - STALE_AFTER
+    stale = session.exec(
+        select(Invoice).where(
+            col(Invoice.status).in_([InvoiceStatus.pending, InvoiceStatus.processing]),
+            func.coalesce(Invoice.started_at, Invoice.created_at) < cutoff,
+        )
+    ).all()
+    for invoice in stale:
+        invoice.status = InvoiceStatus.failed
+        invoice.issues = [INTERRUPTED]
+        session.add(invoice)
+    if stale:
+        session.commit()
+
+
 def run_checks(
     session: Session, invoice: Invoice, extraction_issues: list[str] | None = None
 ) -> None:
@@ -87,6 +105,7 @@ def process_invoice(
         if invoice is None:
             return
         invoice.status = InvoiceStatus.processing
+        invoice.started_at = get_datetime_utc()
         session.add(invoice)
         session.commit()
 

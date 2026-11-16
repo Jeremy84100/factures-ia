@@ -1,13 +1,19 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlmodel import Session
 
 from app.core.db import engine
-from app.models import Invoice, InvoiceStatus
+from app.models import Invoice, InvoiceStatus, get_datetime_utc
 from app.services.extraction import ExtractedInvoice
-from app.services.processing import process_invoice, to_amount, to_date
+from app.services.processing import (
+    INTERRUPTED,
+    expire_stale,
+    process_invoice,
+    to_amount,
+    to_date,
+)
 from tests.utils.invoice import (
     EDF,
     PDF_BYTES,
@@ -112,3 +118,23 @@ def test_duplicate_for_same_owner(db: Session) -> None:
 
 def test_missing_invoice_is_ignored() -> None:
     process_invoice(uuid.uuid4(), engine, FakeReader(), FakeExtractor())
+
+
+def test_stuck_invoice_becomes_retryable(db: Session) -> None:
+    invoice = create_random_invoice(db, status=InvoiceStatus.processing)
+    invoice.started_at = get_datetime_utc() - timedelta(minutes=11)
+    recent = create_random_invoice(db, status=InvoiceStatus.processing)
+    recent.started_at = get_datetime_utc()
+    db.add_all([invoice, recent])
+    db.commit()
+    expire_stale(db)
+    invoice = reload(db, invoice)
+    assert invoice.status == InvoiceStatus.failed
+    assert invoice.issues == [INTERRUPTED]
+    assert reload(db, recent).status == InvoiceStatus.processing
+
+
+def test_processing_records_its_start(db: Session) -> None:
+    invoice = create_random_invoice(db)
+    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor())
+    assert reload(db, invoice).started_at is not None
