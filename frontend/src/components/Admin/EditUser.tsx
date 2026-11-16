@@ -33,11 +33,11 @@ import { handleError } from "@/utils"
 
 const formSchema = z
   .object({
-    email: z.email({ message: "Invalid email address" }),
+    email: z.email({ message: "Adresse e-mail invalide" }),
     full_name: z.string().optional(),
     password: z
       .string()
-      .min(8, { message: "Password must be at least 8 characters" })
+      .min(8, { message: "8 caractères minimum" })
       .optional()
       .or(z.literal("")),
     confirm_password: z.string().optional(),
@@ -45,7 +45,7 @@ const formSchema = z
     is_active: z.boolean().optional(),
   })
   .refine((data) => !data.password || data.password === data.confirm_password, {
-    message: "The passwords don't match",
+    message: "Les mots de passe ne correspondent pas",
     path: ["confirm_password"],
   })
 
@@ -77,7 +77,7 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     mutationFn: (data: FormData) =>
       UsersService.updateUser({ path: { user_id: user.id }, body: data }),
     onSuccess: () => {
-      showSuccessToast("User updated successfully")
+      showSuccessToast("Utilisateur modifié")
       setIsOpen(false)
       onSuccess()
     },
@@ -103,15 +103,15 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit User
+        Modifier l'utilisateur
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
+              <DialogTitle>Modifier l'utilisateur</DialogTitle>
               <DialogDescription>
-                Update the user details below.
+                Modifiez les informations de l'utilisateur.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -125,7 +125,7 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Email"
+                        placeholder="E-mail"
                         type="email"
                         {...field}
                         required
@@ -141,7 +141,7 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                 name="full_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Nom</FormLabel>
                     <FormControl>
                       <Input placeholder="Full name" type="text" {...field} />
                     </FormControl>
@@ -155,10 +155,10 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Set Password</FormLabel>
+                    <FormLabel>Nouveau mot de passe</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Password"
+                        placeholder="Mot de passe"
                         type="password"
                         {...field}
                       />
@@ -173,10 +173,10 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                 name="confirm_password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>Confirmez le mot de passe</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Password"
+                        placeholder="Mot de passe"
                         type="password"
                         {...field}
                       />
@@ -222,11 +222,11 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  Annuler
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                Enregistrer
               </LoadingButton>
             </DialogFooter>
           </form>

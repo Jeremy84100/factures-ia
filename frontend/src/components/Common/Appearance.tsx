@@ -33,7 +33,7 @@ export const SidebarAppearance = () => {
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton tooltip="Appearance" data-testid="theme-button">
             <Icon className="size-4 text-muted-foreground" />
-            <span>Appearance</span>
+            <span>Apparence</span>
             <span className="sr-only">Toggle theme</span>
           </SidebarMenuButton>
         </DropdownMenuTrigger>
@@ -47,18 +47,18 @@ export const SidebarAppearance = () => {
             onClick={() => setTheme("light")}
           >
             <Sun className="mr-2 h-4 w-4" />
-            Light
+            Clair
           </DropdownMenuItem>
           <DropdownMenuItem
             data-testid="dark-mode"
             onClick={() => setTheme("dark")}
           >
             <Moon className="mr-2 h-4 w-4" />
-            Dark
+            Sombre
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTheme("system")}>
             <Monitor className="mr-2 h-4 w-4" />
-            System
+            Système
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -85,18 +85,18 @@ export const Appearance = () => {
             onClick={() => setTheme("light")}
           >
             <Sun className="mr-2 h-4 w-4" />
-            Light
+            Clair
           </DropdownMenuItem>
           <DropdownMenuItem
             data-testid="dark-mode"
             onClick={() => setTheme("dark")}
           >
             <Moon className="mr-2 h-4 w-4" />
-            Dark
+            Sombre
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTheme("system")}>
             <Monitor className="mr-2 h-4 w-4" />
-            System
+            Système
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

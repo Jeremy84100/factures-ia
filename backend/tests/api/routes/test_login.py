@@ -65,7 +65,7 @@ def test_recovery_password(
         )
         assert r.status_code == 200
         assert r.json() == {
-            "message": "If that email is registered, we sent a password recovery link"
+            "message": "Si cet e-mail correspond à un compte, un lien de récupération a été envoyé"
         }
 
 
@@ -80,7 +80,7 @@ def test_recovery_password_user_not_exits(
     # Should return 200 with generic message to prevent email enumeration attacks
     assert r.status_code == 200
     assert r.json() == {
-        "message": "If that email is registered, we sent a password recovery link"
+        "message": "Si cet e-mail correspond à un compte, un lien de récupération a été envoyé"
     }
 
 
@@ -108,7 +108,7 @@ def test_reset_password(client: TestClient, db: Session) -> None:
     )
 
     assert r.status_code == 200
-    assert r.json() == {"message": "Password updated successfully"}
+    assert r.json() == {"message": "Mot de passe modifié"}
 
     db.refresh(user)
     verified, _ = verify_password(new_password, user.hashed_password)
@@ -128,7 +128,7 @@ def test_reset_password_invalid_token(
 
     assert "detail" in response
     assert r.status_code == 400
-    assert response["detail"] == "Invalid token"
+    assert response["detail"] == "Lien invalide ou expiré"
 
 
 def test_login_with_bcrypt_password_upgrades_to_argon2(

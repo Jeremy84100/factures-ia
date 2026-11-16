@@ -33,20 +33,20 @@ import { handleError } from "@/utils"
 
 const formSchema = z
   .object({
-    email: z.email({ message: "Invalid email address" }),
+    email: z.email({ message: "Adresse e-mail invalide" }),
     full_name: z.string().optional(),
     password: z
       .string()
-      .min(1, { message: "Password is required" })
-      .min(8, { message: "Password must be at least 8 characters" }),
+      .min(1, { message: "Mot de passe obligatoire" })
+      .min(8, { message: "8 caractères minimum" }),
     confirm_password: z
       .string()
-      .min(1, { message: "Please confirm your password" }),
+      .min(1, { message: "Confirmez le mot de passe" }),
     is_superuser: z.boolean(),
     is_active: z.boolean(),
   })
   .refine((data) => data.password === data.confirm_password, {
-    message: "The passwords don't match",
+    message: "Les mots de passe ne correspondent pas",
     path: ["confirm_password"],
   })
 
@@ -74,7 +74,7 @@ const AddUser = () => {
   const mutation = useMutation({
     mutationFn: (data: UserCreate) => UsersService.createUser({ body: data }),
     onSuccess: () => {
-      showSuccessToast("User created successfully")
+      showSuccessToast("Utilisateur créé")
       form.reset()
       setIsOpen(false)
     },
@@ -93,14 +93,14 @@ const AddUser = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add User
+          Ajouter un utilisateur
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add User</DialogTitle>
+          <DialogTitle>Ajouter un utilisateur</DialogTitle>
           <DialogDescription>
-            Fill in the form below to add a new user to the system.
+            Remplissez le formulaire pour ajouter un utilisateur.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -116,7 +116,7 @@ const AddUser = () => {
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Email"
+                        placeholder="E-mail"
                         type="email"
                         {...field}
                         required
@@ -132,7 +132,7 @@ const AddUser = () => {
                 name="full_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Nom</FormLabel>
                     <FormControl>
                       <Input placeholder="Full name" type="text" {...field} />
                     </FormControl>
@@ -151,7 +151,7 @@ const AddUser = () => {
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Password"
+                        placeholder="Mot de passe"
                         type="password"
                         {...field}
                         required
@@ -168,12 +168,12 @@ const AddUser = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Confirm Password{" "}
+                      Confirmez le mot de passe{" "}
                       <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Password"
+                        placeholder="Mot de passe"
                         type="password"
                         {...field}
                         required
@@ -220,11 +220,11 @@ const AddUser = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  Annuler
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                Enregistrer
               </LoadingButton>
             </DialogFooter>
           </form>

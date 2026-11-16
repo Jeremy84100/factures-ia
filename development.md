@@ -99,9 +99,9 @@ docker compose watch
 
 ## The `.env` File
 
-The tracked `.env` file contains local development defaults, passwords, and other configuration. Its hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
+`.env` is not tracked by git. Create it from `.env.example` and put your own passwords and `GEMINI_API_KEY` in it. Its hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
 
-Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
+Do not store deployment secrets in `.env`. The deployed app reads them from the Vercel project's environment variables.
 
 ## Pre-commit Hooks and Code Linting
 

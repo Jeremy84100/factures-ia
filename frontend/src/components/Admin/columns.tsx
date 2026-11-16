@@ -13,7 +13,7 @@ export type UserTableData = UserPublic & {
 export const columns: ColumnDef<DataTableFeatures, UserTableData>[] = [
   {
     accessorKey: "full_name",
-    header: "Full Name",
+    header: "Nom",
     cell: ({ row }) => {
       const fullName = row.original.full_name
       return (
@@ -25,7 +25,7 @@ export const columns: ColumnDef<DataTableFeatures, UserTableData>[] = [
           </span>
           {row.original.isCurrentUser && (
             <Badge variant="outline" className="text-xs">
-              You
+              Vous
             </Badge>
           )}
         </div>
@@ -34,23 +34,23 @@ export const columns: ColumnDef<DataTableFeatures, UserTableData>[] = [
   },
   {
     accessorKey: "email",
-    header: "Email",
+    header: "E-mail",
     cell: ({ row }) => (
       <span className="text-muted-foreground">{row.original.email}</span>
     ),
   },
   {
     accessorKey: "is_superuser",
-    header: "Role",
+    header: "Rôle",
     cell: ({ row }) => (
       <Badge variant={row.original.is_superuser ? "default" : "secondary"}>
-        {row.original.is_superuser ? "Superuser" : "User"}
+        {row.original.is_superuser ? "Administrateur" : "Utilisateur"}
       </Badge>
     ),
   },
   {
     accessorKey: "is_active",
-    header: "Status",
+    header: "Statut",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <span
@@ -60,7 +60,7 @@ export const columns: ColumnDef<DataTableFeatures, UserTableData>[] = [
           )}
         />
         <span className={row.original.is_active ? "" : "text-muted-foreground"}>
-          {row.original.is_active ? "Active" : "Inactive"}
+          {row.original.is_active ? "Actif" : "Inactif"}
         </span>
       </div>
     ),

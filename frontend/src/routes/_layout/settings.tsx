@@ -7,9 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 
 const tabsConfig = [
-  { value: "my-profile", title: "My profile", component: UserInformation },
-  { value: "password", title: "Password", component: ChangePassword },
-  { value: "danger-zone", title: "Danger zone", component: DeleteAccount },
+  { value: "my-profile", title: "Mon profil", component: UserInformation },
+  { value: "password", title: "Mot de passe", component: ChangePassword },
+  { value: "danger-zone", title: "Zone sensible", component: DeleteAccount },
 ]
 
 export const Route = createFileRoute("/_layout/settings")({
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_layout/settings")({
   head: () => ({
     meta: [
       {
-        title: "Settings - Factures IA",
+        title: "Réglages - Factures IA",
       },
     ],
   }),
@@ -36,10 +36,10 @@ function UserSettings() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">User Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Réglages du compte
+        </h1>
+        <p className="text-muted-foreground">Gérez votre compte</p>
       </div>
 
       <Tabs defaultValue="my-profile">

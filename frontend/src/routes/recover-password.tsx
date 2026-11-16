@@ -25,7 +25,7 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  email: z.email({ message: "Invalid email address" }),
+  email: z.email({ message: "Adresse e-mail invalide" }),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/recover-password")({
   head: () => ({
     meta: [
       {
-        title: "Recover Password - Factures IA",
+        title: "Mot de passe oublié - Factures IA",
       },
     ],
   }),
@@ -66,7 +66,7 @@ function RecoverPassword() {
   const mutation = useMutation({
     mutationFn: recoverPassword,
     onSuccess: () => {
-      showSuccessToast("Password recovery email sent successfully")
+      showSuccessToast("E-mail de récupération envoyé")
       form.reset()
     },
     onError: handleError.bind(showErrorToast),
@@ -85,7 +85,7 @@ function RecoverPassword() {
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Password Recovery</h1>
+            <h1 className="text-2xl font-bold">Mot de passe oublié</h1>
           </div>
 
           <div className="grid gap-4">
@@ -94,11 +94,11 @@ function RecoverPassword() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>E-mail</FormLabel>
                   <FormControl>
                     <Input
                       data-testid="email-input"
-                      placeholder="user@example.com"
+                      placeholder="vous@exemple.fr"
                       type="email"
                       {...field}
                     />
@@ -113,14 +113,14 @@ function RecoverPassword() {
               className="w-full"
               loading={mutation.isPending}
             >
-              Continue
+              Continuer
             </LoadingButton>
           </div>
 
           <div className="text-center text-sm">
-            Remember your password?{" "}
+            Vous vous en souvenez ?{" "}
             <RouterLink to="/login" className="underline underline-offset-4">
-              Log in
+              Se connecter
             </RouterLink>
           </div>
         </form>

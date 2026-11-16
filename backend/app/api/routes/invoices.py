@@ -37,7 +37,7 @@ def get_owned_invoice(session: SessionDep, user: User, id: uuid.UUID) -> Invoice
     if not invoice:
         raise HTTPException(status_code=404, detail="Facture introuvable")
     if not user.is_superuser and invoice.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail="Droits insuffisants")
     return invoice
 
 

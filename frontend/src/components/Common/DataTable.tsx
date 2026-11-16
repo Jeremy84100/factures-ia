@@ -91,7 +91,7 @@ export function DataTable<TData extends RowData>({
                 colSpan={columns.length}
                 className="h-32 text-center text-muted-foreground"
               >
-                No results found.
+                Aucun résultat.
               </TableCell>
             </TableRow>
           )}
@@ -102,22 +102,21 @@ export function DataTable<TData extends RowData>({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-sm text-muted-foreground">
-              Showing{" "}
+              Lignes{" "}
               {table.state.pagination.pageIndex *
                 table.state.pagination.pageSize +
                 1}{" "}
-              to{" "}
+              à{" "}
               {Math.min(
                 (table.state.pagination.pageIndex + 1) *
                   table.state.pagination.pageSize,
                 data.length,
               )}{" "}
-              of{" "}
-              <span className="font-medium text-foreground">{data.length}</span>{" "}
-              entries
+              sur{" "}
+              <span className="font-medium text-foreground">{data.length}</span>
             </div>
             <div className="flex items-center gap-x-2">
-              <p className="text-sm text-muted-foreground">Rows per page</p>
+              <p className="text-sm text-muted-foreground">Lignes par page</p>
               <Select
                 value={`${table.state.pagination.pageSize}`}
                 onValueChange={(value) => {
@@ -144,7 +143,7 @@ export function DataTable<TData extends RowData>({
               <span className="font-medium text-foreground">
                 {table.state.pagination.pageIndex + 1}
               </span>
-              <span>of</span>
+              <span>sur</span>
               <span className="font-medium text-foreground">
                 {table.getPageCount()}
               </span>

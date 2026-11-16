@@ -89,7 +89,7 @@ def test_get_non_existing_user_as_superuser(
         headers=superuser_token_headers,
     )
     assert r.status_code == 404
-    assert r.json() == {"detail": "User not found"}
+    assert r.json() == {"detail": "Utilisateur introuvable"}
 
 
 def test_get_existing_user_current_user(client: TestClient, db: Session) -> None:
@@ -131,7 +131,7 @@ def test_get_existing_user_permissions_error(
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
-    assert r.json() == {"detail": "The user doesn't have enough privileges"}
+    assert r.json() == {"detail": "Droits insuffisants"}
 
 
 def test_get_non_existing_user_permissions_error(
@@ -145,7 +145,7 @@ def test_get_non_existing_user_permissions_error(
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
-    assert r.json() == {"detail": "The user doesn't have enough privileges"}
+    assert r.json() == {"detail": "Droits insuffisants"}
 
 
 def test_create_user_existing_username(
@@ -241,7 +241,7 @@ def test_update_password_me(
     )
     assert r.status_code == 200
     updated_user = r.json()
-    assert updated_user["message"] == "Password updated successfully"
+    assert updated_user["message"] == "Mot de passe modifié"
 
     user_query = select(User).where(User.email == SUPERUSER_EMAIL)
     user_db = db.exec(user_query).first()
@@ -279,7 +279,7 @@ def test_update_password_me_incorrect_password(
     )
     assert r.status_code == 400
     updated_user = r.json()
-    assert updated_user["detail"] == "Incorrect password"
+    assert updated_user["detail"] == "Mot de passe incorrect"
 
 
 def test_update_user_me_email_exists(
@@ -297,7 +297,7 @@ def test_update_user_me_email_exists(
         json=data,
     )
     assert r.status_code == 409
-    assert r.json()["detail"] == "User with this email already exists"
+    assert r.json()["detail"] == "Un compte existe déjà avec cet e-mail"
 
 
 def test_update_password_me_same_password_error(
@@ -315,7 +315,8 @@ def test_update_password_me_same_password_error(
     assert r.status_code == 400
     updated_user = r.json()
     assert (
-        updated_user["detail"] == "New password cannot be the same as the current one"
+        updated_user["detail"]
+        == "Le nouveau mot de passe doit être différent de l'actuel"
     )
 
 
@@ -355,7 +356,7 @@ def test_register_user_already_exists_error(client: TestClient) -> None:
         json=data,
     )
     assert r.status_code == 400
-    assert r.json()["detail"] == "The user with this email already exists in the system"
+    assert r.json()["detail"] == "Un compte existe déjà avec cet e-mail"
 
 
 def test_update_user(
@@ -394,7 +395,7 @@ def test_update_user_not_exists(
         json=data,
     )
     assert r.status_code == 404
-    assert r.json()["detail"] == "The user with this id does not exist in the system"
+    assert r.json()["detail"] == "Utilisateur introuvable"
 
 
 def test_update_user_email_exists(
@@ -417,7 +418,7 @@ def test_update_user_email_exists(
         json=data,
     )
     assert r.status_code == 409
-    assert r.json()["detail"] == "User with this email already exists"
+    assert r.json()["detail"] == "Un compte existe déjà avec cet e-mail"
 
 
 def test_delete_user_me(client: TestClient, db: Session) -> None:
@@ -442,7 +443,7 @@ def test_delete_user_me(client: TestClient, db: Session) -> None:
     )
     assert r.status_code == 200
     deleted_user = r.json()
-    assert deleted_user["message"] == "User deleted successfully"
+    assert deleted_user["message"] == "Utilisateur supprimé"
     result = db.exec(select(User).where(User.id == user_id)).first()
     assert result is None
 
@@ -460,7 +461,10 @@ def test_delete_user_me_as_superuser(
     )
     assert r.status_code == 403
     response = r.json()
-    assert response["detail"] == "Super users are not allowed to delete themselves"
+    assert (
+        response["detail"]
+        == "Un administrateur ne peut pas supprimer son propre compte"
+    )
 
 
 def test_delete_user_super_user(
@@ -477,7 +481,7 @@ def test_delete_user_super_user(
     )
     assert r.status_code == 200
     deleted_user = r.json()
-    assert deleted_user["message"] == "User deleted successfully"
+    assert deleted_user["message"] == "Utilisateur supprimé"
     result = db.exec(select(User).where(User.id == user_id)).first()
     assert result is None
 
@@ -490,7 +494,7 @@ def test_delete_user_not_found(
         headers=superuser_token_headers,
     )
     assert r.status_code == 404
-    assert r.json()["detail"] == "User not found"
+    assert r.json()["detail"] == "Utilisateur introuvable"
 
 
 def test_delete_user_current_super_user_error(
@@ -505,7 +509,10 @@ def test_delete_user_current_super_user_error(
         headers=superuser_token_headers,
     )
     assert r.status_code == 403
-    assert r.json()["detail"] == "Super users are not allowed to delete themselves"
+    assert (
+        r.json()["detail"]
+        == "Un administrateur ne peut pas supprimer son propre compte"
+    )
 
 
 def test_delete_user_without_privileges(
@@ -521,4 +528,4 @@ def test_delete_user_without_privileges(
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
-    assert r.json()["detail"] == "The user doesn't have enough privileges"
+    assert r.json()["detail"] == "Droits insuffisants"
