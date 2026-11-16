@@ -1,0 +1,122 @@
+[
+  {
+    "filename": "01-edf.pdf",
+    "supplier": "EDF",
+    "invoice_number": "FA-2026-0412",
+    "invoice_date": "2026-03-04",
+    "amount_excl_tax": 70.17,
+    "vat_amount": 14.03,
+    "amount_incl_tax": 84.2,
+    "currency": "EUR"
+  },
+  {
+    "filename": "02-orange.pdf",
+    "supplier": "Orange",
+    "invoice_number": "OR778812",
+    "invoice_date": "2026-03-05",
+    "amount_excl_tax": 33.33,
+    "vat_amount": 6.67,
+    "amount_incl_tax": 40.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "03-boulangerie-martin.pdf",
+    "supplier": "Boulangerie Martin",
+    "invoice_number": "BM-114",
+    "invoice_date": "2026-02-11",
+    "amount_excl_tax": 42.65,
+    "vat_amount": 2.35,
+    "amount_incl_tax": 45.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "04-bureau-vallee-avignon.pdf",
+    "supplier": "Bureau Vallée Avignon",
+    "invoice_number": "BV2026-3381",
+    "invoice_date": "2026-01-19",
+    "amount_excl_tax": 122.5,
+    "vat_amount": 24.5,
+    "amount_incl_tax": 147.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "05-garage-du-rhone.pdf",
+    "supplier": "Garage du Rhône",
+    "invoice_number": "GR-0098",
+    "invoice_date": "2026-04-02",
+    "amount_excl_tax": 409.0,
+    "vat_amount": 81.8,
+    "amount_incl_tax": 490.8,
+    "currency": "EUR"
+  },
+  {
+    "filename": "06-hotel-du-palais.pdf",
+    "supplier": "Hôtel du Palais",
+    "invoice_number": "HP-55021",
+    "invoice_date": "2026-05-14",
+    "amount_excl_tax": 107.0,
+    "vat_amount": 10.7,
+    "amount_incl_tax": 117.7,
+    "currency": "EUR"
+  },
+  {
+    "filename": "07-ovhcloud.pdf",
+    "supplier": "OVHcloud",
+    "invoice_number": "FR51229433",
+    "invoice_date": "2026-06-01",
+    "amount_excl_tax": 21.98,
+    "vat_amount": 4.4,
+    "amount_incl_tax": 26.38,
+    "currency": "EUR"
+  },
+  {
+    "filename": "08-restaurant-la-fourchette.pdf",
+    "supplier": "Restaurant La Fourchette",
+    "invoice_number": "RF-3302",
+    "invoice_date": "2026-06-20",
+    "amount_excl_tax": 81.82,
+    "vat_amount": 8.18,
+    "amount_incl_tax": 90.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "09-sncf-voyageurs.pdf",
+    "supplier": "SNCF Voyageurs",
+    "invoice_number": "SV9918274",
+    "invoice_date": "2026-07-08",
+    "amount_excl_tax": 98.18,
+    "vat_amount": 9.82,
+    "amount_incl_tax": 108.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "10-cabinet-durand-avocats.pdf",
+    "supplier": "Cabinet Durand Avocats",
+    "invoice_number": "CDA-2026-17",
+    "invoice_date": "2026-08-30",
+    "amount_excl_tax": 400.0,
+    "vat_amount": 80.0,
+    "amount_incl_tax": 480.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "11-imprimerie-provence.pdf",
+    "supplier": "Imprimerie Provence",
+    "invoice_number": "IP-7741",
+    "invoice_date": "2026-09-12",
+    "amount_excl_tax": 185.0,
+    "vat_amount": 37.0,
+    "amount_incl_tax": 222.0,
+    "currency": "EUR"
+  },
+  {
+    "filename": "12-free-mobile.pdf",
+    "supplier": "Free Mobile",
+    "invoice_number": "FM-202610-8812",
+    "invoice_date": "2026-10-03",
+    "amount_excl_tax": 16.66,
+    "vat_amount": 3.33,
+    "amount_incl_tax": 19.99,
+    "currency": "EUR"
+  }
+]
