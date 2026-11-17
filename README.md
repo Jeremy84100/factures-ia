@@ -192,7 +192,7 @@ frontend/src/
   components/Reconciliations/         détail d'un achat ligne par ligne
 ```
 
-Docling et Gemini sont derrière deux interfaces (`PdfReader`, `InvoiceExtractor`). Les 165 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 172 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
 Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 
