@@ -14,6 +14,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { useIsMobile } from "@/hooks/useMobile"
 
 interface ResponsiveSheetProps {
@@ -57,17 +58,17 @@ export function ResponsiveSheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className={
-          wide
-            ? "max-h-[90vh] overflow-y-auto sm:max-w-4xl"
-            : "max-h-[90vh] overflow-y-auto sm:max-w-2xl"
-        }
+        className={wide ? "sm:max-w-4xl" : "sm:max-w-2xl"}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {children}
+        {/* shadcn ScrollArea: a thin bar that shows only while scrolling,
+            instead of the browser's grey one. */}
+        <ScrollArea className="-mx-6 **:data-[slot=scroll-area-viewport]:max-h-[calc(90vh-9rem)]">
+          <div className="px-6 py-1">{children}</div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )
