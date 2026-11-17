@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from app.models import Document, DocumentKind, DocumentStatus
 from app.services.checks import check_invoice, review_extraction
-from app.services.extraction import ExtractedInvoice
+from app.services.extraction import ExtractedDocument
 
 TODAY = date(2026, 11, 16)
 
@@ -127,8 +127,8 @@ def test_duplicate_needs_check() -> None:
     assert issues == ["Doublon possible de « edf-mars.pdf »"]
 
 
-def us_invoice(raw: str, iso: str) -> ExtractedInvoice:
-    return ExtractedInvoice(invoice_date_raw=raw, invoice_date=iso, currency="USD")
+def us_invoice(raw: str, iso: str) -> ExtractedDocument:
+    return ExtractedDocument(date_raw=raw, date=iso, currency="USD")
 
 
 def test_us_date_read_day_first_is_reported() -> None:
@@ -143,9 +143,7 @@ def test_us_date_read_month_first_is_trusted() -> None:
 
 def test_unambiguous_or_european_dates_are_trusted() -> None:
     assert review_extraction(us_invoice("09/18/2015", "2015-09-18")) == []
-    euro = ExtractedInvoice(
-        invoice_date_raw="06/02/2015", invoice_date="2015-02-06", currency="EUR"
-    )
+    euro = ExtractedDocument(date_raw="06/02/2015", date="2015-02-06", currency="EUR")
     assert review_extraction(euro) == []
 
 

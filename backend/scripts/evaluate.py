@@ -10,8 +10,8 @@ from app.services.processing import to_amount, to_date
 FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures" / "invoices"
 FIELDS = [
     "supplier",
-    "invoice_number",
-    "invoice_date",
+    "number",
+    "date",
     "amount_excl_tax",
     "vat_amount",
     "amount_incl_tax",
@@ -23,7 +23,7 @@ def normalize(field: str, value: object) -> object:
         return None
     if field.startswith("amount") or field == "vat_amount":
         return to_amount(float(str(value)))
-    if field == "invoice_date":
+    if field == "date":
         return to_date(str(value))
     return str(value).strip().lower()
 

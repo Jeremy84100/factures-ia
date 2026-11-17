@@ -1,32 +1,66 @@
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-PROMPT = """Tu es un assistant comptable. Tu reçois une facture en PDF et le texte qu'un OCR en a tiré.
+PROMPT = """Tu es un assistant comptable. Tu reçois un document d'achat en PDF et le texte qu'un OCR en a tiré : une facture, un avoir, un bon de commande ou un bon de livraison.
 Le PDF fait foi : regarde aussi le logo, l'en-tête et la mise en page. Le texte t'aide à lire les chiffres.
 Règles :
-- Recopie les valeurs telles qu'elles figurent sur la facture. N'invente jamais rien : si une valeur est absente ou illisible, mets null.
-- Les montants sont des nombres avec un point décimal, sans symbole (1234.50). Un avoir a des montants négatifs.
+- Recopie les valeurs telles qu'elles figurent sur le document. N'invente jamais rien : si une valeur est absente ou illisible, mets null.
+- Les montants et les quantités sont des nombres avec un point décimal, sans symbole (1234.50). Un avoir a des montants négatifs.
+- Une ligne par article, dans l'ordre du document. Les sous-totaux, totaux, acomptes et la TVA ne sont jamais des lignes. Des frais de port ou une écotaxe écrits sur une ligne à part sont des lignes.
 
-Texte OCR de la facture :
+Texte OCR du document :
 """
 
+DocumentType = Literal["facture", "bon_de_commande", "bon_de_livraison", "autre"]
 
-class ExtractedInvoice(BaseModel):
+
+class ExtractedLine(BaseModel):
+    reference: str | None = Field(
+        default=None,
+        description="Référence ou code de l'article, recopié tel quel. null s'il n'y en a pas.",
+    )
+    description: str | None = Field(
+        default=None, description="Désignation de l'article"
+    )
+    quantity: float | None = Field(
+        default=None,
+        description="Quantité de la ligne. Sur un bon de livraison : la quantité livrée, jamais la quantité commandée ni le reliquat.",
+    )
+    unit: str | None = Field(default=None, description="Unité (u, m, kg, h, lot…)")
+    unit_price: float | None = Field(
+        default=None,
+        description="Prix unitaire HT après remise de ligne. null si le document n'a pas de prix, comme souvent un bon de livraison.",
+    )
+    amount_excl_tax: float | None = Field(
+        default=None, description="Montant HT de la ligne"
+    )
+
+
+class ExtractedDocument(BaseModel):
+    document_type: DocumentType | None = Field(
+        default=None,
+        description="facture (ou avoir), bon_de_commande (commande d'achat, purchase order), bon_de_livraison (bon de livraison, bordereau de livraison, delivery note, Lieferschein) ou autre",
+    )
     supplier: str | None = Field(
         default=None,
-        description="Raison sociale de l'entreprise qui émet la facture, souvent dans le logo ou l'en-tête. Jamais le client, jamais une personne de contact.",
+        description="Raison sociale de l'entreprise qui vend : celle qui émet la facture ou le bon de livraison, celle à qui le bon de commande est adressé. Jamais l'acheteur, jamais une personne de contact.",
     )
-    invoice_number: str | None = Field(
-        default=None, description="Numéro de la facture ou de l'avoir"
-    )
-    invoice_date_raw: str | None = Field(
+    number: str | None = Field(
         default=None,
-        description="Date d'émission recopiée exactement comme elle est écrite",
+        description="Numéro du document lui-même : numéro de facture, d'avoir, de commande ou de bon de livraison",
     )
-    invoice_date: str | None = Field(
+    date_raw: str | None = Field(
         default=None,
-        description="Date d'émission au format AAAA-MM-JJ. Lis la date selon le pays de la facture : JJ/MM en Europe, MM/JJ aux États-Unis.",
+        description="Date du document recopiée exactement comme elle est écrite",
+    )
+    date: str | None = Field(
+        default=None,
+        description="Date du document au format AAAA-MM-JJ. Lis la date selon le pays du document : JJ/MM en Europe, MM/JJ aux États-Unis.",
+    )
+    order_reference: str | None = Field(
+        default=None,
+        description="Numéro de la commande d'achat à laquelle se rapporte une facture ou un bon de livraison (« Votre commande », « Réf. commande », « N° commande client », « PO »). null sur un bon de commande, et jamais le numéro du document lui-même.",
     )
     amount_excl_tax: float | None = Field(default=None, description="Total HT")
     vat_amount: float | None = Field(default=None, description="Total TVA")
@@ -39,11 +73,14 @@ class ExtractedInvoice(BaseModel):
     )
     is_credit_note: bool | None = Field(
         default=None,
-        description="true si le document est un avoir (credit note, Gutschrift) qui rembourse le client, false pour une facture",
+        description="true si le document est un avoir (credit note, Gutschrift) qui rembourse le client, false sinon",
     )
     vat_exemption: str | None = Field(
         default=None,
-        description="Mention qui justifie l'absence de TVA, recopiée telle quelle (« TVA non applicable, art. 293 B du CGI », « Autoliquidation », « Exonération de TVA, article 262 ter I du CGI », « §4 UStG »…). null si la facture n'en contient pas.",
+        description="Mention qui justifie l'absence de TVA, recopiée telle quelle (« TVA non applicable, art. 293 B du CGI », « Autoliquidation », « Exonération de TVA, article 262 ter I du CGI », « §4 UStG »…). null si le document n'en contient pas.",
+    )
+    lines: list[ExtractedLine] = Field(
+        default_factory=list, description="Lignes d'articles du document"
     )
 
 
@@ -51,8 +88,8 @@ class ExtractionError(Exception):
     pass
 
 
-class InvoiceExtractor(Protocol):
-    def extract(self, text: str, pdf: bytes) -> ExtractedInvoice: ...
+class DocumentExtractor(Protocol):
+    def extract(self, text: str, pdf: bytes) -> ExtractedDocument: ...
 
 
 class GeminiExtractor:
@@ -60,7 +97,7 @@ class GeminiExtractor:
         self.api_key = api_key
         self.model = model
 
-    def extract(self, text: str, pdf: bytes) -> ExtractedInvoice:
+    def extract(self, text: str, pdf: bytes) -> ExtractedDocument:
         if not self.api_key:
             raise ExtractionError("Clé GEMINI_API_KEY manquante dans .env")
 
@@ -78,13 +115,13 @@ class GeminiExtractor:
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=ExtractedInvoice,
+                    response_schema=ExtractedDocument,
                     temperature=0,
                 ),
             )
         except errors.APIError as e:
             raise ExtractionError(f"Erreur de l'API Gemini : {e.message}") from e
 
-        if not isinstance(response.parsed, ExtractedInvoice):
+        if not isinstance(response.parsed, ExtractedDocument):
             raise ExtractionError("Réponse de Gemini illisible")
         return response.parsed

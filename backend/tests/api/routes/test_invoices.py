@@ -120,7 +120,7 @@ def test_manual_correction_runs_checks(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     app.dependency_overrides[get_extractor] = lambda: FakeExtractor(
-        EDF.model_copy(update={"amount_incl_tax": 842.0, "invoice_number": "CORR-1"})
+        EDF.model_copy(update={"amount_incl_tax": 842.0, "number": "CORR-1"})
     )
     created = upload(client, normal_user_token_headers, ("edf.pdf", PDF_BYTES))
     url = f"{URL}{created[0]['id']}"
@@ -175,7 +175,7 @@ def test_supplier_totals(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     app.dependency_overrides[get_extractor] = lambda: FakeExtractor(
-        EDF.model_copy(update={"supplier": "Totaux SARL", "invoice_number": None})
+        EDF.model_copy(update={"supplier": "Totaux SARL", "number": None})
     )
     upload(client, superuser_token_headers, ("a.pdf", PDF_BYTES), ("b.pdf", PDF_BYTES))
     r = client.get(
@@ -199,7 +199,7 @@ def test_deleting_the_original_clears_only_its_duplicates(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     def extractor_for(number: str) -> FakeExtractor:
-        return FakeExtractor(EDF.model_copy(update={"invoice_number": number}))
+        return FakeExtractor(EDF.model_copy(update={"number": number}))
 
     app.dependency_overrides[get_extractor] = lambda: extractor_for("DEL-1")
     original, copy = upload(

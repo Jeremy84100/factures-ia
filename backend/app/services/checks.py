@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.models import Document, DocumentStatus
-from app.services.extraction import ExtractedInvoice
+from app.services.extraction import ExtractedDocument
 
 TOLERANCE = Decimal("0.02")
 DUPLICATE_OF = "Doublon possible de"
@@ -27,8 +27,8 @@ REQUIRED_FIELDS = {
 }
 
 
-def ambiguous_date(extracted: ExtractedInvoice) -> str | None:
-    raw = extracted.invoice_date_raw or ""
+def ambiguous_date(extracted: ExtractedDocument) -> str | None:
+    raw = extracted.date_raw or ""
     match = NUMERIC_DATE.match(raw)
     if not match or (extracted.currency or "").upper() not in MONTH_FIRST_CURRENCIES:
         return None
@@ -36,14 +36,14 @@ def ambiguous_date(extracted: ExtractedInvoice) -> str | None:
     if first > 12 or second > 12 or first == second:
         return None
     try:
-        if date.fromisoformat(extracted.invoice_date or "").month == first:
+        if date.fromisoformat(extracted.date or "").month == first:
             return None
     except ValueError:
         pass
     return f"Date « {raw.strip()} » à vérifier : jour et mois peuvent être inversés"
 
 
-def review_extraction(extracted: ExtractedInvoice) -> list[str]:
+def review_extraction(extracted: ExtractedDocument) -> list[str]:
     date_issue = ambiguous_date(extracted)
     return [date_issue] if date_issue else []
 

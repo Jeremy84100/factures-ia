@@ -6,30 +6,54 @@ from decimal import Decimal, InvalidOperation
 from sqlalchemy import Engine, func
 from sqlmodel import Session, col, select
 
-from app.models import Document, DocumentStatus, get_datetime_utc
+from app.models import (
+    Document,
+    DocumentKind,
+    DocumentLine,
+    DocumentStatus,
+    LineFields,
+    get_datetime_utc,
+)
 from app.services.checks import (
     NUMBER_ISSUES,
     check_invoice,
     number_issue,
     review_extraction,
 )
-from app.services.extraction import ExtractedInvoice, ExtractionError, InvoiceExtractor
+from app.services.extraction import (
+    DocumentExtractor,
+    ExtractedDocument,
+    ExtractedLine,
+    ExtractionError,
+)
 from app.services.pdf_reader import PdfReader
 
 logger = logging.getLogger(__name__)
 
 CENT = Decimal("0.01")
+QUANTITY_STEP = Decimal("0.001")
+PRICE_STEP = Decimal("0.0001")
 STALE_AFTER = timedelta(minutes=10)
 INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
 
+KINDS = {
+    "facture": DocumentKind.invoice,
+    "bon_de_commande": DocumentKind.order,
+    "bon_de_livraison": DocumentKind.delivery,
+}
 
-def to_amount(value: float | None) -> Decimal | None:
+
+def to_decimal(value: float | None, step: Decimal) -> Decimal | None:
     if value is None:
         return None
     try:
-        return Decimal(str(value)).quantize(CENT)
+        return Decimal(str(value)).quantize(step)
     except InvalidOperation:
         return None
+
+
+def to_amount(value: float | None) -> Decimal | None:
+    return to_decimal(value, CENT)
 
 
 def to_date(value: str | None) -> date | None:
@@ -41,39 +65,71 @@ def to_date(value: str | None) -> date | None:
         return None
 
 
-def sign_credit_note(invoice: Document) -> None:
-    if not invoice.is_credit_note:
+def to_text(value: str | None, max_length: int) -> str | None:
+    return (value or "").strip()[:max_length] or None
+
+
+def to_line(line: ExtractedLine | LineFields, position: int) -> DocumentLine:
+    def number(value: float | Decimal | None, step: Decimal) -> Decimal | None:
+        return to_decimal(None if value is None else float(value), step)
+
+    return DocumentLine(
+        position=position,
+        reference=to_text(line.reference, 100),
+        description=to_text(line.description, 255),
+        quantity=number(line.quantity, QUANTITY_STEP),
+        unit=to_text(line.unit, 20),
+        unit_price=number(line.unit_price, PRICE_STEP),
+        amount_excl_tax=number(line.amount_excl_tax, CENT),
+    )
+
+
+def to_lines(lines: list[ExtractedLine] | list[LineFields]) -> list[DocumentLine]:
+    kept = [
+        line
+        for line in lines
+        if line.description or line.reference or line.quantity is not None
+    ]
+    return [to_line(line, position) for position, line in enumerate(kept)]
+
+
+def sign_credit_note(document: Document) -> None:
+    if not document.is_credit_note:
         return
     for field in ("amount_excl_tax", "vat_amount", "amount_incl_tax"):
-        amount = getattr(invoice, field)
+        amount = getattr(document, field)
         if amount is not None:
-            setattr(invoice, field, -abs(amount))
+            setattr(document, field, -abs(amount))
 
 
-def apply_extraction(invoice: Document, extracted: ExtractedInvoice) -> None:
-    invoice.supplier = extracted.supplier
-    invoice.number = extracted.invoice_number
-    invoice.document_date = to_date(extracted.invoice_date)
-    invoice.amount_excl_tax = to_amount(extracted.amount_excl_tax)
-    invoice.vat_amount = to_amount(extracted.vat_amount)
-    invoice.amount_incl_tax = to_amount(extracted.amount_incl_tax)
-    invoice.currency = (extracted.currency or "").upper()[:3] or None
-    invoice.is_credit_note = bool(extracted.is_credit_note)
-    invoice.vat_exemption = (extracted.vat_exemption or "").strip()[:255] or None
-    sign_credit_note(invoice)
+def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
+    if document.kind == DocumentKind.unknown:
+        document.kind = KINDS.get(extracted.document_type or "", DocumentKind.unknown)
+    document.supplier = to_text(extracted.supplier, 255)
+    document.number = to_text(extracted.number, 100)
+    document.document_date = to_date(extracted.date)
+    document.order_reference = to_text(extracted.order_reference, 100)
+    document.amount_excl_tax = to_amount(extracted.amount_excl_tax)
+    document.vat_amount = to_amount(extracted.vat_amount)
+    document.amount_incl_tax = to_amount(extracted.amount_incl_tax)
+    document.currency = (extracted.currency or "").upper()[:3] or None
+    document.is_credit_note = bool(extracted.is_credit_note)
+    document.vat_exemption = to_text(extracted.vat_exemption, 255)
+    document.lines = to_lines(extracted.lines)
+    sign_credit_note(document)
 
 
-def find_duplicate(session: Session, invoice: Document) -> Document | None:
-    if not invoice.supplier or not invoice.number:
+def find_duplicate(session: Session, document: Document) -> Document | None:
+    if not document.supplier or not document.number:
         return None
     statement = select(Document).where(
-        Document.owner_id == invoice.owner_id,
-        Document.id != invoice.id,
-        Document.number == invoice.number,
-        func.lower(col(Document.supplier)) == invoice.supplier.lower(),
+        Document.owner_id == document.owner_id,
+        Document.id != document.id,
+        Document.number == document.number,
+        func.lower(col(Document.supplier)) == document.supplier.lower(),
     )
     matches = session.exec(statement).all()
-    same_amount = [m for m in matches if m.amount_incl_tax == invoice.amount_incl_tax]
+    same_amount = [m for m in matches if m.amount_incl_tax == document.amount_incl_tax]
     best = same_amount or matches
     return best[0] if best else None
 
@@ -88,10 +144,10 @@ def expire_stale(session: Session) -> None:
             func.coalesce(Document.started_at, Document.created_at) < cutoff,
         )
     ).all()
-    for invoice in stale:
-        invoice.status = DocumentStatus.failed
-        invoice.issues = [INTERRUPTED]
-        session.add(invoice)
+    for document in stale:
+        document.status = DocumentStatus.failed
+        document.issues = [INTERRUPTED]
+        session.add(document)
     if stale:
         session.commit()
 
@@ -108,64 +164,66 @@ def recheck_duplicates_of(session: Session, deleted: Document) -> None:
             func.lower(col(Document.supplier)) == deleted.supplier.lower(),
         )
     ).all()
-    for invoice in flagged:
-        issues = [i for i in invoice.issues if not i.startswith(NUMBER_ISSUES)]
-        if original := find_duplicate(session, invoice):
-            issues.append(number_issue(invoice, original))
-        invoice.issues = issues
-        invoice.status = DocumentStatus.to_check if issues else DocumentStatus.ok
-        session.add(invoice)
+    for document in flagged:
+        issues = [i for i in document.issues if not i.startswith(NUMBER_ISSUES)]
+        if original := find_duplicate(session, document):
+            issues.append(number_issue(document, original))
+        document.issues = issues
+        document.status = DocumentStatus.to_check if issues else DocumentStatus.ok
+        session.add(document)
 
 
 def run_checks(
-    session: Session, invoice: Document, extraction_issues: list[str] | None = None
+    session: Session, document: Document, extraction_issues: list[str] | None = None
 ) -> None:
     status, issues = check_invoice(
-        invoice, find_duplicate(session, invoice), extraction_issues=extraction_issues
+        document,
+        find_duplicate(session, document),
+        extraction_issues=extraction_issues,
     )
-    invoice.status = status
-    invoice.issues = issues
+    document.status = status
+    document.issues = issues
 
 
 def _finish(
-    session: Session, invoice: Document, status: DocumentStatus, issue: str
+    session: Session, document: Document, status: DocumentStatus, issue: str
 ) -> None:
-    invoice.status = status
-    invoice.issues = [issue]
-    invoice.processed_at = get_datetime_utc()
-    session.add(invoice)
+    document.status = status
+    document.issues = [issue]
+    document.processed_at = get_datetime_utc()
+    session.add(document)
     session.commit()
 
 
-def process_invoice(
-    invoice_id: uuid.UUID,
+def process_document(
+    document_id: uuid.UUID,
     engine: Engine,
     reader: PdfReader,
-    extractor: InvoiceExtractor,
+    extractor: DocumentExtractor,
 ) -> None:
     with Session(engine) as session:
-        invoice = session.get(Document, invoice_id)
-        if invoice is None:
+        document = session.get(Document, document_id)
+        if document is None:
             return
-        invoice.status = DocumentStatus.processing
-        invoice.started_at = get_datetime_utc()
-        session.add(invoice)
+        document.status = DocumentStatus.processing
+        document.started_at = get_datetime_utc()
+        session.add(document)
         session.commit()
 
         try:
-            text = reader.read(invoice.file, invoice.filename)
+            text = reader.read(document.file, document.filename)
         except Exception:
-            logger.exception("Lecture OCR impossible de %s", invoice.filename)
+            logger.exception("Lecture OCR impossible de %s", document.filename)
             text = ""
 
         try:
-            extracted = extractor.extract(text, invoice.file)
+            extracted = extractor.extract(text, document.file)
         except ExtractionError as e:
-            _finish(session, invoice, DocumentStatus.failed, str(e))
+            _finish(session, document, DocumentStatus.failed, str(e))
             return
 
-        apply_extraction(invoice, extracted)
-        run_checks(session, invoice, review_extraction(extracted))
-        invoice.processed_at = get_datetime_utc()
-        session.add(invoice)
+        apply_extraction(document, extracted)
+        run_checks(session, document, review_extraction(extracted))
+        document.processed_at = get_datetime_utc()
+        session.add(document)
         session.commit()

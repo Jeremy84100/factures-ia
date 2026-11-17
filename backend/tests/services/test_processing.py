@@ -6,19 +6,22 @@ from sqlmodel import Session
 
 from app.core.db import engine
 from app.models import Document, DocumentKind, DocumentStatus, get_datetime_utc
-from app.services.extraction import ExtractedInvoice
+from app.services.extraction import ExtractedDocument, ExtractedLine
 from app.services.processing import (
     INTERRUPTED,
     expire_stale,
-    process_invoice,
+    process_document,
     to_amount,
     to_date,
 )
 from tests.utils.invoice import (
+    CABLE,
     EDF,
+    ORDER,
     PDF_BYTES,
     FakeExtractor,
     FakeReader,
+    create_random_document,
     create_random_invoice,
 )
 
@@ -43,7 +46,7 @@ def test_to_date_ignores_bad_values() -> None:
 
 def test_process_fills_fields(db: Session) -> None:
     invoice = create_random_invoice(db)
-    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor())
+    process_document(invoice.id, engine, FakeReader(), FakeExtractor())
     invoice = reload(db, invoice)
     assert invoice.status == DocumentStatus.ok
     assert invoice.supplier == "EDF"
@@ -56,21 +59,23 @@ def test_process_fills_fields(db: Session) -> None:
 def test_pdf_and_text_are_sent_to_the_ai(db: Session) -> None:
     invoice = create_random_invoice(db)
     extractor = FakeExtractor()
-    process_invoice(invoice.id, engine, FakeReader(text="EDF 84,20"), extractor)
+    process_document(invoice.id, engine, FakeReader(text="EDF 84,20"), extractor)
     assert extractor.calls == [("EDF 84,20", PDF_BYTES)]
 
 
 def test_ocr_failure_still_sends_the_pdf(db: Session) -> None:
     invoice = create_random_invoice(db)
     extractor = FakeExtractor()
-    process_invoice(invoice.id, engine, FakeReader(error=True), extractor)
+    process_document(invoice.id, engine, FakeReader(error=True), extractor)
     assert extractor.calls == [("", PDF_BYTES)]
     assert reload(db, invoice).status == DocumentStatus.ok
 
 
 def test_nothing_found_is_unreadable(db: Session) -> None:
     invoice = create_random_invoice(db)
-    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor(ExtractedInvoice()))
+    process_document(
+        invoice.id, engine, FakeReader(), FakeExtractor(ExtractedDocument())
+    )
     invoice = reload(db, invoice)
     assert invoice.status == DocumentStatus.unreadable
     assert invoice.issues == ["Champ introuvable : fournisseur, date, montant TTC"]
@@ -80,12 +85,12 @@ def test_ambiguous_us_date_sends_to_review(db: Session) -> None:
     invoice = create_random_invoice(db)
     us = EDF.model_copy(
         update={
-            "invoice_date_raw": "03/04/2026",
-            "invoice_date": "2026-04-03",
+            "date_raw": "03/04/2026",
+            "date": "2026-04-03",
             "currency": "USD",
         }
     )
-    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor(us))
+    process_document(invoice.id, engine, FakeReader(), FakeExtractor(us))
     invoice = reload(db, invoice)
     assert invoice.status == DocumentStatus.to_check
     assert invoice.issues == [
@@ -95,7 +100,7 @@ def test_ambiguous_us_date_sends_to_review(db: Session) -> None:
 
 def test_ai_error_is_kept(db: Session) -> None:
     invoice = create_random_invoice(db)
-    process_invoice(
+    process_document(
         invoice.id, engine, FakeReader(), FakeExtractor(error="quota dépassé")
     )
     invoice = reload(db, invoice)
@@ -105,7 +110,7 @@ def test_ai_error_is_kept(db: Session) -> None:
 
 def test_duplicate_for_same_owner(db: Session) -> None:
     first = create_random_invoice(db)
-    process_invoice(first.id, engine, FakeReader(), FakeExtractor())
+    process_document(first.id, engine, FakeReader(), FakeExtractor())
     second = Document(
         kind=DocumentKind.invoice,
         filename="copie.pdf",
@@ -115,14 +120,14 @@ def test_duplicate_for_same_owner(db: Session) -> None:
     db.add(second)
     db.commit()
     same_supplier = EDF.model_copy(update={"supplier": "edf"})
-    process_invoice(second.id, engine, FakeReader(), FakeExtractor(same_supplier))
+    process_document(second.id, engine, FakeReader(), FakeExtractor(same_supplier))
     second = reload(db, second)
     assert second.status == DocumentStatus.to_check
     assert second.issues == ["Doublon possible de « facture.pdf »"]
 
 
 def test_missing_invoice_is_ignored() -> None:
-    process_invoice(uuid.uuid4(), engine, FakeReader(), FakeExtractor())
+    process_document(uuid.uuid4(), engine, FakeReader(), FakeExtractor())
 
 
 def test_stuck_invoice_becomes_retryable(db: Session) -> None:
@@ -141,15 +146,72 @@ def test_stuck_invoice_becomes_retryable(db: Session) -> None:
 
 def test_processing_records_its_start(db: Session) -> None:
     invoice = create_random_invoice(db)
-    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor())
+    process_document(invoice.id, engine, FakeReader(), FakeExtractor())
     assert reload(db, invoice).started_at is not None
 
 
 def test_credit_note_amounts_become_negative(db: Session) -> None:
     invoice = create_random_invoice(db)
-    credit = EDF.model_copy(update={"is_credit_note": True, "invoice_number": "AV-1"})
-    process_invoice(invoice.id, engine, FakeReader(), FakeExtractor(credit))
+    credit = EDF.model_copy(update={"is_credit_note": True, "number": "AV-1"})
+    process_document(invoice.id, engine, FakeReader(), FakeExtractor(credit))
     invoice = reload(db, invoice)
     assert invoice.status == DocumentStatus.ok
     assert invoice.amount_incl_tax == Decimal("-84.20")
     assert invoice.vat_amount == Decimal("-14.03")
+
+
+def test_document_type_is_recognised(db: Session) -> None:
+    document = create_random_document(db)
+    process_document(document.id, engine, FakeReader(), FakeExtractor(ORDER))
+    assert reload(db, document).kind == DocumentKind.order
+
+
+def test_unknown_type_stays_unknown(db: Session) -> None:
+    document = create_random_document(db)
+    other = ORDER.model_copy(update={"document_type": "autre"})
+    process_document(document.id, engine, FakeReader(), FakeExtractor(other))
+    assert reload(db, document).kind == DocumentKind.unknown
+
+
+def test_type_chosen_by_hand_is_kept_on_retry(db: Session) -> None:
+    document = create_random_document(db, kind=DocumentKind.delivery)
+    process_document(document.id, engine, FakeReader(), FakeExtractor(ORDER))
+    assert reload(db, document).kind == DocumentKind.delivery
+
+
+def test_lines_are_stored_in_order(db: Session) -> None:
+    document = create_random_document(db)
+    process_document(document.id, engine, FakeReader(), FakeExtractor(ORDER))
+    lines = reload(db, document).lines
+    assert [line.reference for line in lines] == ["CAB-3G25", "ICTA-20"]
+    assert [line.position for line in lines] == [0, 1]
+    assert lines[0].quantity == Decimal("50.000")
+    assert lines[0].unit_price == Decimal("1.1900")
+    assert lines[0].amount_excl_tax == Decimal("59.50")
+
+
+def test_empty_lines_are_dropped(db: Session) -> None:
+    document = create_random_document(db)
+    noisy = ORDER.model_copy(update={"lines": [ExtractedLine(), CABLE]})
+    process_document(document.id, engine, FakeReader(), FakeExtractor(noisy))
+    assert len(reload(db, document).lines) == 1
+
+
+def test_reading_again_replaces_the_lines(db: Session) -> None:
+    document = create_random_document(db)
+    process_document(document.id, engine, FakeReader(), FakeExtractor(ORDER))
+    process_document(document.id, engine, FakeReader(), FakeExtractor(ORDER))
+    assert len(reload(db, document).lines) == 2
+
+
+def test_order_reference_is_kept(db: Session) -> None:
+    document = create_random_document(db)
+    delivery = ORDER.model_copy(
+        update={
+            "document_type": "bon_de_livraison",
+            "number": "BL-88",
+            "order_reference": "  CMD-2041 ",
+        }
+    )
+    process_document(document.id, engine, FakeReader(), FakeExtractor(delivery))
+    assert reload(db, document).order_reference == "CMD-2041"

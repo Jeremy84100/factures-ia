@@ -160,8 +160,8 @@ def build(
     return {
         "filename": filename,
         "supplier": supplier,
-        "invoice_number": number,
-        "invoice_date": day,
+        "number": number,
+        "date": day,
         "amount_excl_tax": excl,
         "vat_amount": vat,
         "amount_incl_tax": incl,

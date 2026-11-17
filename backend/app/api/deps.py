@@ -13,7 +13,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.db import engine
 from app.models import TokenPayload, User
-from app.services.extraction import GeminiExtractor, InvoiceExtractor
+from app.services.extraction import DocumentExtractor, GeminiExtractor
 from app.services.pdf_reader import DoclingReader, PdfReader
 
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -62,7 +62,7 @@ def get_pdf_reader() -> PdfReader:
     return DoclingReader()
 
 
-def get_extractor() -> InvoiceExtractor:
+def get_extractor() -> DocumentExtractor:
     return GeminiExtractor(api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL)
 
 
@@ -71,5 +71,5 @@ def get_engine() -> Engine:
 
 
 PdfReaderDep = Annotated[PdfReader, Depends(get_pdf_reader)]
-ExtractorDep = Annotated[InvoiceExtractor, Depends(get_extractor)]
+ExtractorDep = Annotated[DocumentExtractor, Depends(get_extractor)]
 EngineDep = Annotated[Engine, Depends(get_engine)]

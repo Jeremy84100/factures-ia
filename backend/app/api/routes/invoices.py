@@ -21,7 +21,7 @@ from app.models import (
 )
 from app.services.processing import (
     expire_stale,
-    process_invoice,
+    process_document,
     recheck_duplicates_of,
     run_checks,
     sign_credit_note,
@@ -118,7 +118,7 @@ async def upload_invoices(
     for invoice in invoices:
         session.refresh(invoice)
         background_tasks.add_task(
-            process_invoice, invoice.id, engine, reader, extractor
+            process_document, invoice.id, engine, reader, extractor
         )
 
     return DocumentsPublic(
@@ -227,7 +227,7 @@ def retry_invoice(
     session.add(invoice)
     session.commit()
     session.refresh(invoice)
-    background_tasks.add_task(process_invoice, invoice.id, engine, reader, extractor)
+    background_tasks.add_task(process_document, invoice.id, engine, reader, extractor)
     return invoice
 
 
