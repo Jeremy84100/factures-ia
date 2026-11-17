@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2 } from "lucide-react"
-import { useFieldArray, useForm } from "react-hook-form"
+import { Plus, Trash2, TriangleAlert } from "lucide-react"
+import { Controller, useFieldArray, useForm } from "react-hook-form"
 import { z } from "zod"
 
 import {
@@ -10,19 +10,18 @@ import {
   type DocumentPublic,
   DocumentsService,
 } from "@/client"
+import { SubmitButton } from "@/components/App/FormFields"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
   SelectContent,
@@ -30,8 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
-import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
 const decimal = (places: number) =>
@@ -137,23 +143,18 @@ const FIELDS: {
 const LINE_FIELDS: {
   name: keyof LineData
   label: string
-  className: string
+  width: string
   numeric?: boolean
 }[] = [
-  { name: "reference", label: "Réf.", className: "w-24" },
-  {
-    name: "description",
-    label: "Désignation",
-    className:
-      "order-first basis-full sm:order-none sm:basis-auto sm:min-w-40 sm:flex-1",
-  },
-  { name: "quantity", label: "Qté", className: "w-20", numeric: true },
-  { name: "unit", label: "Unité", className: "w-16" },
-  { name: "unit_price", label: "Prix HT", className: "w-24", numeric: true },
+  { name: "reference", label: "Réf.", width: "min-w-24" },
+  { name: "description", label: "Désignation", width: "min-w-56" },
+  { name: "quantity", label: "Qté", width: "min-w-20", numeric: true },
+  { name: "unit", label: "Unité", width: "min-w-16" },
+  { name: "unit_price", label: "Prix HT", width: "min-w-24", numeric: true },
   {
     name: "amount_excl_tax",
     label: "Montant",
-    className: "w-24",
+    width: "min-w-24",
     numeric: true,
   },
 ]
@@ -253,6 +254,30 @@ const EditDocument = ({ document, open, onOpenChange }: EditDocumentProps) => {
     },
   })
 
+  const textField = (name: TextField, label: string, type?: string) => (
+    <Controller
+      key={name}
+      control={form.control}
+      name={name}
+      render={({ field, fieldState }) => (
+        <Field
+          data-invalid={fieldState.invalid}
+          className={WIDE.includes(name) ? "sm:col-span-2" : undefined}
+        >
+          <FieldLabel htmlFor={name}>{label}</FieldLabel>
+          <Input
+            {...field}
+            id={name}
+            type={type ?? "text"}
+            inputMode={NUMERIC.has(name) ? "decimal" : undefined}
+            aria-invalid={fieldState.invalid}
+          />
+          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+        </Field>
+      )}
+    />
+  )
+
   return (
     <ResponsiveSheet
       open={open}
@@ -261,191 +286,179 @@ const EditDocument = ({ document, open, onOpenChange }: EditDocumentProps) => {
       description={document.filename}
       wide
     >
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
-          {document.issues.length > 0 && (
-            <ul className="list-disc rounded-2xl bg-warning/10 p-3 pl-7 text-sm">
-              {document.issues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
+      <form
+        id="edit-document-form"
+        onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
+        className="flex flex-col gap-6"
+      >
+        {document.issues.length > 0 && (
+          <Alert>
+            <TriangleAlert />
+            <AlertTitle>À vérifier</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-4">
+                {document.issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <FieldGroup className="grid gap-4 sm:grid-cols-2">
+          <Controller
+            control={form.control}
+            name="kind"
+            render={({ field }) => (
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="kind">Type de document</FieldLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="kind" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KIND_OPTIONS.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          />
+          {FIELDS.filter(({ kinds }) => !kinds || kinds.includes(kind)).map(
+            ({ name, label, type }) => textField(name, label, type),
           )}
-          <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
-            <FormField
+          {(kind === "order" || kind === "delivery") && (
+            <Controller
               control={form.control}
-              name="kind"
+              name="delivery_mode"
               render={({ field }) => (
-                <FormItem className="sm:col-span-2">
-                  <FormLabel>Type de document</FormLabel>
+                <Field>
+                  <FieldLabel htmlFor="delivery_mode">
+                    Type de livraison
+                  </FieldLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger id="delivery_mode" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {KIND_OPTIONS.map(({ value, label }) => (
+                      {MODE_OPTIONS.map(({ value, label }) => (
                         <SelectItem key={value} value={value}>
                           {label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </FormItem>
+                </Field>
               )}
             />
-            {FIELDS.filter(({ kinds }) => !kinds || kinds.includes(kind)).map(
-              ({ name, label, type }) => (
-                <FormField
-                  key={name}
-                  control={form.control}
-                  name={name}
-                  render={({ field }) => (
-                    <FormItem
-                      className={WIDE.includes(name) ? "sm:col-span-2" : ""}
-                    >
-                      <FormLabel>{label}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type={type ?? "text"}
-                          inputMode={
-                            name.includes("amount") ? "decimal" : undefined
-                          }
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ),
-            )}
-            {(kind === "order" || kind === "delivery") && (
-              <FormField
-                control={form.control}
-                name="delivery_mode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type de livraison</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {MODE_OPTIONS.map(({ value, label }) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-            )}
-            {kind === "invoice" && (
-              <FormField
-                control={form.control}
-                name="is_credit_note"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2 sm:col-span-2">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={(checked) =>
-                          field.onChange(checked === true)
-                        }
-                      />
-                    </FormControl>
-                    <FormLabel>
-                      C'est un avoir (les montants seront comptés en négatif)
-                    </FormLabel>
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 pb-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Lignes d'articles</h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => lines.append(EMPTY_LINE)}
-              >
-                <Plus />
-                Ajouter une ligne
-              </Button>
-            </div>
-            {lines.fields.length === 0 && (
-              <p className="text-sm text-muted-foreground">Aucune ligne.</p>
-            )}
-            {lines.fields.map((line, index) => (
-              <div
-                key={line.id}
-                className="flex flex-wrap items-end gap-2 rounded-2xl bg-muted/50 p-2 sm:flex-nowrap sm:bg-transparent sm:p-0"
-              >
-                {LINE_FIELDS.map(({ name, label, className, numeric }) => (
-                  <FormField
-                    key={name}
-                    control={form.control}
-                    name={`lines.${index}.${name}`}
-                    render={({ field }) => (
-                      <FormItem className={className}>
-                        <FormLabel
-                          className={cn("text-xs", index > 0 && "sm:hidden")}
-                        >
-                          {label}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            aria-label={`${label}, ligne ${index + 1}`}
-                            inputMode={numeric ? "decimal" : undefined}
-                            className={numeric ? "text-right" : ""}
-                            {...field}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
+          )}
+          {kind === "invoice" && (
+            <Controller
+              control={form.control}
+              name="is_credit_note"
+              render={({ field }) => (
+                <Field orientation="horizontal" className="sm:col-span-2">
+                  <Checkbox
+                    id="is_credit_note"
+                    checked={field.value}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
                   />
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Supprimer la ligne ${index + 1}`}
-                  onClick={() => lines.remove(index)}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            ))}
-          </div>
+                  <FieldLabel htmlFor="is_credit_note">
+                    C'est un avoir (les montants seront comptés en négatif)
+                  </FieldLabel>
+                </Field>
+              )}
+            />
+          )}
+        </FieldGroup>
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">Lignes d'articles</h2>
             <Button
               type="button"
-              variant="secondary"
-              className="h-12 rounded-full sm:h-10"
-              disabled={mutation.isPending}
-              onClick={() => onOpenChange(false)}
+              variant="outline"
+              size="sm"
+              onClick={() => lines.append(EMPTY_LINE)}
             >
-              Annuler
+              <Plus data-icon="inline-start" />
+              Ajouter une ligne
             </Button>
-            <LoadingButton
-              type="submit"
-              className="h-12 rounded-full sm:h-10"
-              loading={mutation.isPending}
-            >
-              Enregistrer
-            </LoadingButton>
           </div>
-        </form>
-      </Form>
+          {lines.fields.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune ligne.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {LINE_FIELDS.map(({ name, label, numeric }) => (
+                    <TableHead
+                      key={name}
+                      className={numeric ? "text-right" : undefined}
+                    >
+                      {label}
+                    </TableHead>
+                  ))}
+                  <TableHead>
+                    <span className="sr-only">Supprimer</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.fields.map((line, index) => (
+                  <TableRow key={line.id}>
+                    {LINE_FIELDS.map(({ name, label, width, numeric }) => (
+                      <TableCell key={name} className={width}>
+                        <Controller
+                          control={form.control}
+                          name={`lines.${index}.${name}`}
+                          render={({ field, fieldState }) => (
+                            <Input
+                              {...field}
+                              aria-label={`${label}, ligne ${index + 1}`}
+                              aria-invalid={fieldState.invalid}
+                              inputMode={numeric ? "decimal" : undefined}
+                              className={numeric ? "text-right" : undefined}
+                            />
+                          )}
+                        />
+                      </TableCell>
+                    ))}
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Supprimer la ligne ${index + 1}`}
+                        onClick={() => lines.remove(index)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </section>
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={mutation.isPending}
+            onClick={() => onOpenChange(false)}
+          >
+            Annuler
+          </Button>
+          <SubmitButton pending={mutation.isPending}>Enregistrer</SubmitButton>
+        </div>
+      </form>
     </ResponsiveSheet>
   )
 }

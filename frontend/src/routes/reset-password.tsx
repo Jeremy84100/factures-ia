@@ -10,17 +10,10 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { LoginService } from "@/client"
+import { PasswordField, SubmitButton } from "@/components/App/FormFields"
 import { AuthLayout } from "@/components/Common/AuthLayout"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { PasswordInput } from "@/components/ui/password-input"
+import { Button } from "@/components/ui/button"
+import { FieldGroup } from "@/components/ui/field"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
@@ -97,70 +90,42 @@ function ResetPassword() {
   }
 
   return (
-    <AuthLayout>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-        >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Changer le mot de passe</h1>
-          </div>
-
-          <div className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="new_password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nouveau mot de passe</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="new-password-input"
-                      placeholder="Nouveau mot de passe"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="confirm_password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirmez le mot de passe</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="confirm-password-input"
-                      placeholder="Confirmez le mot de passe"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <LoadingButton
-              type="submit"
-              className="w-full"
-              loading={mutation.isPending}
-            >
-              Changer le mot de passe
-            </LoadingButton>
-          </div>
-
-          <div className="text-center text-sm">
-            Vous vous en souvenez ?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
-              Se connecter
-            </RouterLink>
-          </div>
-        </form>
-      </Form>
+    <AuthLayout
+      title="Nouveau mot de passe"
+      footer={
+        <>
+          <SubmitButton
+            form="reset-form"
+            className="w-full"
+            pending={mutation.isPending}
+          >
+            Changer le mot de passe
+          </SubmitButton>
+          <Button variant="link" size="xs" asChild>
+            <RouterLink to="/login">Retour à la connexion</RouterLink>
+          </Button>
+        </>
+      }
+    >
+      <form id="reset-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <FieldGroup>
+          <PasswordField
+            control={form.control}
+            name="new_password"
+            label="Nouveau mot de passe"
+            autoComplete="new-password"
+            description="8 caractères minimum"
+            data-testid="password-input"
+          />
+          <PasswordField
+            control={form.control}
+            name="confirm_password"
+            label="Confirmez le mot de passe"
+            autoComplete="new-password"
+            data-testid="confirm-password-input"
+          />
+        </FieldGroup>
+      </form>
     </AuthLayout>
   )
 }

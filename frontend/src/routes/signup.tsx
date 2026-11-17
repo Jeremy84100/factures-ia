@@ -6,18 +6,14 @@ import {
 } from "@tanstack/react-router"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { AuthLayout } from "@/components/Common/AuthLayout"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { PasswordInput } from "@/components/ui/password-input"
+  PasswordField,
+  SubmitButton,
+  TextField,
+} from "@/components/App/FormFields"
+import { AuthLayout } from "@/components/Common/AuthLayout"
+import { Button } from "@/components/ui/button"
+import { FieldGroup } from "@/components/ui/field"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
 const formSchema = z
@@ -80,108 +76,63 @@ function SignUp() {
   }
 
   return (
-    <AuthLayout>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-        >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Créer un compte</h1>
-          </div>
-
-          <div className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="full_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="full-name-input"
-                      placeholder="Prénom Nom"
-                      type="text"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>E-mail</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="email-input"
-                      placeholder="vous@exemple.fr"
-                      type="email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mot de passe</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="password-input"
-                      placeholder="Mot de passe"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="confirm_password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirmez le mot de passe</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      data-testid="confirm-password-input"
-                      placeholder="Confirmez le mot de passe"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <LoadingButton
-              type="submit"
-              className="w-full"
-              loading={signUpMutation.isPending}
-            >
-              Créer le compte
-            </LoadingButton>
-          </div>
-
-          <div className="text-center text-sm">
+    <AuthLayout
+      title="Créer un compte"
+      description="Gratuit, pour déposer vos propres documents."
+      footer={
+        <>
+          <SubmitButton
+            form="signup-form"
+            className="w-full"
+            pending={signUpMutation.isPending}
+          >
+            Créer le compte
+          </SubmitButton>
+          <p>
             Déjà un compte ?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
-              Se connecter
-            </RouterLink>
-          </div>
-        </form>
-      </Form>
+            <Button variant="link" size="xs" asChild>
+              <RouterLink to="/login">Se connecter</RouterLink>
+            </Button>
+          </p>
+        </>
+      }
+    >
+      <form id="signup-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <FieldGroup>
+          <TextField
+            control={form.control}
+            name="full_name"
+            label="Nom"
+            placeholder="Prénom Nom"
+            autoComplete="name"
+            data-testid="full-name-input"
+          />
+          <TextField
+            control={form.control}
+            name="email"
+            label="E-mail"
+            type="email"
+            autoComplete="email"
+            placeholder="vous@exemple.fr"
+            data-testid="email-input"
+          />
+          <PasswordField
+            control={form.control}
+            name="password"
+            label="Mot de passe"
+            autoComplete="new-password"
+            description="8 caractères minimum"
+            data-testid="password-input"
+          />
+          <PasswordField
+            control={form.control}
+            name="confirm_password"
+            label="Confirmez le mot de passe"
+            autoComplete="new-password"
+            data-testid="confirm-password-input"
+          />
+        </FieldGroup>
+      </form>
     </AuthLayout>
   )
 }

@@ -4,16 +4,16 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { type UpdatePassword, UsersService } from "@/client"
+import { PasswordField, SubmitButton } from "@/components/App/FormFields"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { PasswordInput } from "@/components/ui/password-input"
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { FieldGroup } from "@/components/ui/field"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -66,80 +66,41 @@ const ChangePassword = () => {
   }
 
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">Change Password</h3>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            control={form.control}
-            name="current_password"
-            render={({ field, fieldState }) => (
-              <FormItem>
-                <FormLabel>Mot de passe actuel</FormLabel>
-                <FormControl>
-                  <PasswordInput
-                    data-testid="current-password-input"
-                    placeholder="••••••••"
-                    aria-invalid={fieldState.invalid}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="new_password"
-            render={({ field, fieldState }) => (
-              <FormItem>
-                <FormLabel>Nouveau mot de passe</FormLabel>
-                <FormControl>
-                  <PasswordInput
-                    data-testid="new-password-input"
-                    placeholder="••••••••"
-                    aria-invalid={fieldState.invalid}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="confirm_password"
-            render={({ field, fieldState }) => (
-              <FormItem>
-                <FormLabel>Confirmez le mot de passe</FormLabel>
-                <FormControl>
-                  <PasswordInput
-                    data-testid="confirm-password-input"
-                    placeholder="••••••••"
-                    aria-invalid={fieldState.invalid}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <LoadingButton
-            type="submit"
-            loading={mutation.isPending}
-            className="self-start"
-          >
-            Changer le mot de passe
-          </LoadingButton>
+    <Card>
+      <CardHeader>
+        <CardTitle>Mot de passe</CardTitle>
+        <CardDescription>8 caractères minimum.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form id="password-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <FieldGroup>
+            <PasswordField
+              control={form.control}
+              name="current_password"
+              label="Mot de passe actuel"
+              autoComplete="current-password"
+            />
+            <PasswordField
+              control={form.control}
+              name="new_password"
+              label="Nouveau mot de passe"
+              autoComplete="new-password"
+            />
+            <PasswordField
+              control={form.control}
+              name="confirm_password"
+              label="Confirmez le nouveau mot de passe"
+              autoComplete="new-password"
+            />
+          </FieldGroup>
         </form>
-      </Form>
-    </div>
+      </CardContent>
+      <CardFooter>
+        <SubmitButton form="password-form" pending={mutation.isPending}>
+          Changer le mot de passe
+        </SubmitButton>
+      </CardFooter>
+    </Card>
   )
 }
 

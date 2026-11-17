@@ -1,5 +1,5 @@
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { cn } from "@/lib/utils"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export interface Chip<T extends string> {
   value: T
@@ -7,7 +7,7 @@ export interface Chip<T extends string> {
   count?: number
 }
 
-// shadcn ToggleGroup, one choice at a time, scrollable sideways on a phone.
+// shadcn Tabs, in a horizontal ScrollArea so they slide on a phone.
 export function FilterChips<T extends string>({
   chips,
   value,
@@ -18,39 +18,22 @@ export function FilterChips<T extends string>({
   onChange: (value: T) => void
 }) {
   return (
-    <div className="no-scrollbar -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        spacing={2}
-        value={value}
-        onValueChange={(next) => {
-          if (next) onChange(next as T)
-        }}
-        className="md:flex-wrap"
-      >
-        {chips.map((chip) => (
-          <ToggleGroupItem
-            key={chip.value}
-            value={chip.value}
-            className="h-9 px-4 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-          >
-            {chip.label}
-            {chip.count !== undefined && chip.count > 0 && (
-              <span
-                className={cn(
-                  "tabular-nums",
-                  chip.value === value
-                    ? "text-primary-foreground/70"
-                    : "text-muted-foreground",
-                )}
-              >
-                {chip.count}
-              </span>
-            )}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </div>
+    <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
+      <ScrollArea className="w-full whitespace-nowrap">
+        <TabsList>
+          {chips.map((chip) => (
+            <TabsTrigger key={chip.value} value={chip.value}>
+              {chip.label}
+              {chip.count !== undefined && chip.count > 0 && (
+                <span className="tabular-nums text-muted-foreground">
+                  {chip.count}
+                </span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+    </Tabs>
   )
 }

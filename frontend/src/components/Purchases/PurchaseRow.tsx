@@ -8,12 +8,8 @@ import {
 
 import type { Purchase, PurchaseStatus } from "@/client"
 import { ListRow } from "@/components/App/ListRow"
-import {
-  formatAmount,
-  PURCHASE_STATUS,
-  PURCHASE_TONE,
-  TONE_TEXT,
-} from "@/lib/documents"
+import { Badge } from "@/components/ui/badge"
+import { formatAmount, PURCHASE_STATUS } from "@/lib/documents"
 
 export const PURCHASE_ICON: Record<PurchaseStatus, LucideIcon> = {
   to_pay: CircleCheck,
@@ -64,6 +60,11 @@ function summary(purchase: Purchase): string {
   }
 }
 
+export function PurchaseBadge({ purchase }: { purchase: Purchase }) {
+  const { label, variant } = PURCHASE_STATUS[purchase.status]
+  return <Badge variant={variant}>{label}</Badge>
+}
+
 export function PurchaseRow({
   purchase,
   onClick,
@@ -71,25 +72,21 @@ export function PurchaseRow({
   purchase: Purchase
   onClick: () => void
 }) {
-  const tone = PURCHASE_TONE[purchase.status]
   const extra = overbilled(purchase)
+  const amount =
+    purchase.status === "dispute" && extra > 0.02
+      ? `+${formatAmount(extra)}`
+      : formatAmount(purchase.invoiced_excl_tax)
   return (
     <ListRow
       icon={PURCHASE_ICON[purchase.status]}
-      tone={tone}
       title={purchase.supplier ?? `Commande ${purchase.order_reference}`}
       subtitle={summary(purchase)}
-      end={
-        purchase.status === "dispute" && extra > 0.02 ? (
-          <span className="text-destructive">+{formatAmount(extra)}</span>
-        ) : (
-          formatAmount(purchase.invoiced_excl_tax)
-        )
-      }
-      endSub={
-        <span className={TONE_TEXT[tone]}>
-          {PURCHASE_STATUS[purchase.status].label}
-        </span>
+      actions={
+        <>
+          <span className="text-sm font-medium tabular-nums">{amount}</span>
+          <PurchaseBadge purchase={purchase} />
+        </>
       }
       onClick={onClick}
     />

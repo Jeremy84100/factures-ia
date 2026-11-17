@@ -12,31 +12,25 @@ import {
 import { type DragEvent, useState } from "react"
 
 import type { Purchase } from "@/client"
-import { Amount } from "@/components/App/Amount"
+import { EmptyState } from "@/components/App/EmptyState"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
 import { displayName, isDemoUser } from "@/components/App/Navigation"
 import { UploadButton, useFilePicker } from "@/components/App/UploadButton"
 import { overbilled, PurchaseRow } from "@/components/Purchases/PurchaseRow"
 import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@/components/ui/item"
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import useAuth from "@/hooks/useAuth"
 import { formatAmount, isBusy, needsReview, plural } from "@/lib/documents"
 import { documentsQuery, purchasesQuery, useLiveOptions } from "@/lib/queries"
-import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_layout/")({
   loader: ({ context }) =>
@@ -48,68 +42,27 @@ export const Route = createFileRoute("/_layout/")({
   head: () => ({ meta: [{ title: "Accueil - Factures IA" }] }),
 })
 
-// shadcn Empty with a dashed border: click to choose, or drop files on it.
-function DropZone({ big = false }: { big?: boolean }) {
-  const { picker, open, upload, isPending } = useFilePicker()
-  const [over, setOver] = useState(false)
+// shadcn Empty with a border, as in its examples. Files can also be dropped
+// anywhere on it.
+function DropZone() {
+  const { upload } = useFilePicker()
   return (
-    <>
-      {picker}
-      <Empty
-        role="button"
-        tabIndex={0}
-        onClick={open}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") open()
-        }}
-        onDragOver={(event) => {
-          event.preventDefault()
-          setOver(true)
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(event: DragEvent) => {
-          event.preventDefault()
-          setOver(false)
-          upload(Array.from(event.dataTransfer.files))
-        }}
-        className={cn(
-          "cursor-pointer border border-dashed transition-colors hover:border-foreground/30 hover:bg-muted/40",
-          big ? "py-16" : "hidden md:flex",
-          over && "border-foreground/40 bg-muted/60",
-        )}
+    // biome-ignore lint/a11y/noStaticElementInteractions: mouse-only drop target; the button inside is the keyboard path
+    <div
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event: DragEvent) => {
+        event.preventDefault()
+        upload(Array.from(event.dataTransfer.files))
+      }}
+    >
+      <EmptyState
+        icon={Upload}
+        title="Déposez vos documents"
+        description="Commandes, bons de livraison et factures, en PDF ou en photo, tout en vrac. Glissez-les ici ou choisissez-les."
+        className="border"
       >
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            {isPending ? <Spinner /> : <Upload />}
-          </EmptyMedia>
-          <EmptyTitle>
-            {isPending ? "Envoi…" : "Glissez vos documents ici"}
-          </EmptyTitle>
-          <EmptyDescription>
-            Commandes, bons de livraison, factures · PDF ou photo · tout en vrac
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    </>
-  )
-}
-
-function Welcome() {
-  return (
-    <div className="flex flex-col gap-8 pt-4 md:pt-10">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-3xl font-semibold md:text-4xl">
-          Déposez vos premiers documents
-        </h1>
-        <p className="max-w-xl text-lg text-muted-foreground">
-          Mettez ensemble la commande, le bon de livraison et la facture d'un
-          même achat. L'IA les trie, les lit et vous dit si vous pouvez payer.
-        </p>
-      </div>
-      <DropZone big />
-      <UploadButton className="h-14 w-full text-base md:hidden">
-        Choisir des documents ou des photos
-      </UploadButton>
+        <UploadButton variant="outline">Choisir des fichiers</UploadButton>
+      </EmptyState>
     </div>
   )
 }
@@ -123,7 +76,7 @@ function Home() {
   const [selected, setSelected] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  if (documents.count === 0) return <Welcome />
+  if (documents.count === 0) return <DropZone />
 
   const list = purchases.data
   const toPay = list.filter((p) => p.status === "to_pay")
@@ -153,14 +106,13 @@ function Home() {
       <ListRow
         key="dispute"
         icon={TriangleAlert}
-        tone="danger"
         title={plural(disputes.length, "litige", "litiges")}
         subtitle={
           extra > 0.02
             ? `${formatAmount(extra)} facturés en trop`
             : "Un point bloque le paiement"
         }
-        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        actions={<ChevronRight />}
         onClick={() => go("dispute")}
       />
     ),
@@ -168,14 +120,13 @@ function Home() {
       <ListRow
         key="late"
         icon={Clock}
-        tone="warning"
         title={plural(
           late.length,
           "livraison en retard",
           "livraisons en retard",
         )}
         subtitle="Après la date promise"
-        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        actions={<ChevronRight />}
         onClick={() => go("late")}
       />
     ),
@@ -183,14 +134,13 @@ function Home() {
       <ListRow
         key="unlinked"
         icon={Link2}
-        tone="info"
         title={plural(
           purchases.unlinked.length,
           "document à relier",
           "documents à relier",
         )}
         subtitle="Sans numéro de commande"
-        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        actions={<ChevronRight />}
         onClick={() => go("unlinked")}
       />
     ),
@@ -200,7 +150,7 @@ function Home() {
         icon={Hourglass}
         title={plural(waiting.length, "achat en attente", "achats en attente")}
         subtitle="Livraison ou facture manquante"
-        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        actions={<ChevronRight />}
         onClick={() => go("waiting")}
       />
     ),
@@ -208,10 +158,9 @@ function Home() {
       <ListRow
         key="review"
         icon={FileWarning}
-        tone="warning"
         title={plural(review, "document à vérifier", "documents à vérifier")}
         subtitle="L'IA a un doute"
-        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        actions={<ChevronRight />}
         onClick={() =>
           navigate({ to: "/documents", search: { filter: "review" } })
         }
@@ -220,34 +169,34 @@ function Home() {
   ].filter(Boolean)
 
   return (
-    <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-1 pt-2 md:pt-4">
-        <span className="text-muted-foreground">
-          {name ? `Bonjour ${name}, vous` : "Vous"} pouvez payer
-        </span>
-        <Amount value={payable} className="text-5xl md:text-6xl" />
-        <span className="text-muted-foreground">
-          hors taxes ·{" "}
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardDescription>
+            {name ? `Bonjour ${name}, vous` : "Vous"} pouvez payer
+          </CardDescription>
+          <CardTitle className="text-3xl tabular-nums">
+            {formatAmount(payable)}
+          </CardTitle>
+        </CardHeader>
+        <CardFooter className="text-sm text-muted-foreground">
+          Hors taxes ·{" "}
           {toPay.length > 0
             ? `${plural(toPay.length, "achat vérifié", "achats vérifiés")} ligne par ligne`
             : "aucun achat complet pour l'instant"}
-        </span>
-      </section>
+        </CardFooter>
+      </Card>
 
       {reading > 0 && (
-        <Item variant="muted" size="sm">
-          <ItemMedia>
-            <Spinner className="size-5" />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle>
-              L'IA lit {plural(reading, "document", "documents")}…
-            </ItemTitle>
-            <ItemDescription>
-              La page se met à jour toute seule.
-            </ItemDescription>
-          </ItemContent>
-        </Item>
+        <Alert>
+          <Spinner />
+          <AlertTitle>
+            L'IA lit {plural(reading, "document", "documents")}
+          </AlertTitle>
+          <AlertDescription>
+            La page se met à jour toute seule.
+          </AlertDescription>
+        </Alert>
       )}
 
       {todo.length > 0 && <ListGroup title="À regarder">{todo}</ListGroup>}
@@ -256,13 +205,11 @@ function Home() {
         <ListGroup
           title="Bons à payer"
           action={
-            <Link
-              to="/reconciliations"
-              search={{ filter: "to_pay" }}
-              className="text-sm font-medium text-primary"
-            >
-              Tout voir
-            </Link>
+            <Button variant="link" size="sm" asChild>
+              <Link to="/reconciliations" search={{ filter: "to_pay" }}>
+                Tout voir
+              </Link>
+            </Button>
           }
         >
           {toPay.slice(0, 4).map((purchase) => (

@@ -8,15 +8,8 @@ import {
 
 import type { DocumentKind, DocumentPublic } from "@/client"
 import { ListRow } from "@/components/App/ListRow"
-import {
-  formatAmount,
-  formatDate,
-  isBusy,
-  KIND,
-  STATUS,
-  STATUS_TONE,
-  TONE_TEXT,
-} from "@/lib/documents"
+import { Badge } from "@/components/ui/badge"
+import { formatAmount, formatDate, isBusy, KIND, STATUS } from "@/lib/documents"
 
 export const KIND_ICON: Record<DocumentKind, LucideIcon> = {
   invoice: Receipt,
@@ -37,6 +30,11 @@ export function documentAmount(document: DocumentPublic) {
     : formatAmount(value, document.currency ?? "EUR")
 }
 
+export function DocumentBadge({ document }: { document: DocumentPublic }) {
+  const { label, variant } = STATUS[document.status]
+  return <Badge variant={variant}>{label}</Badge>
+}
+
 export function DocumentRow({
   document,
   onClick,
@@ -45,13 +43,12 @@ export function DocumentRow({
   onClick: () => void
 }) {
   const busy = isBusy(document)
-  const tone = STATUS_TONE[document.status]
   const kind = document.is_credit_note ? "Avoir" : KIND[document.kind]
+  const amount = documentAmount(document)
   return (
     <ListRow
       icon={KIND_ICON[document.kind]}
       spin={busy}
-      tone={busy || document.status === "ok" ? "neutral" : tone}
       title={document.supplier ?? document.filename}
       subtitle={
         busy
@@ -60,13 +57,15 @@ export function DocumentRow({
               .filter((part) => part && part !== "—")
               .join(" · ")
       }
-      end={documentAmount(document)}
-      endSub={
-        busy || document.status === "ok" ? undefined : (
-          <span className={TONE_TEXT[tone]}>
-            {STATUS[document.status].label}
-          </span>
-        )
+      actions={
+        <>
+          {amount && (
+            <span className="text-sm font-medium tabular-nums">{amount}</span>
+          )}
+          {!busy && document.status !== "ok" && (
+            <DocumentBadge document={document} />
+          )}
+        </>
       }
       onClick={onClick}
     />

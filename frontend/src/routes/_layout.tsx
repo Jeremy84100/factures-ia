@@ -45,7 +45,10 @@ function Layout() {
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Separator
+            orientation="vertical"
+            className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+          />
           <h1 className="text-sm font-medium">{TITLES[pathname] ?? ""}</h1>
           <UploadButton size="sm" className="ml-auto">
             Ajouter

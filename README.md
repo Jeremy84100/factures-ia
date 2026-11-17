@@ -68,9 +68,9 @@ L'accueil donne en gros le montant qu'on peut payer, puis ce qu'il faut regarder
 
 ## Interface
 
-- Faite pour le téléphone autant que pour l'ordinateur : barre d'onglets en bas avec un bouton « + » pour déposer, panneaux qui montent du bas de l'écran, listes sans tableaux.
-- Aucun écran qui clignote : chaque page charge ses données avant de s'afficher (préchargées dès que le doigt ou la souris touche le lien), les onglets filtrent dans le navigateur sans recharger, le thème clair ou sombre est appliqué avant le premier affichage, et le téléphone est détecté dès le premier rendu.
-- [shadcn/ui](https://ui.shadcn.com) sur Tailwind CSS 4, police Inter, une seule couleur d'accent.
+- [shadcn/ui](https://ui.shadcn.com) avec le preset `radix-luma`, couleur de base taupe, sur Tailwind CSS 4. Les composants sont ceux du registre, sans retouche : `Sidebar` pour la navigation, `Item` pour les listes, `Tabs` pour les filtres, `Card`, `Badge`, `Alert`, `Table`, `Empty`, `Field` et `InputGroup` pour les formulaires, `AlertDialog` pour les suppressions, `Dialog` sur ordinateur et `Drawer` sur téléphone pour les détails.
+- Sur téléphone, la navigation s'ouvre depuis le bouton en haut à gauche, le bouton « Ajouter » reste en haut à droite, et les détails montent du bas de l'écran.
+- Aucun écran qui clignote : chaque page charge ses données avant de s'afficher (préchargées dès que le doigt ou la souris touche le lien), les onglets filtrent dans le navigateur sans recharger, et le thème clair ou sombre est appliqué avant le premier affichage.
 
 ## Vérifications
 

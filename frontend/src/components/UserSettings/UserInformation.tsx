@@ -1,24 +1,21 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { UsersService, type UserUpdateMe } from "@/client"
-import { Button } from "@/components/ui/button"
+import { SubmitButton, TextField } from "@/components/App/FormFields"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { FieldGroup } from "@/components/ui/field"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
@@ -31,7 +28,6 @@ type FormData = z.infer<typeof formSchema>
 const UserInformation = () => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const [editMode, setEditMode] = useState(false)
   const { user: currentUser } = useAuth()
 
   const form = useForm<FormData>({
@@ -44,16 +40,11 @@ const UserInformation = () => {
     },
   })
 
-  const toggleEditMode = () => {
-    setEditMode(!editMode)
-  }
-
   const mutation = useMutation({
     mutationFn: (data: UserUpdateMe) =>
       UsersService.updateUserMe({ body: data }),
     onSuccess: () => {
-      showSuccessToast("Utilisateur modifié")
-      toggleEditMode()
+      showSuccessToast("Profil enregistré")
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
@@ -75,96 +66,41 @@ const UserInformation = () => {
     mutation.mutate(updateData)
   }
 
-  const onCancel = () => {
-    form.reset()
-    toggleEditMode()
-  }
-
   return (
-    <div className="max-w-md">
-      <h3 className="text-lg font-semibold py-4">User Information</h3>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            control={form.control}
-            name="full_name"
-            render={({ field }) =>
-              editMode ? (
-                <FormItem>
-                  <FormLabel>Nom</FormLabel>
-                  <FormControl>
-                    <Input type="text" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              ) : (
-                <FormItem>
-                  <FormLabel>Nom</FormLabel>
-                  <p
-                    className={cn(
-                      "py-2 truncate max-w-sm",
-                      !field.value && "text-muted-foreground",
-                    )}
-                  >
-                    {field.value || "N/A"}
-                  </p>
-                </FormItem>
-              )
-            }
-          />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) =>
-              editMode ? (
-                <FormItem>
-                  <FormLabel>E-mail</FormLabel>
-                  <FormControl>
-                    <Input type="email" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              ) : (
-                <FormItem>
-                  <FormLabel>E-mail</FormLabel>
-                  <p className="py-2 truncate max-w-sm">{field.value}</p>
-                </FormItem>
-              )
-            }
-          />
-
-          <div className="flex gap-3">
-            {editMode ? (
-              <>
-                <LoadingButton
-                  type="submit"
-                  loading={mutation.isPending}
-                  disabled={!form.formState.isDirty}
-                >
-                  Enregistrer
-                </LoadingButton>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onCancel}
-                  disabled={mutation.isPending}
-                >
-                  Annuler
-                </Button>
-              </>
-            ) : (
-              <Button type="button" onClick={toggleEditMode}>
-                Modifier
-              </Button>
-            )}
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Mon profil</CardTitle>
+        <CardDescription>Votre nom et l'e-mail de connexion.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form id="profile-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <FieldGroup>
+            <TextField
+              control={form.control}
+              name="full_name"
+              label="Nom"
+              autoComplete="name"
+            />
+            <TextField
+              control={form.control}
+              name="email"
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+            />
+          </FieldGroup>
         </form>
-      </Form>
-    </div>
+      </CardContent>
+      <CardFooter>
+        <SubmitButton
+          form="profile-form"
+          pending={mutation.isPending}
+          disabled={!form.formState.isDirty || mutation.isPending}
+        >
+          Enregistrer
+        </SubmitButton>
+      </CardFooter>
+    </Card>
   )
 }
 

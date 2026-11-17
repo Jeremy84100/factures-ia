@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Card } from "@/components/ui/card"
 import {
   Item,
   ItemActions,
@@ -12,99 +11,40 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { Spinner } from "@/components/ui/spinner"
-import { TONE_CLASSES, type Tone } from "@/lib/documents"
-import { cn } from "@/lib/utils"
-
-export function IconBubble({
-  icon: Icon,
-  tone = "neutral",
-  className,
-  spin = false,
-}: {
-  icon: LucideIcon
-  tone?: Tone
-  className?: string
-  spin?: boolean
-}) {
-  return (
-    <span
-      className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-full",
-        TONE_CLASSES[tone],
-        className,
-      )}
-    >
-      {spin ? (
-        <Spinner className="size-[18px]" />
-      ) : (
-        <Icon className="size-[18px]" />
-      )}
-    </span>
-  )
-}
 
 interface ListRowProps {
   icon: LucideIcon
-  tone?: Tone
   spin?: boolean
   title: ReactNode
   subtitle?: ReactNode
-  end?: ReactNode
-  endSub?: ReactNode
+  actions?: ReactNode
   onClick?: () => void
 }
 
-// One row of a list, built on shadcn's Item: round icon, title, subtitle,
-// amount on the right.
+// shadcn Item, used as in its examples: outline variant, icon media,
+// title and description, actions on the right.
 export function ListRow({
-  icon,
-  tone,
+  icon: Icon,
   spin,
   title,
   subtitle,
-  end,
-  endSub,
+  actions,
   onClick,
 }: ListRowProps) {
   const body = (
     <>
-      <ItemMedia>
-        <IconBubble icon={icon} tone={tone} spin={spin} />
-      </ItemMedia>
-      <ItemContent className="min-w-0 gap-0.5">
-        <ItemTitle className="block w-full truncate text-[15px]">
-          {title}
-        </ItemTitle>
-        {subtitle && (
-          <ItemDescription className="line-clamp-1">{subtitle}</ItemDescription>
-        )}
+      <ItemMedia variant="icon">{spin ? <Spinner /> : <Icon />}</ItemMedia>
+      <ItemContent>
+        <ItemTitle>{title}</ItemTitle>
+        {subtitle && <ItemDescription>{subtitle}</ItemDescription>}
       </ItemContent>
-      {(end || endSub) && (
-        <ItemActions className="flex-col items-end gap-0.5 text-sm">
-          {end && (
-            <span className="text-[15px] font-medium tabular-nums">{end}</span>
-          )}
-          {endSub}
-        </ItemActions>
-      )}
+      {actions && <ItemActions>{actions}</ItemActions>}
     </>
   )
-
-  if (!onClick) {
-    return (
-      <Item size="sm" role="listitem" className="flex-nowrap">
-        {body}
-      </Item>
-    )
-  }
+  if (!onClick) return <Item variant="outline">{body}</Item>
   return (
-    <Item
-      asChild
-      size="sm"
-      role="listitem"
-      className="flex-nowrap text-left hover:bg-muted/70 active:bg-muted"
-    >
-      <button type="button" onClick={onClick}>
+    <Item variant="outline" asChild>
+      <button type="button" onClick={onClick} className="text-left">
         {body}
       </button>
     </Item>
@@ -115,17 +55,15 @@ export function ListGroup({
   title,
   action,
   children,
-  className,
 }: {
   title?: ReactNode
   action?: ReactNode
   children: ReactNode
-  className?: string
 }) {
   return (
-    <section className={cn("flex flex-col gap-2", className)}>
+    <section className="flex flex-col gap-3">
       {(title || action) && (
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between gap-2">
           {title && (
             <h2 className="text-sm font-medium text-muted-foreground">
               {title}
@@ -134,9 +72,7 @@ export function ListGroup({
           {action}
         </div>
       )}
-      <Card className="gap-0 p-1.5">
-        <ItemGroup className="gap-0">{children}</ItemGroup>
-      </Card>
+      <ItemGroup>{children}</ItemGroup>
     </section>
   )
 }

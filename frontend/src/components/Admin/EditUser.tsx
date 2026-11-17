@@ -6,8 +6,13 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { type UserPublic, UsersService } from "@/client"
+import {
+  CheckboxField,
+  PasswordField,
+  SubmitButton,
+  TextField,
+} from "@/components/App/FormFields"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogClose,
@@ -18,16 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
+import { FieldGroup } from "@/components/ui/field"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -50,6 +46,8 @@ const formSchema = z
   })
 
 type FormData = z.infer<typeof formSchema>
+
+const PASSWORD_HINT = "Facultatif, 8 caractères minimum"
 
 interface EditUserProps {
   user: UserPublic
@@ -106,131 +104,58 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
         Modifier l'utilisateur
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>Modifier l'utilisateur</DialogTitle>
-              <DialogDescription>
-                Modifiez les informations de l'utilisateur.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Email <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="E-mail"
-                        type="email"
-                        {...field}
-                        required
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="full_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nom</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Full name" type="text" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nouveau mot de passe</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Mot de passe"
-                        type="password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="confirm_password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirmez le mot de passe</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Mot de passe"
-                        type="password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_superuser"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Is superuser?</FormLabel>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Is active?</FormLabel>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline" disabled={mutation.isPending}>
-                  Annuler
-                </Button>
-              </DialogClose>
-              <LoadingButton type="submit" loading={mutation.isPending}>
-                Enregistrer
-              </LoadingButton>
-            </DialogFooter>
-          </form>
-        </Form>
+        <DialogHeader>
+          <DialogTitle>Modifier l'utilisateur</DialogTitle>
+          <DialogDescription>
+            Laissez le mot de passe vide pour le garder.
+          </DialogDescription>
+        </DialogHeader>
+        <form id="edit-user-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <FieldGroup>
+            <TextField
+              control={form.control}
+              name="email"
+              label="E-mail"
+              type="email"
+              placeholder="nom@entreprise.fr"
+            />
+            <TextField control={form.control} name="full_name" label="Nom" />
+            <PasswordField
+              control={form.control}
+              name="password"
+              label="Mot de passe"
+              autoComplete="new-password"
+              description={PASSWORD_HINT}
+            />
+            <PasswordField
+              control={form.control}
+              name="confirm_password"
+              label="Confirmez le mot de passe"
+              autoComplete="new-password"
+            />
+            <CheckboxField
+              control={form.control}
+              name="is_superuser"
+              label="Administrateur"
+              description="Peut gérer les autres utilisateurs."
+            />
+            <CheckboxField
+              control={form.control}
+              name="is_active"
+              label="Compte actif"
+            />
+          </FieldGroup>
+        </form>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={mutation.isPending}>
+              Annuler
+            </Button>
+          </DialogClose>
+          <SubmitButton form="edit-user-form" pending={mutation.isPending}>
+            Enregistrer
+          </SubmitButton>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

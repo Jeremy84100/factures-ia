@@ -1,15 +1,24 @@
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import DeleteConfirmation from "./DeleteConfirmation"
 
-const DeleteAccount = () => {
-  return (
-    <div className="max-w-md mt-4 rounded-lg border border-destructive/50 p-4">
-      <h3 className="font-semibold text-destructive">Supprimer mon compte</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Supprime définitivement votre compte et toutes ses données.
-      </p>
+const DeleteAccount = () => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Supprimer mon compte</CardTitle>
+      <CardDescription>
+        Supprime définitivement votre compte et tous ses documents.
+      </CardDescription>
+    </CardHeader>
+    <CardFooter>
       <DeleteConfirmation />
-    </div>
-  )
-}
+    </CardFooter>
+  </Card>
+)
 
 export default DeleteAccount

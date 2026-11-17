@@ -1,34 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
-import { useState } from "react"
 
 import { DocumentsService } from "@/client"
+import { ConfirmDialog } from "@/components/App/ConfirmDialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { plural } from "@/lib/documents"
 import { handleError } from "@/utils"
 
 const DeleteAllDocuments = ({ count }: { count: number }) => {
-  const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
   const mutation = useMutation({
     mutationFn: () => DocumentsService.deleteAllDocuments(),
-    onSuccess: ({ data }) => {
-      showSuccessToast(data.message)
-      setIsOpen(false)
-    },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] })
@@ -36,40 +21,27 @@ const DeleteAllDocuments = ({ count }: { count: number }) => {
     },
   })
 
-  const plural = count > 1 ? "s" : ""
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" className="rounded-full text-destructive">
-          <Trash2 />
+    <ConfirmDialog
+      trigger={
+        <Button variant="ghost">
+          <Trash2 data-icon="inline-start" />
           Tout supprimer
         </Button>
-      </DialogTrigger>
-      <DialogContent className="rounded-3xl border-none sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Tout supprimer</DialogTitle>
-          <DialogDescription>
-            {count} document{plural} et leur{plural} PDF seront supprimés
-            définitivement, avec les rapprochements qui en dépendent.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="mt-4">
-          <DialogClose asChild>
-            <Button variant="outline" disabled={mutation.isPending}>
-              Annuler
-            </Button>
-          </DialogClose>
-          <LoadingButton
-            variant="destructive"
-            loading={mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            Tout supprimer
-          </LoadingButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      }
+      title="Tout supprimer ?"
+      description={`${plural(count, "document", "documents")} et leurs PDF seront supprimés définitivement, avec les achats qui en dépendent.`}
+      confirmLabel="Tout supprimer"
+      pending={mutation.isPending}
+      onConfirm={(close) =>
+        mutation.mutate(undefined, {
+          onSuccess: ({ data }) => {
+            showSuccessToast(data.message)
+            close()
+          },
+        })
+      }
+    />
   )
 }
 

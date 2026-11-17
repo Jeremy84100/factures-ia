@@ -77,16 +77,10 @@ function Documents() {
   const shown = data.data.filter(MATCH[filter])
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold">Documents</h1>
-          <p className="text-muted-foreground">
-            {plural(data.count, "document", "documents")}, triés et lus par l'IA
-          </p>
-        </div>
-        <UploadButton className="hidden md:inline-flex" />
-      </div>
+    <div className="flex flex-col gap-6">
+      <p className="text-muted-foreground">
+        {plural(data.count, "document", "documents")}, triés et lus par l'IA
+      </p>
 
       <FilterChips
         chips={chips}

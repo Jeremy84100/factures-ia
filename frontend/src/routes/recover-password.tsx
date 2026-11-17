@@ -9,17 +9,10 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { LoginService } from "@/client"
+import { SubmitButton, TextField } from "@/components/App/FormFields"
 import { AuthLayout } from "@/components/Common/AuthLayout"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
+import { Button } from "@/components/ui/button"
+import { FieldGroup } from "@/components/ui/field"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
@@ -78,53 +71,40 @@ function RecoverPassword() {
   }
 
   return (
-    <AuthLayout>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-        >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Mot de passe oublié</h1>
-          </div>
-
-          <div className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>E-mail</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="email-input"
-                      placeholder="vous@exemple.fr"
-                      type="email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <LoadingButton
-              type="submit"
-              className="w-full"
-              loading={mutation.isPending}
-            >
-              Continuer
-            </LoadingButton>
-          </div>
-
-          <div className="text-center text-sm">
+    <AuthLayout
+      title="Mot de passe oublié"
+      description="Vous recevrez un lien par e-mail pour en choisir un nouveau."
+      footer={
+        <>
+          <SubmitButton
+            form="recover-form"
+            className="w-full"
+            pending={mutation.isPending}
+          >
+            Continuer
+          </SubmitButton>
+          <p>
             Vous vous en souvenez ?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
-              Se connecter
-            </RouterLink>
-          </div>
-        </form>
-      </Form>
+            <Button variant="link" size="xs" asChild>
+              <RouterLink to="/login">Se connecter</RouterLink>
+            </Button>
+          </p>
+        </>
+      }
+    >
+      <form id="recover-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <FieldGroup>
+          <TextField
+            control={form.control}
+            name="email"
+            label="E-mail"
+            type="email"
+            autoComplete="email"
+            placeholder="vous@exemple.fr"
+            data-testid="email-input"
+          />
+        </FieldGroup>
+      </form>
     </AuthLayout>
   )
 }

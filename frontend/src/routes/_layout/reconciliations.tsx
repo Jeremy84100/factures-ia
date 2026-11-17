@@ -98,13 +98,10 @@ function Purchases() {
     filter === "unlinked" ? data.unlinked.length === 0 : purchases.length === 0
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-3xl font-semibold">Achats</h1>
-        <p className="text-muted-foreground">
-          Commande, livraison et facture comparées ligne par ligne
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <p className="text-muted-foreground">
+        Commande, livraison et facture comparées ligne par ligne
+      </p>
 
       <FilterChips
         chips={chips}
@@ -120,16 +117,11 @@ function Purchases() {
       {empty ? (
         <Nothing filter={filter} />
       ) : filter === "unlinked" ? (
-        <ListGroup>
-          <p className="px-3 pt-2 pb-1 text-sm text-muted-foreground md:px-4">
-            Ces documents n'indiquent pas de numéro de commande. Touchez-en un,
-            puis « Corriger » pour l'ajouter.
-          </p>
+        <ListGroup title="Sans numéro de commande : touchez un document, puis « Corriger » pour l'ajouter.">
           {data.unlinked.map((document) => (
             <ListRow
               key={document.id}
               icon={Link2}
-              tone="info"
               title={`${KIND_LONG[document.kind]} ${document.number ?? ""}`}
               subtitle={`${formatDate(document.document_date)} · ${document.filename}`}
               onClick={() => {

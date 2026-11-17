@@ -1,21 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
 
 import { UsersService } from "@/client"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/App/ConfirmDialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -25,70 +14,42 @@ interface DeleteUserProps {
 }
 
 const DeleteUser = ({ id, onSuccess }: DeleteUserProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const { handleSubmit } = useForm()
-
-  const deleteUser = async (id: string) => {
-    await UsersService.deleteUser({ path: { user_id: id } })
-  }
 
   const mutation = useMutation({
-    mutationFn: deleteUser,
+    mutationFn: () => UsersService.deleteUser({ path: { user_id: id } }),
     onSuccess: () => {
       showSuccessToast("Utilisateur supprimé")
-      setIsOpen(false)
+      setOpen(false)
       onSuccess()
     },
     onError: handleError.bind(showErrorToast),
-    onSettled: () => {
-      queryClient.invalidateQueries()
-    },
+    onSettled: () => queryClient.invalidateQueries(),
   })
 
-  const onSubmit = async () => {
-    mutation.mutate(id)
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <>
       <DropdownMenuItem
         variant="destructive"
-        onSelect={(e) => e.preventDefault()}
-        onClick={() => setIsOpen(true)}
+        onSelect={(event) => {
+          event.preventDefault()
+          setOpen(true)
+        }}
       >
         <Trash2 />
         Supprimer l'utilisateur
       </DropdownMenuItem>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <DialogHeader>
-            <DialogTitle>Supprimer l'utilisateur</DialogTitle>
-            <DialogDescription>
-              Ses factures seront aussi{" "}
-              <strong>supprimées définitivement.</strong> Cette action est
-              irréversible.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="mt-4">
-            <DialogClose asChild>
-              <Button variant="outline" disabled={mutation.isPending}>
-                Annuler
-              </Button>
-            </DialogClose>
-            <LoadingButton
-              variant="destructive"
-              type="submit"
-              loading={mutation.isPending}
-            >
-              Supprimer
-            </LoadingButton>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Supprimer l'utilisateur ?"
+        description="Ses documents seront aussi supprimés définitivement."
+        pending={mutation.isPending}
+        onConfirm={() => mutation.mutate()}
+      />
+    </>
   )
 }
 

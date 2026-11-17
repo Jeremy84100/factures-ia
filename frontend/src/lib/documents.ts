@@ -65,45 +65,11 @@ export function formatDate(value: string | null | undefined) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("fr-FR")
 }
 
-export type Tone = "success" | "danger" | "warning" | "info" | "neutral"
-
-export const TONE_CLASSES: Record<Tone, string> = {
-  success: "bg-success/12 text-success",
-  danger: "bg-destructive/12 text-destructive",
-  warning: "bg-warning/15 text-warning",
-  info: "bg-info/12 text-info",
-  neutral: "bg-muted text-muted-foreground",
-}
-
-export const TONE_TEXT: Record<Tone, string> = {
-  success: "text-success",
-  danger: "text-destructive",
-  warning: "text-warning",
-  info: "text-info",
-  neutral: "text-muted-foreground",
-}
-
 export const KIND_LONG: Record<DocumentKind, string> = {
   unknown: "Document",
   invoice: "Facture",
   order: "Bon de commande",
   delivery: "Bon de livraison",
-}
-
-export const STATUS_TONE: Record<DocumentStatus, Tone> = {
-  pending: "neutral",
-  processing: "neutral",
-  ok: "success",
-  to_check: "warning",
-  unreadable: "danger",
-  failed: "danger",
-}
-
-export const PURCHASE_TONE: Record<PurchaseStatus, Tone> = {
-  to_pay: "success",
-  dispute: "danger",
-  waiting: "neutral",
-  no_order: "info",
 }
 
 export const needsReview = (document: { status: DocumentStatus }) =>

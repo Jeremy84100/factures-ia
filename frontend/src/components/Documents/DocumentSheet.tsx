@@ -1,12 +1,26 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Eye, Pencil, RotateCw, Trash2, TriangleAlert } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { useState } from "react"
 
 import { type DocumentPublic, DocumentsService } from "@/client"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
-import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   formatAmount,
@@ -14,15 +28,11 @@ import {
   formatQuantity,
   isBusy,
   KIND_LONG,
-  STATUS,
-  STATUS_TONE,
-  TONE_CLASSES,
 } from "@/lib/documents"
 import { openPdf } from "@/lib/pdf"
-import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 import DeleteDocument from "./DeleteDocument"
-import { documentAmount } from "./DocumentRow"
+import { DocumentBadge, documentAmount } from "./DocumentRow"
 import EditDocument from "./EditDocument"
 
 const SWITCH_MS = 280
@@ -32,19 +42,10 @@ const MODE = {
   express: "Express",
 }
 
-function Detail({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-2.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{children}</span>
-    </div>
-  )
-}
-
 function Details({ document }: { document: DocumentPublic }) {
   const money = (value: string | null | undefined) =>
     formatAmount(value, document.currency ?? "EUR")
-  const rows: [string, ReactNode][] = [
+  const rows: [string, string][] = [
     ["Date", formatDate(document.document_date)],
   ]
   if (document.kind !== "order" && document.order_reference)
@@ -63,20 +64,20 @@ function Details({ document }: { document: DocumentPublic }) {
     if (document.amount_incl_tax)
       rows.push(["Total TTC", money(document.amount_incl_tax)])
   }
-  rows.push([
-    "Fichier",
-    <span key="file" className="break-all">
-      {document.filename}
-    </span>,
-  ])
+  rows.push(["Fichier", document.filename])
   return (
-    <Card className="gap-0 divide-y divide-border/70 px-5 py-1">
-      {rows.map(([label, value]) => (
-        <Detail key={label} label={label}>
-          {value}
-        </Detail>
-      ))}
-    </Card>
+    <Table>
+      <TableBody>
+        {rows.map(([label, value]) => (
+          <TableRow key={label}>
+            <TableCell className="text-muted-foreground">{label}</TableCell>
+            <TableCell className="text-right font-medium whitespace-normal break-all">
+              {value}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 
@@ -84,33 +85,39 @@ function Lines({ document }: { document: DocumentPublic }) {
   const lines = document.lines ?? []
   if (lines.length === 0) return null
   return (
-    <section className="flex flex-col gap-1">
-      <h3 className="px-1 pb-1 text-sm font-medium text-muted-foreground">
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium text-muted-foreground">
         {lines.length > 1 ? `${lines.length} articles` : "1 article"}
-      </h3>
-      <Card className="gap-0 divide-y divide-border/70 px-5 py-1">
-        {lines.map((line, index) => (
-          <div
-            key={`${line.reference}-${index}`}
-            className="flex items-baseline justify-between gap-4 py-2.5"
-          >
-            <span className="min-w-0">
-              <span className="block truncate">
-                {line.description ?? line.reference}
-              </span>
-              <span className="text-sm text-muted-foreground">
+      </h2>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Article</TableHead>
+            <TableHead className="text-right">Qté</TableHead>
+            <TableHead className="text-right">Montant HT</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {lines.map((line, index) => (
+            <TableRow key={`${line.reference}-${index}`}>
+              <TableCell className="whitespace-normal">
+                <div>{line.description ?? line.reference}</div>
+                {line.unit_price && (
+                  <div className="text-muted-foreground">
+                    {formatAmount(line.unit_price)} l'unité
+                  </div>
+                )}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
                 {formatQuantity(line.quantity)} {line.unit ?? ""}
-                {line.unit_price ? ` × ${formatAmount(line.unit_price)}` : ""}
-              </span>
-            </span>
-            {line.amount_excl_tax && (
-              <span className="shrink-0 tabular-nums">
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
                 {formatAmount(line.amount_excl_tax)}
-              </span>
-            )}
-          </div>
-        ))}
-      </Card>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -144,7 +151,6 @@ export function DocumentSheet({
 
   if (!document) return null
   const busy = isBusy(document)
-  const tone = STATUS_TONE[document.status]
   const amount = documentAmount(document)
   // The detail slides away first, then the next panel comes up: never two at once.
   const switchTo = (setter: (value: boolean) => void) => {
@@ -166,67 +172,67 @@ export function DocumentSheet({
           .join(" ")}
       >
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3">
-            <Badge className={cn("h-7 px-3 text-sm", TONE_CLASSES[tone])}>
-              {STATUS[document.status].label}
-            </Badge>
-            {amount && (
-              <span className="text-4xl font-semibold tracking-tight tabular-nums">
-                {amount}
-              </span>
-            )}
-            {document.issues.length > 0 && (
-              <ul className="flex flex-col gap-3">
-                {document.issues.map((issue) => (
-                  <li key={issue} className="flex gap-3">
-                    <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" />
-                    <span>{issue}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardDescription>
+                {document.kind === "invoice" ? "Total TTC" : "Total HT"}
+              </CardDescription>
+              <CardTitle className="text-2xl tabular-nums">
+                {amount ?? "—"}
+              </CardTitle>
+              <CardAction>
+                <DocumentBadge document={document} />
+              </CardAction>
+            </CardHeader>
+          </Card>
+
+          {document.issues.length > 0 && (
+            <Alert>
+              <TriangleAlert />
+              <AlertTitle>À vérifier</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc pl-4">
+                  {document.issues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Button
-              variant="secondary"
-              className="h-12 rounded-2xl"
+              variant="outline"
               onClick={() =>
                 openPdf(document.id).catch(() =>
                   showErrorToast("Impossible d'ouvrir le document"),
                 )
               }
             >
-              <Eye />
+              <Eye data-icon="inline-start" />
               Voir
             </Button>
             <Button
-              variant="secondary"
-              className="h-12 rounded-2xl"
+              variant="outline"
               disabled={busy}
               onClick={() => {
                 setEditRound((round) => round + 1)
                 switchTo(setEditing)
               }}
             >
-              <Pencil />
+              <Pencil data-icon="inline-start" />
               Corriger
             </Button>
             <Button
-              variant="secondary"
-              className="h-12 rounded-2xl"
+              variant="outline"
               disabled={busy || retry.isPending}
               onClick={() => retry.mutate(document.id)}
             >
-              <RotateCw />
+              <RotateCw data-icon="inline-start" />
               Relire
             </Button>
-            <Button
-              variant="secondary"
-              className="h-12 rounded-2xl text-destructive"
-              onClick={() => switchTo(setDeleting)}
-            >
-              <Trash2 />
+            <Button variant="destructive" onClick={() => switchTo(setDeleting)}>
+              <Trash2 data-icon="inline-start" />
               Supprimer
             </Button>
           </div>

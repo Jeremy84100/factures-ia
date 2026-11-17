@@ -15,7 +15,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { useIsMobile } from "@/hooks/useMobile"
-import { cn } from "@/lib/utils"
 
 interface ResponsiveSheetProps {
   open: boolean
@@ -26,7 +25,7 @@ interface ResponsiveSheetProps {
   wide?: boolean
 }
 
-// Slides up from the bottom on a phone, opens as a window on a computer.
+// shadcn's responsive dialog: a Drawer on a phone, a Dialog on a computer.
 export function ResponsiveSheet({
   open,
   onOpenChange,
@@ -40,16 +39,14 @@ export function ResponsiveSheet({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[92svh] rounded-t-3xl border-none bg-background">
-          <DrawerHeader className="px-5 pt-3 pb-2 text-left">
-            <DrawerTitle className="text-xl font-semibold">{title}</DrawerTitle>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{title}</DrawerTitle>
             {description && (
               <DrawerDescription>{description}</DrawerDescription>
             )}
           </DrawerHeader>
-          <div className="overflow-y-auto px-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-            {children}
-          </div>
+          <div className="overflow-y-auto p-4">{children}</div>
         </DrawerContent>
       </Drawer>
     )
@@ -58,16 +55,17 @@ export function ResponsiveSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(
-          "max-h-[88vh] gap-0 overflow-y-auto rounded-3xl border-none bg-background p-0",
-          wide ? "sm:max-w-4xl" : "sm:max-w-2xl",
-        )}
+        className={
+          wide
+            ? "max-h-[90vh] overflow-y-auto sm:max-w-4xl"
+            : "max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        }
       >
-        <DialogHeader className="px-7 pt-7 pb-3">
-          <DialogTitle className="text-2xl font-semibold">{title}</DialogTitle>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="px-7 pb-7">{children}</div>
+        {children}
       </DialogContent>
     </Dialog>
   )

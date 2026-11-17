@@ -9,21 +9,23 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import type { Body_login_login_access_token as AccessToken } from "@/client"
-import { IconBubble } from "@/components/App/ListRow"
+import {
+  PasswordField,
+  SubmitButton,
+  TextField,
+} from "@/components/App/FormFields"
+import { ListGroup, ListRow } from "@/components/App/ListRow"
 import { Logo } from "@/components/Common/Logo"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { PasswordInput } from "@/components/ui/password-input"
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { FieldGroup } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
@@ -70,23 +72,22 @@ const STEPS = [
 function DemoButton() {
   const { demoMutation } = useAuth()
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col items-start gap-2">
       <Button
         size="lg"
-        className="h-14 w-full rounded-full text-base sm:w-auto sm:px-8"
         disabled={demoMutation.isPending}
         onClick={() => demoMutation.mutate()}
         data-testid="demo-button"
       >
         {demoMutation.isPending ? (
           <>
-            <Spinner />
+            <Spinner data-icon="inline-start" />
             Préparation de la démo…
           </>
         ) : (
           <>
             Essayer la démo
-            <ArrowRight />
+            <ArrowRight data-icon="inline-end" />
           </>
         )}
       </Button>
@@ -97,101 +98,81 @@ function DemoButton() {
   )
 }
 
-function LoginForm() {
+function LoginCard() {
   const { loginMutation } = useAuth()
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
-    criteriaMode: "all",
     defaultValues: { username: "", password: "" },
   })
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit((data) => {
-          if (!loginMutation.isPending) loginMutation.mutate(data)
-        })}
-        className="flex flex-col gap-4"
-      >
-        <h2 className="text-lg font-semibold">Déjà un compte ?</h2>
-        <FormField
-          control={form.control}
-          name="username"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>E-mail</FormLabel>
-              <FormControl>
-                <Input
-                  data-testid="email-input"
-                  placeholder="vous@exemple.fr"
-                  type="email"
-                  autoComplete="email"
-                  className="h-12 rounded-xl"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage className="text-xs" />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex items-center">
-                <FormLabel>Mot de passe</FormLabel>
-                <RouterLink
-                  to="/recover-password"
-                  className="ml-auto text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Oublié ?
-                </RouterLink>
-              </div>
-              <FormControl>
-                <PasswordInput
-                  data-testid="password-input"
-                  placeholder="Mot de passe"
-                  autoComplete="current-password"
-                  className="h-12 rounded-xl"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage className="text-xs" />
-            </FormItem>
-          )}
-        />
-        <LoadingButton
-          type="submit"
+    <Card>
+      <CardHeader>
+        <CardTitle>Déjà un compte ?</CardTitle>
+        <CardDescription>Connectez-vous avec votre e-mail.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          id="login-form"
+          onSubmit={form.handleSubmit((data) => {
+            if (!loginMutation.isPending) loginMutation.mutate(data)
+          })}
+        >
+          <FieldGroup>
+            <TextField
+              control={form.control}
+              name="username"
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+              placeholder="vous@exemple.fr"
+              data-testid="email-input"
+            />
+            <PasswordField
+              control={form.control}
+              name="password"
+              label="Mot de passe"
+              autoComplete="current-password"
+              placeholder="Mot de passe"
+              data-testid="password-input"
+              labelEnd={
+                <Button variant="link" size="xs" asChild>
+                  <RouterLink to="/recover-password">Oublié ?</RouterLink>
+                </Button>
+              }
+            />
+          </FieldGroup>
+        </form>
+      </CardContent>
+      <CardFooter className="flex-col gap-3">
+        <SubmitButton
+          form="login-form"
           variant="secondary"
-          className="h-12 rounded-full"
-          loading={loginMutation.isPending}
+          className="w-full"
+          pending={loginMutation.isPending}
         >
           Se connecter
-        </LoadingButton>
-        <p className="text-center text-sm text-muted-foreground">
+        </SubmitButton>
+        <p className="text-sm text-muted-foreground">
           Pas encore de compte ?{" "}
-          <RouterLink to="/signup" className="font-medium text-foreground">
-            S'inscrire
-          </RouterLink>
+          <Button variant="link" size="xs" asChild>
+            <RouterLink to="/signup">S'inscrire</RouterLink>
+          </Button>
         </p>
-      </form>
-    </Form>
+      </CardFooter>
+    </Card>
   )
 }
 
 function Login() {
   return (
-    <div className="mx-auto flex min-h-svh max-w-6xl flex-col px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-10 md:px-10">
-      <header className="flex items-center justify-between">
-        <Logo asLink={false} />
-      </header>
-
-      <div className="grid flex-1 items-center gap-14 py-10 md:grid-cols-[1.2fr_1fr] md:gap-20 md:py-16">
+    <div className="mx-auto flex min-h-svh max-w-6xl flex-col gap-10 p-6 md:p-10">
+      <Logo asLink={false} />
+      <div className="grid flex-1 items-center gap-10 md:grid-cols-[1.2fr_1fr] md:gap-16">
         <section className="flex flex-col gap-8">
           <div className="flex flex-col gap-4">
-            <h1 className="text-[40px] leading-[1.05] font-semibold md:text-6xl">
+            <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
               Ne payez que ce que vous avez reçu.
             </h1>
             <p className="max-w-xl text-lg text-muted-foreground">
@@ -200,25 +181,13 @@ function Login() {
             </p>
           </div>
           <DemoButton />
-          <ul className="flex flex-col gap-5">
+          <ListGroup>
             {STEPS.map(({ icon, title, text }) => (
-              <li key={title} className="flex items-start gap-4">
-                <IconBubble
-                  icon={icon}
-                  className="bg-primary/10 text-primary"
-                />
-                <span className="flex flex-col">
-                  <span className="font-medium">{title}</span>
-                  <span className="text-muted-foreground">{text}</span>
-                </span>
-              </li>
+              <ListRow key={title} icon={icon} title={title} subtitle={text} />
             ))}
-          </ul>
+          </ListGroup>
         </section>
-
-        <Card className="p-6 md:p-8">
-          <LoginForm />
-        </Card>
+        <LoginCard />
       </div>
     </div>
   )

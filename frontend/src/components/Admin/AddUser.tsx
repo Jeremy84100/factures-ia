@@ -6,8 +6,13 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { type UserCreate, UsersService } from "@/client"
+import {
+  CheckboxField,
+  PasswordField,
+  SubmitButton,
+  TextField,
+} from "@/components/App/FormFields"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogClose,
@@ -18,16 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
+import { FieldGroup } from "@/components/ui/field"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
@@ -51,6 +47,8 @@ const formSchema = z
   })
 
 type FormData = z.infer<typeof formSchema>
+
+const PASSWORD_HINT = "8 caractères minimum"
 
 const AddUser = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -91,8 +89,8 @@ const AddUser = () => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="my-4">
-          <Plus className="mr-2" />
+        <Button>
+          <Plus data-icon="inline-start" />
           Ajouter un utilisateur
         </Button>
       </DialogTrigger>
@@ -103,132 +101,52 @@ const AddUser = () => {
             Remplissez le formulaire pour ajouter un utilisateur.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Email <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="E-mail"
-                        type="email"
-                        {...field}
-                        required
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="full_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nom</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Full name" type="text" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Set Password <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Mot de passe"
-                        type="password"
-                        {...field}
-                        required
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="confirm_password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Confirmez le mot de passe{" "}
-                      <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Mot de passe"
-                        type="password"
-                        {...field}
-                        required
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_superuser"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Is superuser?</FormLabel>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Is active?</FormLabel>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline" disabled={mutation.isPending}>
-                  Annuler
-                </Button>
-              </DialogClose>
-              <LoadingButton type="submit" loading={mutation.isPending}>
-                Enregistrer
-              </LoadingButton>
-            </DialogFooter>
-          </form>
-        </Form>
+        <form id="add-user-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <FieldGroup>
+            <TextField
+              control={form.control}
+              name="email"
+              label="E-mail"
+              type="email"
+              placeholder="nom@entreprise.fr"
+            />
+            <TextField control={form.control} name="full_name" label="Nom" />
+            <PasswordField
+              control={form.control}
+              name="password"
+              label="Mot de passe"
+              autoComplete="new-password"
+              description={PASSWORD_HINT}
+            />
+            <PasswordField
+              control={form.control}
+              name="confirm_password"
+              label="Confirmez le mot de passe"
+              autoComplete="new-password"
+            />
+            <CheckboxField
+              control={form.control}
+              name="is_superuser"
+              label="Administrateur"
+              description="Peut gérer les autres utilisateurs."
+            />
+            <CheckboxField
+              control={form.control}
+              name="is_active"
+              label="Compte actif"
+            />
+          </FieldGroup>
+        </form>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={mutation.isPending}>
+              Annuler
+            </Button>
+          </DialogClose>
+          <SubmitButton form="add-user-form" pending={mutation.isPending}>
+            Ajouter
+          </SubmitButton>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
