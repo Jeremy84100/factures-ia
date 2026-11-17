@@ -143,6 +143,9 @@ const EMPTY_LINE: LineData = {
 const toText = (value: string | number | null | undefined) =>
   value === null || value === undefined ? "" : String(value)
 
+const toNumberText = (value: string | number | null | undefined) =>
+  value === null || value === undefined ? "" : String(Number(value))
+
 const toValue = (value: string) => {
   const trimmed = value.trim().replace(",", ".")
   return trimmed === "" ? null : trimmed
@@ -176,9 +179,9 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
       lines: (document.lines ?? []).map((line) => ({
         reference: toText(line.reference),
         description: toText(line.description),
-        quantity: toText(line.quantity),
+        quantity: toNumberText(line.quantity),
         unit: toText(line.unit),
-        unit_price: toText(line.unit_price),
+        unit_price: toNumberText(line.unit_price),
         amount_excl_tax: toText(line.amount_excl_tax),
       })),
     } as FormData,

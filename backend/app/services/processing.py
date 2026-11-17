@@ -143,11 +143,11 @@ def expire_stale(session: Session) -> None:
         select(Document).where(
             or_(
                 and_(
-                    Document.status == DocumentStatus.processing,
+                    col(Document.status) == DocumentStatus.processing,
                     since < now - STALE_AFTER,
                 ),
                 and_(
-                    Document.status == DocumentStatus.pending,
+                    col(Document.status) == DocumentStatus.pending,
                     since < now - QUEUED_TOO_LONG,
                 ),
             )
