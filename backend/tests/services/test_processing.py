@@ -215,3 +215,18 @@ def test_order_reference_is_kept(db: Session) -> None:
     )
     process_document(document.id, engine, FakeReader(), FakeExtractor(delivery))
     assert reload(db, document).order_reference == "CMD-2041"
+
+
+def test_same_number_on_another_type_is_not_a_duplicate(db: Session) -> None:
+    order = create_random_document(db)
+    process_document(order.id, engine, FakeReader(), FakeExtractor(ORDER))
+    delivery = Document(
+        filename="bl.pdf", file=b"%PDF", owner_id=reload(db, order).owner_id
+    )
+    db.add(delivery)
+    db.commit()
+    same_number = ORDER.model_copy(
+        update={"document_type": "bon_de_livraison", "order_reference": "CMD-2041"}
+    )
+    process_document(delivery.id, engine, FakeReader(), FakeExtractor(same_number))
+    assert reload(db, delivery).status == DocumentStatus.ok

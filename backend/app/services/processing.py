@@ -16,7 +16,7 @@ from app.models import (
 )
 from app.services.checks import (
     NUMBER_ISSUES,
-    check_invoice,
+    check_document,
     number_issue,
     review_extraction,
 )
@@ -125,6 +125,7 @@ def find_duplicate(session: Session, document: Document) -> Document | None:
     statement = select(Document).where(
         Document.owner_id == document.owner_id,
         Document.id != document.id,
+        Document.kind == document.kind,
         Document.number == document.number,
         func.lower(col(Document.supplier)) == document.supplier.lower(),
     )
@@ -159,6 +160,7 @@ def recheck_duplicates_of(session: Session, deleted: Document) -> None:
         select(Document).where(
             Document.owner_id == deleted.owner_id,
             Document.id != deleted.id,
+            Document.kind == deleted.kind,
             Document.status == DocumentStatus.to_check,
             Document.number == deleted.number,
             func.lower(col(Document.supplier)) == deleted.supplier.lower(),
@@ -176,7 +178,7 @@ def recheck_duplicates_of(session: Session, deleted: Document) -> None:
 def run_checks(
     session: Session, document: Document, extraction_issues: list[str] | None = None
 ) -> None:
-    status, issues = check_invoice(
+    status, issues = check_document(
         document,
         find_duplicate(session, document),
         extraction_issues=extraction_issues,

@@ -1,18 +1,23 @@
 import re
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
-from app.models import Document, DocumentStatus
+from app.models import Document, DocumentKind, DocumentStatus, LineFields
 from app.services.extraction import ExtractedDocument
 
 TOLERANCE = Decimal("0.02")
+CENT = Decimal("0.01")
 DUPLICATE_OF = "Doublon possible de"
 SAME_NUMBER_AS = "Même numéro que"
 NUMBER_ISSUES = (DUPLICATE_OF, SAME_NUMBER_AS)
+NOT_A_PURCHASE_DOCUMENT = "Ni facture, ni bon de commande, ni bon de livraison"
+NO_LINES = "Aucune ligne d'article trouvée"
+NO_ORDER_REFERENCE = "Numéro de commande introuvable : à relier à une commande"
 
 
-def number_issue(invoice: Document, other: Document) -> str:
-    if other.amount_incl_tax == invoice.amount_incl_tax:
+def number_issue(document: Document, other: Document) -> str:
+    if other.amount_incl_tax == document.amount_incl_tax:
         return f"{DUPLICATE_OF} « {other.filename} »"
     return f"{SAME_NUMBER_AS} « {other.filename} » mais un autre montant"
 
@@ -20,10 +25,15 @@ def number_issue(invoice: Document, other: Document) -> str:
 MONTH_FIRST_CURRENCIES = {"USD"}
 NUMERIC_DATE = re.compile(r"^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\s*$")
 
+HEADER = {"supplier": "fournisseur", "number": "numéro", "document_date": "date"}
 REQUIRED_FIELDS = {
-    "supplier": "fournisseur",
-    "document_date": "date",
-    "amount_incl_tax": "montant TTC",
+    DocumentKind.invoice: {
+        "supplier": "fournisseur",
+        "document_date": "date",
+        "amount_incl_tax": "montant TTC",
+    },
+    DocumentKind.order: HEADER,
+    DocumentKind.delivery: HEADER,
 }
 
 
@@ -48,25 +58,53 @@ def review_extraction(extracted: ExtractedDocument) -> list[str]:
     return [date_issue] if date_issue else []
 
 
-def check_invoice(
-    invoice: Document,
-    duplicate_of: Document | None,
-    today: date | None = None,
-    extraction_issues: list[str] | None = None,
-) -> tuple[DocumentStatus, list[str]]:
-    missing = [
-        label
-        for field, label in REQUIRED_FIELDS.items()
-        if getattr(invoice, field) is None
-    ]
-    if missing:
-        return DocumentStatus.unreadable, [f"Champ introuvable : {', '.join(missing)}"]
+def show(value: Decimal) -> str:
+    text = format(value.normalize(), "f")
+    return text if text != "-0" else "0"
 
-    issues = list(extraction_issues or [])
+
+def line_label(line: LineFields, index: int) -> str:
+    return line.reference or line.description or f"Ligne {index + 1}"
+
+
+def check_lines(lines: Sequence[LineFields], allow_negative: bool = False) -> list[str]:
+    issues = []
+    for index, line in enumerate(lines):
+        label = line_label(line, index)
+        quantity, price, amount = line.quantity, line.unit_price, line.amount_excl_tax
+        if quantity is not None and quantity <= 0 and not allow_negative:
+            issues.append(f"{label} : quantité {show(quantity)}")
+        if quantity is not None and price is not None and amount is not None:
+            expected = (quantity * price).quantize(CENT)
+            if abs(expected - amount) > TOLERANCE:
+                issues.append(
+                    f"{label} : {show(quantity)} × {show(price)} = {expected}"
+                    f" mais montant = {amount}"
+                )
+    return issues
+
+
+def check_lines_total(
+    lines: Sequence[LineFields], total_excl_tax: Decimal | None
+) -> str | None:
+    amounts = [line.amount_excl_tax for line in lines]
+    if not amounts or total_excl_tax is None or None in amounts:
+        return None
+    lines_total = sum(amount for amount in amounts if amount is not None)
+    if abs(abs(lines_total) - abs(total_excl_tax)) > TOLERANCE:
+        return (
+            f"Somme des lignes = {lines_total} mais total HT = {total_excl_tax}"
+            " (remise globale ?)"
+        )
+    return None
+
+
+def check_invoice_amounts(document: Document) -> list[str]:
+    issues = []
     excl, vat, incl = (
-        invoice.amount_excl_tax,
-        invoice.vat_amount,
-        invoice.amount_incl_tax,
+        document.amount_excl_tax,
+        document.vat_amount,
+        document.amount_incl_tax,
     )
 
     if excl is not None and vat is not None and incl is not None:
@@ -74,19 +112,54 @@ def check_invoice(
             issues.append(f"HT + TVA = {excl + vat} mais TTC = {incl}")
 
     amounts = [amount for amount in (excl, vat, incl) if amount is not None]
-    if not invoice.is_credit_note and any(amount < 0 for amount in amounts):
+    if not document.is_credit_note and any(amount < 0 for amount in amounts):
         issues.append("Montant négatif sur une facture (avoir ?)")
 
-    if incl and not invoice.vat_exemption:
+    if incl and not document.vat_exemption:
         if vat == 0:
             issues.append("TVA à 0 sans mention d'exonération")
         elif vat is None:
             issues.append("Montant de TVA introuvable")
+    return issues
 
-    if invoice.document_date and invoice.document_date > (today or date.today()):
+
+def check_document(
+    document: Document,
+    duplicate_of: Document | None,
+    today: date | None = None,
+    extraction_issues: list[str] | None = None,
+) -> tuple[DocumentStatus, list[str]]:
+    if document.kind == DocumentKind.unknown:
+        return DocumentStatus.unreadable, [NOT_A_PURCHASE_DOCUMENT]
+
+    missing = [
+        label
+        for field, label in REQUIRED_FIELDS[document.kind].items()
+        if getattr(document, field) is None
+    ]
+    if missing:
+        return DocumentStatus.unreadable, [f"Champ introuvable : {', '.join(missing)}"]
+
+    issues = list(extraction_issues or [])
+    lines = document.lines
+
+    if document.kind == DocumentKind.invoice:
+        issues += check_invoice_amounts(document)
+    elif not lines:
+        issues.append(NO_LINES)
+
+    issues += check_lines(lines, allow_negative=document.is_credit_note)
+    if document.kind != DocumentKind.delivery:
+        if total_issue := check_lines_total(lines, document.amount_excl_tax):
+            issues.append(total_issue)
+
+    if document.kind == DocumentKind.delivery and not document.order_reference:
+        issues.append(NO_ORDER_REFERENCE)
+
+    if document.document_date and document.document_date > (today or date.today()):
         issues.append("Date dans le futur")
 
     if duplicate_of is not None:
-        issues.append(number_issue(invoice, duplicate_of))
+        issues.append(number_issue(document, duplicate_of))
 
     return (DocumentStatus.to_check if issues else DocumentStatus.ok), issues

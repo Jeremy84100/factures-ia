@@ -148,8 +148,12 @@ class Document(DocumentFields, table=True):
 class DocumentLine(LineFields, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     position: int = 0
-    document_id: uuid.UUID = Field(
-        foreign_key="document.id", nullable=False, ondelete="CASCADE", index=True
+    document_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="document.id",
+        nullable=False,
+        ondelete="CASCADE",
+        index=True,
     )
     document: Document | None = Relationship(back_populates="lines")
 
