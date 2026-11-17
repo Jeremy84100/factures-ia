@@ -175,6 +175,55 @@ class DocumentsPublic(SQLModel):
     count: int
 
 
+class PurchaseStatus(StrEnum):
+    to_pay = "to_pay"
+    dispute = "dispute"
+    waiting = "waiting"
+    no_order = "no_order"
+
+
+class DocumentRef(SQLModel):
+    id: uuid.UUID
+    kind: DocumentKind
+    filename: str
+    number: str | None = None
+    document_date: date | None = None
+    status: DocumentStatus
+
+
+class LineMatch(SQLModel):
+    label: str
+    reference: str | None = None
+    ordered: Decimal | None = None
+    delivered: Decimal = Decimal(0)
+    invoiced: Decimal = Decimal(0)
+    order_price: Decimal | None = None
+    invoice_price: Decimal | None = None
+    issues: list[str] = []
+    notes: list[str] = []
+
+
+class Purchase(SQLModel):
+    key: str
+    order_reference: str
+    supplier: str | None = None
+    status: PurchaseStatus
+    orders: list[DocumentRef] = []
+    deliveries: list[DocumentRef] = []
+    invoices: list[DocumentRef] = []
+    lines: list[LineMatch] = []
+    issues: list[str] = []
+    notes: list[str] = []
+    invoiced_excl_tax: Decimal | None = None
+    gap_excl_tax: Decimal | None = None
+
+
+class Purchases(SQLModel):
+    data: list[Purchase]
+    unlinked: list[DocumentRef]
+    count: int
+
+
 class SupplierTotal(SQLModel):
     supplier: str
     count: int

@@ -90,7 +90,7 @@ def check_lines_total(
     amounts = [line.amount_excl_tax for line in lines]
     if not amounts or total_excl_tax is None or None in amounts:
         return None
-    lines_total = sum(amount for amount in amounts if amount is not None)
+    lines_total = sum((a for a in amounts if a is not None), Decimal(0))
     if abs(abs(lines_total) - abs(total_excl_tax)) > TOLERANCE:
         return (
             f"Somme des lignes = {lines_total} mais total HT = {total_excl_tax}"
