@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   ChevronsUpDown,
+  CircleUser,
   FileText,
   House,
   LogOut,
@@ -17,12 +18,7 @@ import {
 import { useTheme } from "next-themes"
 
 import { useFilePicker } from "@/components/App/UploadButton"
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -87,10 +83,52 @@ export function displayName(user?: {
 export const isDemoUser = (user?: { email: string } | null) =>
   !!user?.email.endsWith(DEMO_DOMAIN)
 
-function NavUser() {
+// Theme, account and logout: shared by the sidebar (computer) and the
+// "Compte" tab (phone).
+function AccountMenuItems() {
   const { user, logout } = useAuth()
   const { theme, setTheme } = useTheme()
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { setOpenMobile } = useSidebar()
+  return (
+    <>
+      <DropdownMenuLabel>Apparence</DropdownMenuLabel>
+      <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+        {THEMES.map(({ value, label, icon: Icon }) => (
+          <DropdownMenuRadioItem key={value} value={value}>
+            <Icon />
+            {label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuItem asChild>
+          <Link to="/settings" onClick={() => setOpenMobile(false)}>
+            <Settings />
+            Mon compte
+          </Link>
+        </DropdownMenuItem>
+        {user?.is_superuser && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin" onClick={() => setOpenMobile(false)}>
+              <Users />
+              Utilisateurs
+            </Link>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={logout}>
+        <LogOut />
+        Se déconnecter
+      </DropdownMenuItem>
+    </>
+  )
+}
+
+function NavUser() {
+  const { user } = useAuth()
+  const { isMobile } = useSidebar()
   const name = displayName(user ?? undefined)
   const subtitle = isDemoUser(user) ? "Compte de démonstration" : user?.email
 
@@ -115,37 +153,7 @@ function NavUser() {
             align="end"
             className="min-w-56"
           >
-            <DropdownMenuLabel>Apparence</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-              {THEMES.map(({ value, label, icon: Icon }) => (
-                <DropdownMenuRadioItem key={value} value={value}>
-                  <Icon />
-                  {label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link to="/settings" onClick={() => setOpenMobile(false)}>
-                  <Settings />
-                  Mon compte
-                </Link>
-              </DropdownMenuItem>
-              {user?.is_superuser && (
-                <DropdownMenuItem asChild>
-                  <Link to="/admin" onClick={() => setOpenMobile(false)}>
-                    <Users />
-                    Utilisateurs
-                  </Link>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout}>
-              <LogOut />
-              Se déconnecter
-            </DropdownMenuItem>
+            <AccountMenuItems />
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
@@ -234,13 +242,13 @@ export function DemoBanner() {
   if (!isDemoUser(user)) return null
   return (
     <Alert>
-      <AlertTitle>Démo</AlertTitle>
+      <AlertTitle>Vous êtes dans la démo</AlertTitle>
       <AlertDescription>
-        Des exemples déjà lus. Ce que vous déposez reste privé.
-      </AlertDescription>
-      <AlertAction>
+        Des exemples déjà lus, visibles par vous seul.{" "}
         <Button
+          variant="link"
           size="sm"
+          className="h-auto p-0"
           onClick={() => {
             logout()
             navigate({ to: "/signup" })
@@ -248,7 +256,45 @@ export function DemoBanner() {
         >
           Créer mon compte
         </Button>
-      </AlertAction>
+      </AlertDescription>
     </Alert>
+  )
+}
+
+// Phone navigation: tabs at the bottom, within reach of the thumb.
+export function TabBar() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isActive = (to: Path) =>
+    to === "/" ? pathname === "/" : pathname.startsWith(to)
+  const tab = (active: boolean) =>
+    active
+      ? "h-auto flex-1 flex-col gap-1 py-2 text-xs"
+      : "h-auto flex-1 flex-col gap-1 py-2 text-xs text-muted-foreground"
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background px-2 pb-[env(safe-area-inset-bottom)] md:hidden">
+      {NAV.map(({ to, label, icon: Icon }) => (
+        <Button key={to} variant="ghost" className={tab(isActive(to))} asChild>
+          <Link to={to} aria-current={isActive(to) ? "page" : undefined}>
+            <Icon className="size-5" />
+            {label}
+          </Link>
+        </Button>
+      ))}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            className={tab(pathname.startsWith("/settings"))}
+            data-testid="account-tab"
+          >
+            <CircleUser className="size-5" />
+            Compte
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="end" className="min-w-56">
+          <AccountMenuItems />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </nav>
   )
 }

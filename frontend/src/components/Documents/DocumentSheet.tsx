@@ -3,24 +3,22 @@ import { Eye, Pencil, RotateCw, Trash2, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 
 import { type DocumentPublic, DocumentsService } from "@/client"
+import {
+  BigAmount,
+  QuickAction,
+  QuickActions,
+} from "@/components/App/QuickAction"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@/components/ui/item"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   formatAmount,
@@ -66,18 +64,20 @@ function Details({ document }: { document: DocumentPublic }) {
   }
   rows.push(["Fichier", document.filename])
   return (
-    <Table>
-      <TableBody>
+    <Card size="sm" className="gap-0 py-1.5">
+      <ItemGroup className="gap-0">
         {rows.map(([label, value]) => (
-          <TableRow key={label}>
-            <TableCell className="text-muted-foreground">{label}</TableCell>
-            <TableCell className="text-right font-medium whitespace-normal break-all">
-              {value}
-            </TableCell>
-          </TableRow>
+          <Item key={label} size="sm" className="flex-nowrap">
+            <ItemContent>
+              <ItemDescription>{label}</ItemDescription>
+            </ItemContent>
+            <ItemActions className="min-w-0 text-right">
+              <span className="font-medium break-all">{value}</span>
+            </ItemActions>
+          </Item>
         ))}
-      </TableBody>
-    </Table>
+      </ItemGroup>
+    </Card>
   )
 }
 
@@ -86,38 +86,35 @@ function Lines({ document }: { document: DocumentPublic }) {
   if (lines.length === 0) return null
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-muted-foreground">
+      <h2 className="px-1 text-base font-semibold">
         {lines.length > 1 ? `${lines.length} articles` : "1 article"}
       </h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Article</TableHead>
-            <TableHead className="text-right">Qté</TableHead>
-            <TableHead className="text-right">Montant HT</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+      <Card size="sm" className="gap-0 py-1.5">
+        <ItemGroup className="gap-0">
           {lines.map((line, index) => (
-            <TableRow key={`${line.reference}-${index}`}>
-              <TableCell className="whitespace-normal">
-                <div>{line.description ?? line.reference}</div>
+            <Item key={`${line.reference}-${index}`} className="flex-nowrap">
+              <ItemContent className="min-w-0">
+                <ItemTitle className="block w-full">
+                  {line.description ?? line.reference}
+                </ItemTitle>
                 {line.unit_price && (
-                  <div className="text-muted-foreground">
+                  <ItemDescription>
                     {formatAmount(line.unit_price)} l'unité
-                  </div>
+                  </ItemDescription>
                 )}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatQuantity(line.quantity)} {line.unit ?? ""}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatAmount(line.amount_excl_tax)}
-              </TableCell>
-            </TableRow>
+              </ItemContent>
+              <ItemActions className="flex-col items-end gap-1 text-right">
+                <span className="font-medium tabular-nums">
+                  {formatAmount(line.amount_excl_tax)}
+                </span>
+                <span className="text-muted-foreground tabular-nums">
+                  {formatQuantity(line.quantity)} {line.unit ?? ""}
+                </span>
+              </ItemActions>
+            </Item>
           ))}
-        </TableBody>
-      </Table>
+        </ItemGroup>
+      </Card>
     </section>
   )
 }
@@ -172,19 +169,13 @@ export function DocumentSheet({
           .join(" ")}
       >
         <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                {document.kind === "invoice" ? "Total TTC" : "Total HT"}
-              </CardDescription>
-              <CardTitle className="text-2xl tabular-nums">
-                {amount ?? "—"}
-              </CardTitle>
-              <CardAction>
-                <DocumentBadge document={document} />
-              </CardAction>
-            </CardHeader>
-          </Card>
+          <section className="flex flex-col items-center gap-2 text-center">
+            <DocumentBadge document={document} />
+            <p className="text-sm text-muted-foreground">
+              {document.kind === "invoice" ? "Total TTC" : "Total HT"}
+            </p>
+            <BigAmount text={amount ?? "—"} size="md" />
+          </section>
 
           {document.issues.length > 0 && (
             <Alert>
@@ -200,42 +191,39 @@ export function DocumentSheet({
             </Alert>
           )}
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Button
-              variant="outline"
+          <QuickActions>
+            <QuickAction
+              icon={Eye}
+              label="Voir"
               onClick={() =>
                 openPdf(document.id).catch(() =>
                   showErrorToast("Impossible d'ouvrir le document"),
                 )
               }
-            >
-              <Eye data-icon="inline-start" />
-              Voir
-            </Button>
-            <Button
-              variant="outline"
+            />
+            <QuickAction
+              icon={Pencil}
+              label="Corriger"
               disabled={busy}
               onClick={() => {
                 setEditRound((round) => round + 1)
                 switchTo(setEditing)
               }}
-            >
-              <Pencil data-icon="inline-start" />
-              Corriger
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy || retry.isPending}
+            />
+            <QuickAction
+              icon={RotateCw}
+              label="Relire"
+              disabled={busy}
+              pending={retry.isPending}
               onClick={() => retry.mutate(document.id)}
-            >
-              <RotateCw data-icon="inline-start" />
-              Relire
-            </Button>
-            <Button variant="destructive" onClick={() => switchTo(setDeleting)}>
-              <Trash2 data-icon="inline-start" />
-              Supprimer
-            </Button>
-          </div>
+            />
+            <QuickAction
+              icon={Trash2}
+              label="Supprimer"
+              destructive
+              onClick={() => switchTo(setDeleting)}
+            />
+          </QuickActions>
 
           <Details document={document} />
           <Lines document={document} />

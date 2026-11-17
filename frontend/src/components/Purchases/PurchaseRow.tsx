@@ -82,12 +82,9 @@ export function PurchaseRow({
       icon={PURCHASE_ICON[purchase.status]}
       title={purchase.supplier ?? `Commande ${purchase.order_reference}`}
       subtitle={summary(purchase)}
-      actions={
-        <>
-          <span className="text-sm font-medium tabular-nums">{amount}</span>
-          <PurchaseBadge purchase={purchase} />
-        </>
-      }
+      value={amount}
+      meta={PURCHASE_STATUS[purchase.status].label}
+      alert={purchase.status === "dispute"}
       onClick={onClick}
     />
   )

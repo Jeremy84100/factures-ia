@@ -99,8 +99,10 @@ function Purchases() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-muted-foreground">
-        Commande, livraison et facture comparées ligne par ligne
+      <p className="text-sm text-muted-foreground">
+        {filter === "unlinked"
+          ? "Touchez un document, puis « Corriger » pour ajouter son numéro de commande."
+          : "Commande, livraison et facture comparées ligne par ligne."}
       </p>
 
       <FilterChips
@@ -117,13 +119,14 @@ function Purchases() {
       {empty ? (
         <Nothing filter={filter} />
       ) : filter === "unlinked" ? (
-        <ListGroup title="Sans numéro de commande : touchez un document, puis « Corriger » pour l'ajouter.">
+        <ListGroup title="Sans numéro de commande">
           {data.unlinked.map((document) => (
             <ListRow
               key={document.id}
               icon={Link2}
               title={`${KIND_LONG[document.kind]} ${document.number ?? ""}`}
               subtitle={`${formatDate(document.document_date)} · ${document.filename}`}
+              chevron
               onClick={() => {
                 setDocumentId(document.id)
                 setDocumentOpen(true)

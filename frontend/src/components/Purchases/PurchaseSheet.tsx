@@ -1,5 +1,4 @@
 import {
-  ChevronRight,
   ClipboardList,
   Info,
   Receipt,
@@ -7,26 +6,22 @@ import {
   Truck,
 } from "lucide-react"
 
+import { Fragment } from "react"
+
 import type { DocumentRef, LineMatch, Purchase } from "@/client"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card } from "@/components/ui/card"
 import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   afterLabel,
@@ -39,7 +34,7 @@ import { openPdf } from "@/lib/pdf"
 import { overbilled, PurchaseBadge } from "./PurchaseRow"
 
 const KIND_ICON = { order: ClipboardList, delivery: Truck, invoice: Receipt }
-// "facturé 50, livré 45": the table already shows it in red.
+// "facturé 50, livré 45": the figures already show it in red.
 const REPEATS_FIGURES = /(facturé|livré) \S+, (livré|commandé) \S+/
 
 function Verdict({ purchase }: { purchase: Purchase }) {
@@ -55,25 +50,25 @@ function Verdict({ purchase }: { purchase: Purchase }) {
             `Hors taxes, sur ${formatAmount(invoiced)} facturés`,
           ]
         : purchase.status === "dispute"
-          ? ["Verdict", "Ne payez pas tout de suite", null]
+          ? ["Verdict", "À ne pas payer tout de suite", null]
           : purchase.status === "waiting"
             ? ["Verdict", "Pas encore payable", null]
             : ["Verdict", "Livraison et facture comparées entre elles", null]
   return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{amount}</CardTitle>
-        <CardAction>
-          <PurchaseBadge purchase={purchase} />
-        </CardAction>
-      </CardHeader>
-      {footer && (
-        <CardFooter className="text-sm text-muted-foreground">
-          {footer}
-        </CardFooter>
-      )}
-    </Card>
+    <section className="flex flex-col items-center gap-2 text-center">
+      <PurchaseBadge purchase={purchase} />
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p
+        className={
+          footer
+            ? "text-4xl font-semibold tracking-tight tabular-nums"
+            : "text-xl font-semibold"
+        }
+      >
+        {amount}
+      </p>
+      {footer && <p className="text-sm text-muted-foreground">{footer}</p>}
+    </section>
   )
 }
 
@@ -112,14 +107,37 @@ function Reasons({ purchase }: { purchase: Purchase }) {
   )
 }
 
+function Figure({
+  label,
+  value,
+  flagged,
+}: {
+  label: string
+  value: string
+  flagged: boolean
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span
+        className={
+          flagged
+            ? "font-medium text-destructive tabular-nums"
+            : "font-medium tabular-nums"
+        }
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+// One article: its name, then ordered / delivered / invoiced side by side,
+// the figure at fault in red.
 function LineRow({ line }: { line: LineMatch }) {
   const issues = line.issues ?? []
   const notes = line.notes ?? []
   const flagged = (word: string) => issues.some((issue) => issue.includes(word))
-  const cell = (word: string) =>
-    flagged(word)
-      ? "text-right font-medium text-destructive tabular-nums"
-      : "text-right tabular-nums"
   const priceChanged =
     line.invoice_price != null &&
     line.order_price != null &&
@@ -128,50 +146,50 @@ function LineRow({ line }: { line: LineMatch }) {
     (text) => !text.includes("prix") && !REPEATS_FIGURES.test(text),
   )
   return (
-    <TableRow>
-      <TableCell className="whitespace-normal">
-        <div className="font-medium">{line.label}</div>
-        {line.reference && (
-          <div className="text-muted-foreground">{line.reference}</div>
-        )}
+    <Item>
+      <ItemContent className="min-w-0">
+        <ItemTitle className="block w-full">{line.label}</ItemTitle>
+        {line.reference && <ItemDescription>{line.reference}</ItemDescription>}
         {line.fee && (
-          <div className="text-muted-foreground">
+          <ItemDescription>
             Frais : payés sur la quantité commandée
-          </div>
+          </ItemDescription>
         )}
         {priceChanged && (
-          <div
-            className={
-              flagged("prix") ? "text-destructive" : "text-muted-foreground"
-            }
+          <ItemDescription
+            className={flagged("prix") ? "text-destructive" : undefined}
           >
             Prix {formatAmount(line.order_price)} commandé,{" "}
             {formatAmount(line.invoice_price)} facturé
-          </div>
+          </ItemDescription>
         )}
         {extra.map((text) => (
-          <div
+          <ItemDescription
             key={text}
-            className={
-              issues.includes(text)
-                ? "text-destructive"
-                : "text-muted-foreground"
-            }
+            className={issues.includes(text) ? "text-destructive" : undefined}
           >
             {afterLabel(text)}
-          </div>
+          </ItemDescription>
         ))}
-      </TableCell>
-      <TableCell className={cell("commandé")}>
-        {formatQuantity(line.ordered)}
-      </TableCell>
-      <TableCell className={cell("livré")}>
-        {line.fee ? "—" : formatQuantity(line.delivered)}
-      </TableCell>
-      <TableCell className={cell("facturé")}>
-        {formatQuantity(line.invoiced)}
-      </TableCell>
-    </TableRow>
+      </ItemContent>
+      <ItemFooter className="gap-4">
+        <Figure
+          label="Commandé"
+          value={formatQuantity(line.ordered)}
+          flagged={flagged("commandé")}
+        />
+        <Figure
+          label="Livré"
+          value={line.fee ? "—" : formatQuantity(line.delivered)}
+          flagged={flagged("livré")}
+        />
+        <Figure
+          label="Facturé"
+          value={formatQuantity(line.invoiced)}
+          flagged={flagged("facturé")}
+        />
+      </ItemFooter>
+    </Item>
   )
 }
 
@@ -183,7 +201,7 @@ function DocumentLink({ document }: { document: DocumentRef }) {
       icon={KIND_ICON[kind] ?? Receipt}
       title={`${KIND_LONG[document.kind]} ${document.number ?? ""}`}
       subtitle={formatDate(document.document_date)}
-      actions={<ChevronRight />}
+      chevron
       onClick={() =>
         openPdf(document.id).catch(() =>
           showErrorToast("Impossible d'ouvrir le document"),
@@ -221,27 +239,17 @@ export function PurchaseSheet({
 
         {(purchase.lines?.length ?? 0) > 0 && (
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Articles
-            </h2>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Article</TableHead>
-                  <TableHead className="text-right">Commandé</TableHead>
-                  <TableHead className="text-right">Livré</TableHead>
-                  <TableHead className="text-right">Facturé</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {purchase.lines?.map((line) => (
-                  <LineRow
-                    key={`${line.reference}-${line.label}`}
-                    line={line}
-                  />
+            <h2 className="px-1 text-base font-semibold">Articles</h2>
+            <Card size="sm" className="gap-0 py-1.5">
+              <ItemGroup className="gap-0">
+                {purchase.lines?.map((line, index) => (
+                  <Fragment key={`${line.reference}-${line.label}`}>
+                    {index > 0 && <ItemSeparator className="my-0" />}
+                    <LineRow line={line} />
+                  </Fragment>
                 ))}
-              </TableBody>
-            </Table>
+              </ItemGroup>
+            </Card>
           </section>
         )}
 

@@ -53,20 +53,17 @@ export function DocumentRow({
       subtitle={
         busy
           ? "L'IA lit le document…"
-          : [kind, document.number, formatDate(document.document_date)]
+          : [kind, document.number]
               .filter((part) => part && part !== "—")
-              .join(" · ")
+              .join(" ")
       }
-      actions={
-        <>
-          {amount && (
-            <span className="text-sm font-medium tabular-nums">{amount}</span>
-          )}
-          {!busy && document.status !== "ok" && (
-            <DocumentBadge document={document} />
-          )}
-        </>
+      value={amount}
+      meta={
+        busy || document.status === "ok"
+          ? formatDate(document.document_date)
+          : STATUS[document.status].label
       }
+      alert={document.status === "unreadable"}
       onClick={onClick}
     />
   )

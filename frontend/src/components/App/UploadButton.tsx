@@ -5,15 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { ACCEPTED, useUpload } from "@/hooks/useUpload"
 
-export function useFilePicker() {
+// With `camera`, a phone opens its camera straight away (one photo at a time);
+// a computer simply offers to pick images.
+export function useFilePicker({ camera = false }: { camera?: boolean } = {}) {
   const input = useRef<HTMLInputElement>(null)
   const { upload, isPending } = useUpload()
   const picker = (
     <input
       ref={input}
       type="file"
-      accept={ACCEPTED}
-      multiple
+      accept={camera ? "image/*" : ACCEPTED}
+      capture={camera ? "environment" : undefined}
+      multiple={!camera}
       hidden
       data-testid="document-input"
       onChange={(e) => {

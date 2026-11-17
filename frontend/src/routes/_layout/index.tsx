@@ -1,32 +1,35 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import {
-  ChevronRight,
+  Camera,
   Clock,
   FileWarning,
   Hourglass,
   Link2,
+  Plus,
   TriangleAlert,
   Upload,
 } from "lucide-react"
-import { type DragEvent, useState } from "react"
+import { type DragEvent, type ReactNode, useState } from "react"
 
 import type { Purchase } from "@/client"
 import { EmptyState } from "@/components/App/EmptyState"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
-import { displayName, isDemoUser } from "@/components/App/Navigation"
+import {
+  DemoBanner,
+  displayName,
+  isDemoUser,
+} from "@/components/App/Navigation"
+import {
+  BigAmount,
+  QuickAction,
+  QuickActions,
+} from "@/components/App/QuickAction"
 import { UploadButton, useFilePicker } from "@/components/App/UploadButton"
 import { overbilled, PurchaseRow } from "@/components/Purchases/PurchaseRow"
 import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import useAuth from "@/hooks/useAuth"
 import { formatAmount, isBusy, needsReview, plural } from "@/lib/documents"
@@ -42,28 +45,66 @@ export const Route = createFileRoute("/_layout/")({
   head: () => ({ meta: [{ title: "Accueil - Factures IA" }] }),
 })
 
-// shadcn Empty with a border, as in its examples. Files can also be dropped
-// anywhere on it.
-function DropZone() {
+// Files can be dropped anywhere on the page from a computer.
+function DropTarget({ children }: { children: ReactNode }) {
   const { upload } = useFilePicker()
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: mouse-only drop target; the button inside is the keyboard path
+    // biome-ignore lint/a11y/noStaticElementInteractions: mouse-only drop target; the buttons are the keyboard path
     <div
+      className="flex flex-col gap-8"
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event: DragEvent) => {
         event.preventDefault()
         upload(Array.from(event.dataTransfer.files))
       }}
     >
+      {children}
+    </div>
+  )
+}
+
+function HomeActions({ disputes }: { disputes: number }) {
+  const navigate = useNavigate()
+  const files = useFilePicker()
+  const photo = useFilePicker({ camera: true })
+  return (
+    <QuickActions>
+      {files.picker}
+      {photo.picker}
+      <QuickAction
+        icon={Plus}
+        label="Ajouter"
+        onClick={files.open}
+        pending={files.isPending}
+      />
+      <QuickAction
+        icon={Camera}
+        label="Photo"
+        onClick={photo.open}
+        pending={photo.isPending}
+      />
+      <QuickAction
+        icon={TriangleAlert}
+        label={disputes > 0 ? `Litiges (${disputes})` : "Litiges"}
+        onClick={() =>
+          navigate({ to: "/reconciliations", search: { filter: "dispute" } })
+        }
+      />
+    </QuickActions>
+  )
+}
+
+function FirstVisit() {
+  return (
+    <DropTarget>
       <EmptyState
         icon={Upload}
         title="Déposez vos documents"
-        description="Commandes, bons de livraison et factures, en PDF ou en photo, tout en vrac. Glissez-les ici ou choisissez-les."
-        className="border"
+        description="Commandes, bons de livraison et factures, en PDF ou en photo, tout en vrac."
       >
-        <UploadButton variant="outline">Choisir des fichiers</UploadButton>
+        <UploadButton>Choisir des fichiers</UploadButton>
       </EmptyState>
-    </div>
+    </DropTarget>
   )
 }
 
@@ -76,7 +117,7 @@ function Home() {
   const [selected, setSelected] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  if (documents.count === 0) return <DropZone />
+  if (documents.count === 0) return <FirstVisit />
 
   const list = purchases.data
   const toPay = list.filter((p) => p.status === "to_pay")
@@ -112,7 +153,7 @@ function Home() {
             ? `${formatAmount(extra)} facturés en trop`
             : "Un point bloque le paiement"
         }
-        actions={<ChevronRight />}
+        chevron
         onClick={() => go("dispute")}
       />
     ),
@@ -126,7 +167,7 @@ function Home() {
           "livraisons en retard",
         )}
         subtitle="Après la date promise"
-        actions={<ChevronRight />}
+        chevron
         onClick={() => go("late")}
       />
     ),
@@ -140,7 +181,7 @@ function Home() {
           "documents à relier",
         )}
         subtitle="Sans numéro de commande"
-        actions={<ChevronRight />}
+        chevron
         onClick={() => go("unlinked")}
       />
     ),
@@ -150,7 +191,7 @@ function Home() {
         icon={Hourglass}
         title={plural(waiting.length, "achat en attente", "achats en attente")}
         subtitle="Livraison ou facture manquante"
-        actions={<ChevronRight />}
+        chevron
         onClick={() => go("waiting")}
       />
     ),
@@ -160,7 +201,7 @@ function Home() {
         icon={FileWarning}
         title={plural(review, "document à vérifier", "documents à vérifier")}
         subtitle="L'IA a un doute"
-        actions={<ChevronRight />}
+        chevron
         onClick={() =>
           navigate({ to: "/documents", search: { filter: "review" } })
         }
@@ -169,23 +210,22 @@ function Home() {
   ].filter(Boolean)
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardDescription>
-            {name ? `Bonjour ${name}, vous` : "Vous"} pouvez payer
-          </CardDescription>
-          <CardTitle className="text-3xl tabular-nums">
-            {formatAmount(payable)}
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="text-sm text-muted-foreground">
+    <DropTarget>
+      <DemoBanner />
+      <section className="flex flex-col items-center gap-2 pt-2 text-center">
+        <p className="text-sm text-muted-foreground">
+          {name ? `Bonjour ${name}, vous` : "Vous"} pouvez payer
+        </p>
+        <BigAmount text={formatAmount(payable)} />
+        <p className="text-sm text-muted-foreground">
           Hors taxes ·{" "}
           {toPay.length > 0
-            ? `${plural(toPay.length, "achat vérifié", "achats vérifiés")} ligne par ligne`
-            : "aucun achat complet pour l'instant"}
-        </CardFooter>
-      </Card>
+            ? plural(toPay.length, "achat vérifié", "achats vérifiés")
+            : "aucun achat complet"}
+        </p>
+      </section>
+
+      <HomeActions disputes={disputes.length} />
 
       {reading > 0 && (
         <Alert>
@@ -222,13 +262,11 @@ function Home() {
         </ListGroup>
       )}
 
-      <DropZone />
-
       <PurchaseSheet
         purchase={list.find((p) => p.key === selected)}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       />
-    </div>
+    </DropTarget>
   )
 }

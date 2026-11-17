@@ -78,7 +78,7 @@ function Documents() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         {plural(data.count, "document", "documents")}, triés et lus par l'IA
       </p>
 

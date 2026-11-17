@@ -68,8 +68,8 @@ L'accueil donne en gros le montant qu'on peut payer, puis ce qu'il faut regarder
 
 ## Interface
 
-- [shadcn/ui](https://ui.shadcn.com) avec le preset `radix-luma`, couleur de base taupe, sur Tailwind CSS 4. Les composants sont ceux du registre, sans retouche : `Sidebar` pour la navigation, `Item` pour les listes, `Tabs` pour les filtres, `Card`, `Badge`, `Alert`, `Table`, `Empty`, `Field` et `InputGroup` pour les formulaires, `AlertDialog` pour les suppressions, `Dialog` sur ordinateur et `Drawer` sur téléphone pour les détails.
-- Sur téléphone, la navigation s'ouvre depuis le bouton en haut à gauche, le bouton « Ajouter » reste en haut à droite, et les détails montent du bas de l'écran.
+- [shadcn/ui](https://ui.shadcn.com) avec le preset `radix-luma`, couleur de base taupe, sur Tailwind CSS 4. Les composants sont ceux du registre, sans retouche : `Sidebar` pour la navigation sur ordinateur, `Item` pour les listes, `Tabs` pour les filtres, `Card`, `Badge`, `Alert`, `Table`, `Empty`, `Field` et `InputGroup` pour les formulaires, `AlertDialog` pour les suppressions, `Dialog` sur ordinateur et `Drawer` sur téléphone pour les détails.
+- Sur téléphone, une présentation d'appli bancaire : le montant à payer en grand, des boutons ronds (Ajouter, Photo qui ouvre l'appareil photo, Litiges), des listes regroupées dans un seul bloc avec le montant et le statut à droite, des onglets en bas de l'écran, et les détails qui montent du bas.
 - Aucun écran qui clignote : chaque page charge ses données avant de s'afficher (préchargées dès que le doigt ou la souris touche le lien), les onglets filtrent dans le navigateur sans recharger, et le thème clair ou sombre est appliqué avant le premier affichage.
 
 ## Vérifications

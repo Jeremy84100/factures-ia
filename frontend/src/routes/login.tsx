@@ -183,7 +183,13 @@ function Login() {
           <DemoButton />
           <ListGroup>
             {STEPS.map(({ icon, title, text }) => (
-              <ListRow key={title} icon={icon} title={title} subtitle={text} />
+              <ListRow
+                key={title}
+                icon={icon}
+                title={title}
+                subtitle={text}
+                wrap
+              />
             ))}
           </ListGroup>
         </section>
