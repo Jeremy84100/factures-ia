@@ -1,131 +1,264 @@
-import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import {
+  ChevronRight,
+  Clock,
+  FileWarning,
+  Hourglass,
+  Link2,
+  Loader2,
+  TriangleAlert,
+  Upload,
+} from "lucide-react"
+import { type DragEvent, useState } from "react"
 
-import { DocumentsService } from "@/client"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import type { Purchase } from "@/client"
+import { Amount } from "@/components/App/Amount"
+import { ListGroup, ListRow } from "@/components/App/ListRow"
+import { displayName, isDemoUser } from "@/components/App/Navigation"
+import { UploadButton, useFilePicker } from "@/components/App/UploadButton"
+import { overbilled, PurchaseRow } from "@/components/Purchases/PurchaseRow"
+import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
 import useAuth from "@/hooks/useAuth"
-import { formatAmount } from "@/lib/documents"
+import { formatAmount, isBusy, needsReview, plural } from "@/lib/documents"
+import { documentsQuery, purchasesQuery, useLiveOptions } from "@/lib/queries"
+import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_layout/")({
-  component: Dashboard,
-  head: () => ({
-    meta: [{ title: "Tableau de bord - Factures IA" }],
-  }),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(documentsQuery),
+      context.queryClient.ensureQueryData(purchasesQuery),
+    ]),
+  component: Home,
+  head: () => ({ meta: [{ title: "Accueil - Factures IA" }] }),
 })
 
-const YEAR = new Date().getFullYear()
-
-function useCount(status: "to_check" | "unreadable" | "failed" | "ok") {
-  return useQuery({
-    queryKey: ["documents", "count", status],
-    queryFn: async () =>
-      (
-        await DocumentsService.readDocuments({
-          query: { kind: "invoice", status, limit: 1 },
-        })
-      ).data.count,
-  })
-}
-
-function Stat({ label, value }: { label: string; value: number | undefined }) {
+function DropZone({ big = false }: { big?: boolean }) {
+  const { picker, open, upload, isPending } = useFilePicker()
+  const [over, setOver] = useState(false)
+  const onDrop = (event: DragEvent) => {
+    event.preventDefault()
+    setOver(false)
+    upload(Array.from(event.dataTransfer.files))
+  }
   return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-3xl tabular-nums">{value ?? "…"}</CardTitle>
-      </CardHeader>
-    </Card>
+    <>
+      {picker}
+      <button
+        type="button"
+        onClick={open}
+        onDragOver={(event) => {
+          event.preventDefault()
+          setOver(true)
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={onDrop}
+        className={cn(
+          "flex w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border px-6 text-center transition-colors hover:border-primary/50 hover:bg-primary/5",
+          big ? "py-16" : "hidden py-10 md:flex",
+          over && "border-primary bg-primary/5",
+        )}
+      >
+        <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          {isPending ? (
+            <Loader2 className="size-6 animate-spin" />
+          ) : (
+            <Upload className="size-6" />
+          )}
+        </span>
+        <span className="font-medium">
+          {isPending ? "Envoi…" : "Glissez vos documents ici"}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          Commandes, bons de livraison, factures · PDF ou photo · tout en vrac
+        </span>
+      </button>
+    </>
   )
 }
 
-function Dashboard() {
-  const { user: currentUser } = useAuth()
-  const ok = useCount("ok")
-  const toCheck = useCount("to_check")
-  const unreadable = useCount("unreadable")
-  const failed = useCount("failed")
-  const totals = useQuery({
-    queryKey: ["documents", "totals", YEAR],
-    queryFn: async () =>
-      (await DocumentsService.readSupplierTotals({ query: { year: YEAR } }))
-        .data,
-  })
+function Welcome() {
+  return (
+    <div className="flex flex-col gap-8 pt-4 md:pt-10">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-3xl font-semibold md:text-4xl">
+          Déposez vos premiers documents
+        </h1>
+        <p className="max-w-xl text-lg text-muted-foreground">
+          Mettez ensemble la commande, le bon de livraison et la facture d'un
+          même achat. L'IA les trie, les lit et vous dit si vous pouvez payer.
+        </p>
+      </div>
+      <DropZone big />
+      <UploadButton className="h-14 w-full text-base md:hidden">
+        Choisir des documents ou des photos
+      </UploadButton>
+    </div>
+  )
+}
 
-  const problems = (unreadable.data ?? 0) + (failed.data ?? 0)
+function Home() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const live = useLiveOptions()
+  const { data: documents } = useSuspenseQuery(live.documents)
+  const { data: purchases } = useSuspenseQuery(live.purchases)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  if (documents.count === 0) return <Welcome />
+
+  const list = purchases.data
+  const toPay = list.filter((p) => p.status === "to_pay")
+  const disputes = list.filter((p) => p.status === "dispute")
+  const waiting = list.filter((p) => p.status === "waiting")
+  const late = list.filter((p) => p.late)
+  const reading = documents.data.filter(isBusy).length
+  const review = documents.data.filter(needsReview).length
+  const payable = toPay.reduce(
+    (sum, p) => sum + Number(p.invoiced_excl_tax ?? 0),
+    0,
+  )
+  const extra = disputes.reduce((sum, p) => sum + overbilled(p), 0)
+  const name = isDemoUser(user)
+    ? ""
+    : displayName(user ?? undefined).split(" ")[0]
+
+  const open = (purchase: Purchase) => {
+    setSelected(purchase.key)
+    setSheetOpen(true)
+  }
+  const go = (filter: "dispute" | "waiting" | "late" | "unlinked") =>
+    navigate({ to: "/reconciliations", search: { filter } })
+
+  const todo = [
+    disputes.length > 0 && (
+      <ListRow
+        key="dispute"
+        icon={TriangleAlert}
+        tone="danger"
+        title={plural(disputes.length, "litige", "litiges")}
+        subtitle={
+          extra > 0.02
+            ? `${formatAmount(extra)} facturés en trop`
+            : "Un point bloque le paiement"
+        }
+        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        onClick={() => go("dispute")}
+      />
+    ),
+    late.length > 0 && (
+      <ListRow
+        key="late"
+        icon={Clock}
+        tone="warning"
+        title={plural(
+          late.length,
+          "livraison en retard",
+          "livraisons en retard",
+        )}
+        subtitle="Après la date promise"
+        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        onClick={() => go("late")}
+      />
+    ),
+    purchases.unlinked.length > 0 && (
+      <ListRow
+        key="unlinked"
+        icon={Link2}
+        tone="info"
+        title={plural(
+          purchases.unlinked.length,
+          "document à relier",
+          "documents à relier",
+        )}
+        subtitle="Sans numéro de commande"
+        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        onClick={() => go("unlinked")}
+      />
+    ),
+    waiting.length > 0 && (
+      <ListRow
+        key="waiting"
+        icon={Hourglass}
+        title={plural(waiting.length, "achat en attente", "achats en attente")}
+        subtitle="Livraison ou facture manquante"
+        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        onClick={() => go("waiting")}
+      />
+    ),
+    review > 0 && (
+      <ListRow
+        key="review"
+        icon={FileWarning}
+        tone="warning"
+        title={plural(review, "document à vérifier", "documents à vérifier")}
+        subtitle="L'IA a un doute"
+        end={<ChevronRight className="size-5 text-muted-foreground" />}
+        onClick={() =>
+          navigate({ to: "/documents", search: { filter: "review" } })
+        }
+      />
+    ),
+  ].filter(Boolean)
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="max-w-sm truncate text-2xl">
-          Bonjour {currentUser?.full_name || currentUser?.email}
-        </h1>
-        <p className="text-muted-foreground">Où en sont vos factures</p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <section className="flex flex-col gap-1 pt-2 md:pt-4">
+        <span className="text-muted-foreground">
+          {name ? `Bonjour ${name}, vous` : "Vous"} pouvez payer
+        </span>
+        <Amount value={payable} className="text-5xl md:text-6xl" />
+        <span className="text-muted-foreground">
+          hors taxes ·{" "}
+          {toPay.length > 0
+            ? `${plural(toPay.length, "achat vérifié", "achats vérifiés")} ligne par ligne`
+            : "aucun achat complet pour l'instant"}
+        </span>
+      </section>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Validées" value={ok.data} />
-        <Stat label="À vérifier" value={toCheck.data} />
-        <Stat label="Illisibles ou en erreur" value={problems} />
-      </div>
+      {reading > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-primary">
+          <Loader2 className="size-5 animate-spin" />
+          <span className="font-medium">
+            L'IA lit {plural(reading, "document", "documents")}…
+          </span>
+        </div>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Dépenses {YEAR} par fournisseur</CardTitle>
-          <CardDescription>Factures validées uniquement, TTC</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {totals.data && totals.data.data.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fournisseur</TableHead>
-                  <TableHead className="text-right">Factures</TableHead>
-                  <TableHead className="text-right">Total TTC</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {totals.data.data.map((row) => (
-                  <TableRow key={row.supplier}>
-                    <TableCell className="font-medium">
-                      {row.supplier}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {row.count}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatAmount(row.total_incl_tax)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-muted-foreground">
-                Aucune facture validée cette année.
-              </p>
-              <Button asChild>
-                <Link to="/documents">Déposer des documents</Link>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {todo.length > 0 && <ListGroup title="À regarder">{todo}</ListGroup>}
+
+      {toPay.length > 0 && (
+        <ListGroup
+          title="Bons à payer"
+          action={
+            <Link
+              to="/reconciliations"
+              search={{ filter: "to_pay" }}
+              className="text-sm font-medium text-primary"
+            >
+              Tout voir
+            </Link>
+          }
+        >
+          {toPay.slice(0, 4).map((purchase) => (
+            <PurchaseRow
+              key={purchase.key}
+              purchase={purchase}
+              onClick={() => open(purchase)}
+            />
+          ))}
+        </ListGroup>
+      )}
+
+      <DropZone />
+
+      <PurchaseSheet
+        purchase={list.find((p) => p.key === selected)}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      />
     </div>
   )
 }

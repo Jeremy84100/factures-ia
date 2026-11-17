@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fpdf import FPDF
 
-OUTPUT = Path(__file__).parent.parent / "tests" / "fixtures" / "purchases"
+OUTPUT = Path(__file__).parent.parent / "app" / "demo" / "purchases"
 BUYER = "BTP Exemple SARL, 5 chemin des Rotondes, 84000 Avignon"
 VAT_RATE = 0.20
 
@@ -508,6 +508,7 @@ def expected_document(case: Case, filename: str, doc: Doc) -> dict[str, object]:
         "number": doc.number,
         "date": doc.day,
         "order_reference": doc.order_reference,
+        "delivery_method": doc.delivery_method,
         "delivery_mode": doc.delivery_mode,
         "expected_delivery_date": doc.promised_day,
         "amount_excl_tax": excl if priced else None,

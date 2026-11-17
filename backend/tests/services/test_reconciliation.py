@@ -449,6 +449,7 @@ def test_shipping_fees_are_not_expected_on_the_delivery_note() -> None:
     assert purchase.status == PurchaseStatus.to_pay
     assert purchase.gap_excl_tax == Decimal("0.00")
     assert all(line.notes == [] for line in purchase.lines)
+    assert [line.fee for line in purchase.lines] == [False, False, True]
 
 
 def test_shipping_fees_not_ordered_are_a_dispute() -> None:

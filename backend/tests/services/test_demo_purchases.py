@@ -15,7 +15,7 @@ from app.models import (
 from app.services.checks import check_document
 from app.services.reconciliation import build_purchases, reference_key
 
-FIXTURES = Path(__file__).parent.parent / "fixtures" / "purchases"
+FIXTURES = Path(__file__).parents[2] / "app" / "demo" / "purchases"
 EXPECTED: dict[str, Any] = json.loads(
     (FIXTURES / "expected.json").read_text(encoding="utf-8")
 )

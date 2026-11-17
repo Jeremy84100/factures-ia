@@ -1,7 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { Plus, Trash2 } from "lucide-react"
 import { useFieldArray, useForm } from "react-hook-form"
 import { z } from "zod"
 
@@ -11,18 +10,9 @@ import {
   type DocumentPublic,
   DocumentsService,
 } from "@/client"
+import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import {
   Form,
   FormControl,
@@ -41,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
-import { isBusy } from "@/lib/documents"
+import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
 const decimal = (places: number) =>
@@ -151,7 +141,12 @@ const LINE_FIELDS: {
   numeric?: boolean
 }[] = [
   { name: "reference", label: "Réf.", className: "w-24" },
-  { name: "description", label: "Désignation", className: "min-w-40 flex-1" },
+  {
+    name: "description",
+    label: "Désignation",
+    className:
+      "order-first basis-full sm:order-none sm:basis-auto sm:min-w-40 sm:flex-1",
+  },
   { name: "quantity", label: "Qté", className: "w-20", numeric: true },
   { name: "unit", label: "Unité", className: "w-16" },
   { name: "unit_price", label: "Prix HT", className: "w-24", numeric: true },
@@ -193,11 +188,11 @@ const toValues = <T extends Record<string, string>>(values: T) =>
 
 interface EditDocumentProps {
   document: DocumentPublic
-  onSuccess: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+const EditDocument = ({ document, open, onOpenChange }: EditDocumentProps) => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -249,8 +244,7 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
           ? "Document corrigé et validé"
           : "Document corrigé, il reste des points à vérifier",
       )
-      setIsOpen(false)
-      onSuccess()
+      onOpenChange(false)
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
@@ -260,36 +254,79 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
   })
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuItem
-        disabled={isBusy(document)}
-        onSelect={(e) => e.preventDefault()}
-        onClick={() => setIsOpen(true)}
-      >
-        <Pencil />
-        Corriger
-      </DropdownMenuItem>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
-            <DialogHeader>
-              <DialogTitle>Corriger le document</DialogTitle>
-              <DialogDescription>{document.filename}</DialogDescription>
-            </DialogHeader>
-            {document.issues.length > 0 && (
-              <ul className="mt-4 list-disc rounded-md bg-muted p-3 pl-7 text-sm">
-                {document.issues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Corriger le document"
+      description={document.filename}
+      wide
+    >
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+          {document.issues.length > 0 && (
+            <ul className="list-disc rounded-2xl bg-warning/10 p-3 pl-7 text-sm">
+              {document.issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          )}
+          <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="kind"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Type de document</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {KIND_OPTIONS.map(({ value, label }) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+            {FIELDS.filter(({ kinds }) => !kinds || kinds.includes(kind)).map(
+              ({ name, label, type }) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem
+                      className={WIDE.includes(name) ? "sm:col-span-2" : ""}
+                    >
+                      <FormLabel>{label}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type={type ?? "text"}
+                          inputMode={
+                            name.includes("amount") ? "decimal" : undefined
+                          }
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ),
             )}
-            <div className="grid grid-cols-2 gap-4 py-4">
+            {(kind === "order" || kind === "delivery") && (
               <FormField
                 control={form.control}
-                name="kind"
+                name="delivery_mode"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Type de document</FormLabel>
+                  <FormItem>
+                    <FormLabel>Type de livraison</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -297,7 +334,7 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {KIND_OPTIONS.map(({ value, label }) => (
+                        {MODE_OPTIONS.map(({ value, label }) => (
                           <SelectItem key={value} value={value}>
                             {label}
                           </SelectItem>
@@ -307,150 +344,109 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
                   </FormItem>
                 )}
               />
-              {FIELDS.filter(({ kinds }) => !kinds || kinds.includes(kind)).map(
-                ({ name, label, type }) => (
+            )}
+            {kind === "invoice" && (
+              <FormField
+                control={form.control}
+                name="is_credit_note"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2 sm:col-span-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <FormLabel>
+                      C'est un avoir (les montants seront comptés en négatif)
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 pb-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Lignes d'articles</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => lines.append(EMPTY_LINE)}
+              >
+                <Plus />
+                Ajouter une ligne
+              </Button>
+            </div>
+            {lines.fields.length === 0 && (
+              <p className="text-sm text-muted-foreground">Aucune ligne.</p>
+            )}
+            {lines.fields.map((line, index) => (
+              <div
+                key={line.id}
+                className="flex flex-wrap items-end gap-2 rounded-2xl bg-surface p-2 sm:flex-nowrap sm:bg-transparent sm:p-0"
+              >
+                {LINE_FIELDS.map(({ name, label, className, numeric }) => (
                   <FormField
                     key={name}
                     control={form.control}
-                    name={name}
+                    name={`lines.${index}.${name}`}
                     render={({ field }) => (
-                      <FormItem
-                        className={WIDE.includes(name) ? "col-span-2" : ""}
-                      >
-                        <FormLabel>{label}</FormLabel>
+                      <FormItem className={className}>
+                        <FormLabel
+                          className={cn("text-xs", index > 0 && "sm:hidden")}
+                        >
+                          {label}
+                        </FormLabel>
                         <FormControl>
                           <Input
-                            type={type ?? "text"}
-                            inputMode={
-                              name.includes("amount") ? "decimal" : undefined
-                            }
+                            aria-label={`${label}, ligne ${index + 1}`}
+                            inputMode={numeric ? "decimal" : undefined}
+                            className={numeric ? "text-right" : ""}
                             {...field}
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
-                ),
-              )}
-              {(kind === "order" || kind === "delivery") && (
-                <FormField
-                  control={form.control}
-                  name="delivery_mode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type de livraison</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {MODE_OPTIONS.map(({ value, label }) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-              )}
-              {kind === "invoice" && (
-                <FormField
-                  control={form.control}
-                  name="is_credit_note"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2 flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(checked) =>
-                            field.onChange(checked === true)
-                          }
-                        />
-                      </FormControl>
-                      <FormLabel>
-                        C'est un avoir (les montants seront comptés en négatif)
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2 pb-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Lignes d'articles</h3>
+                ))}
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => lines.append(EMPTY_LINE)}
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Supprimer la ligne ${index + 1}`}
+                  onClick={() => lines.remove(index)}
                 >
-                  <Plus />
-                  Ajouter une ligne
+                  <Trash2 />
                 </Button>
               </div>
-              {lines.fields.length === 0 && (
-                <p className="text-sm text-muted-foreground">Aucune ligne.</p>
-              )}
-              {lines.fields.map((line, index) => (
-                <div key={line.id} className="flex items-end gap-2">
-                  {LINE_FIELDS.map(({ name, label, className, numeric }) => (
-                    <FormField
-                      key={name}
-                      control={form.control}
-                      name={`lines.${index}.${name}`}
-                      render={({ field }) => (
-                        <FormItem className={className}>
-                          {index === 0 && (
-                            <FormLabel className="text-xs">{label}</FormLabel>
-                          )}
-                          <FormControl>
-                            <Input
-                              aria-label={`${label}, ligne ${index + 1}`}
-                              inputMode={numeric ? "decimal" : undefined}
-                              className={numeric ? "text-right" : ""}
-                              {...field}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  ))}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Supprimer la ligne ${index + 1}`}
-                    onClick={() => lines.remove(index)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              ))}
-            </div>
+            ))}
+          </div>
 
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline" disabled={mutation.isPending}>
-                  Annuler
-                </Button>
-              </DialogClose>
-              <LoadingButton type="submit" loading={mutation.isPending}>
-                Enregistrer
-              </LoadingButton>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-12 rounded-full sm:h-10"
+              disabled={mutation.isPending}
+              onClick={() => onOpenChange(false)}
+            >
+              Annuler
+            </Button>
+            <LoadingButton
+              type="submit"
+              className="h-12 rounded-full sm:h-10"
+              loading={mutation.isPending}
+            >
+              Enregistrer
+            </LoadingButton>
+          </div>
+        </form>
+      </Form>
+    </ResponsiveSheet>
   )
 }
 

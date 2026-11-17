@@ -41,12 +41,12 @@ const DeleteAllDocuments = ({ count }: { count: number }) => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="text-destructive">
+        <Button variant="ghost" className="rounded-full text-destructive">
           <Trash2 />
           Tout supprimer
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-3xl border-none sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Tout supprimer</DialogTitle>
           <DialogDescription>

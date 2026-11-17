@@ -208,6 +208,7 @@ class LineMatch(SQLModel):
     invoiced: Decimal = Decimal(0)
     order_price: Decimal | None = None
     invoice_price: Decimal | None = None
+    fee: bool = False
     issues: list[str] = []
     notes: list[str] = []
 
@@ -223,6 +224,7 @@ class Purchase(SQLModel):
     lines: list[LineMatch] = []
     issues: list[str] = []
     notes: list[str] = []
+    late: bool = False
     invoiced_excl_tax: Decimal | None = None
     gap_excl_tax: Decimal | None = None
 

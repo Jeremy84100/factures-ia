@@ -13,7 +13,7 @@ from app.services.pdf_reader import DoclingReader
 from app.services.processing import apply_extraction
 from app.services.reconciliation import build_purchases, reference_key
 
-FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures" / "purchases"
+FIXTURES = Path(__file__).parent.parent / "app" / "demo" / "purchases"
 DELIVERY_KINDS = ("order", "delivery")
 
 

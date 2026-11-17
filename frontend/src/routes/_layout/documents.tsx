@@ -1,118 +1,129 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { FileText } from "lucide-react"
-import { Suspense, useState } from "react"
+import { useState } from "react"
 
-import {
-  type DocumentKind,
-  type DocumentStatus,
-  DocumentsService,
-} from "@/client"
-import { DataTable } from "@/components/Common/DataTable"
-import { columns } from "@/components/Documents/columns"
+import type { DocumentPublic } from "@/client"
+import { type Chip, FilterChips } from "@/components/App/FilterChips"
+import { IconBubble, ListGroup } from "@/components/App/ListRow"
+import { UploadButton } from "@/components/App/UploadButton"
 import DeleteAllDocuments from "@/components/Documents/DeleteAllDocuments"
-import UploadDocuments from "@/components/Documents/UploadDocuments"
-import PendingDocuments from "@/components/Pending/PendingDocuments"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { isBusy } from "@/lib/documents"
+import { DocumentRow } from "@/components/Documents/DocumentRow"
+import { DocumentSheet } from "@/components/Documents/DocumentSheet"
+import { needsReview, plural } from "@/lib/documents"
+import { documentsQuery, useLiveOptions } from "@/lib/queries"
 
-type Filter = { kind?: DocumentKind; status?: DocumentStatus }
+const FILTERS = ["all", "invoice", "order", "delivery", "review"] as const
+type Filter = (typeof FILTERS)[number]
 
-const FILTERS: { value: string; label: string; filter: Filter }[] = [
-  { value: "all", label: "Tous", filter: {} },
-  { value: "invoice", label: "Factures", filter: { kind: "invoice" } },
-  { value: "order", label: "Commandes", filter: { kind: "order" } },
-  { value: "delivery", label: "Livraisons", filter: { kind: "delivery" } },
-  { value: "to_check", label: "À vérifier", filter: { status: "to_check" } },
-  {
-    value: "unreadable",
-    label: "Illisibles",
-    filter: { status: "unreadable" },
-  },
-  { value: "failed", label: "Erreurs IA", filter: { status: "failed" } },
-]
+const MATCH: Record<Filter, (document: DocumentPublic) => boolean> = {
+  all: () => true,
+  invoice: (d) => d.kind === "invoice",
+  order: (d) => d.kind === "order",
+  delivery: (d) => d.kind === "delivery",
+  review: needsReview,
+}
 
-function getDocumentsQueryOptions(value: string) {
-  const { filter } = FILTERS.find((f) => f.value === value) ?? FILTERS[0]
-  return {
-    queryFn: async () =>
-      (
-        await DocumentsService.readDocuments({
-          query: { skip: 0, limit: 500, ...filter },
-        })
-      ).data,
-    queryKey: ["documents", value],
-  }
+const LABELS: Record<Filter, string> = {
+  all: "Tous",
+  invoice: "Factures",
+  order: "Commandes",
+  delivery: "Livraisons",
+  review: "À vérifier",
 }
 
 export const Route = createFileRoute("/_layout/documents")({
+  validateSearch: (search: Record<string, unknown>): { filter?: Filter } =>
+    FILTERS.includes(search.filter as Filter)
+      ? { filter: search.filter as Filter }
+      : {},
+  loader: ({ context }) => context.queryClient.ensureQueryData(documentsQuery),
   component: Documents,
-  head: () => ({
-    meta: [{ title: "Documents - Factures IA" }],
-  }),
+  head: () => ({ meta: [{ title: "Documents - Factures IA" }] }),
 })
 
-function DocumentsTableContent({ value }: { value: string }) {
-  const { data: documents } = useSuspenseQuery({
-    ...getDocumentsQueryOptions(value),
-    refetchInterval: (query) =>
-      query.state.data?.data.some(isBusy) ? 2000 : false,
-  })
-
-  if (documents.data.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="mb-4 rounded-full bg-muted p-4">
-          <FileText className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-semibold">Aucun document ici</h3>
-        <p className="text-muted-foreground">
-          Déposez des factures, bons de commande et bons de livraison en vrac :
-          ils sont triés, lus et vérifiés automatiquement.
-        </p>
-      </div>
-    )
-  }
-
+function Empty({ filter }: { filter: Filter }) {
   return (
-    <div className="flex flex-col gap-4">
-      {value === "all" && (
-        <div className="flex justify-end">
-          <DeleteAllDocuments count={documents.count} />
-        </div>
-      )}
-      <DataTable columns={columns} data={documents.data} />
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <IconBubble icon={FileText} className="size-14" />
+      <p className="font-medium">
+        {filter === "review" ? "Rien à vérifier" : "Aucun document ici"}
+      </p>
+      <p className="max-w-sm text-muted-foreground">
+        {filter === "review"
+          ? "L'IA a tout lu sans hésiter."
+          : "Déposez vos commandes, bons de livraison et factures en vrac : ils sont triés tout seuls."}
+      </p>
     </div>
   )
 }
 
 function Documents() {
-  const [value, setValue] = useState("all")
+  const { filter = "all" } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const live = useLiveOptions()
+  const { data } = useSuspenseQuery(live.documents)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const chips: Chip<Filter>[] = FILTERS.map((value) => ({
+    value,
+    label: LABELS[value],
+    count: value === "all" ? undefined : data.data.filter(MATCH[value]).length,
+  }))
+  const shown = data.data.filter(MATCH[filter])
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-5">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
+          <h1 className="text-3xl font-semibold">Documents</h1>
           <p className="text-muted-foreground">
-            Factures, commandes et livraisons, triées et lues par l'IA,
-            vérifiées automatiquement
+            {plural(data.count, "document", "documents")}, triés et lus par l'IA
           </p>
         </div>
-        <UploadDocuments />
+        <UploadButton className="hidden md:inline-flex" />
       </div>
-      <Tabs value={value} onValueChange={setValue}>
-        <TabsList>
-          {FILTERS.map(({ value, label }) => (
-            <TabsTrigger key={value} value={value}>
-              {label}
-            </TabsTrigger>
+
+      <FilterChips
+        chips={chips}
+        value={filter}
+        onChange={(value) =>
+          navigate({
+            search: value === "all" ? {} : { filter: value },
+            replace: true,
+          })
+        }
+      />
+
+      {shown.length === 0 ? (
+        <Empty filter={filter} />
+      ) : (
+        <ListGroup>
+          {shown.map((document) => (
+            <DocumentRow
+              key={document.id}
+              document={document}
+              onClick={() => {
+                setSelected(document.id)
+                setSheetOpen(true)
+              }}
+            />
           ))}
-        </TabsList>
-      </Tabs>
-      <Suspense fallback={<PendingDocuments />}>
-        <DocumentsTableContent value={value} />
-      </Suspense>
+        </ListGroup>
+      )}
+
+      {filter === "all" && data.count > 0 && (
+        <div className="flex justify-center">
+          <DeleteAllDocuments count={data.count} />
+        </div>
+      )}
+
+      <DocumentSheet
+        document={data.data.find((d) => d.id === selected)}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      />
     </div>
   )
 }

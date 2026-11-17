@@ -17,27 +17,17 @@ export function Logo({
   const content = (
     <span
       className={cn(
-        "flex items-center gap-2 font-semibold tracking-tight",
-        variant === "full" && "text-lg",
+        "flex items-center gap-2.5 text-[17px] font-semibold tracking-tight",
         className,
       )}
     >
-      <ScanText className="size-5 shrink-0 text-primary" />
-      {variant !== "icon" && (
-        <span
-          className={cn(
-            variant === "responsive" && "group-data-[collapsible=icon]:hidden",
-          )}
-        >
-          Factures IA
-        </span>
-      )}
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <ScanText className="size-[18px]" />
+      </span>
+      {variant !== "icon" && <span>Factures IA</span>}
     </span>
   )
 
-  if (!asLink) {
-    return content
-  }
-
+  if (!asLink) return content
   return <Link to="/">{content}</Link>
 }

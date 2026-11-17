@@ -119,6 +119,7 @@ class Item:
             invoiced=self.invoiced,
             order_price=self.order_price,
             invoice_price=self.invoice_prices[0] if self.invoice_prices else None,
+            fee=self.is_fee,
             issues=issues,
             notes=notes,
         )
@@ -393,10 +394,10 @@ def late_deliveries(
     ]
 
 
-def missing_delivery(orders: Sequence[Document], today: date) -> str:
+def missing_delivery(orders: Sequence[Document], today: date) -> str | None:
     promised = promised_date(orders)
     if promised is None or today <= promised:
-        return "Livraison pas encore reçue"
+        return None
     return (
         f"Livraison promise le {day(promised)}, toujours pas reçue"
         f" ({days((today - promised).days)} de retard)"
@@ -425,7 +426,8 @@ def reconcile(
         matches.append(item.to_match(issues, item_notes))
 
     issues = check_documents(documents) + check_delivery_mode(orders, deliveries)
-    notes += late_deliveries(orders, deliveries)
+    late = late_deliveries(orders, deliveries)
+    notes += late
     total = invoiced_total(invoices)
     due = amount_due(items, has_order, has_delivery) if has_invoice else None
     gap = None if total is None or due is None else total - due
@@ -437,7 +439,10 @@ def reconcile(
     if not has_order:
         notes.append("Commande pas encore déposée")
     if has_order and not has_delivery:
-        notes.append(missing_delivery(orders, today or date.today()))
+        overdue = missing_delivery(orders, today or date.today())
+        notes.append(overdue or "Livraison pas encore reçue")
+        if overdue:
+            late.append(overdue)
     if has_order and not has_invoice:
         notes.append("Facture pas encore reçue")
 
@@ -465,6 +470,7 @@ def reconcile(
         lines=matches,
         issues=issues,
         notes=notes,
+        late=bool(late),
         invoiced_excl_tax=total,
         gap_excl_tax=gap,
     )

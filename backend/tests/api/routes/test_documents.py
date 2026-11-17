@@ -60,18 +60,6 @@ def test_upload_reads_invoices(
     assert second.json()["issues"] == ["Doublon possible de « a.pdf »"]
 
 
-def test_upload_rejects_non_pdf(
-    client: TestClient, normal_user_token_headers: dict[str, str]
-) -> None:
-    r = client.post(
-        URL,
-        headers=normal_user_token_headers,
-        files=[("files", ("notes.txt", b"bonjour", "text/plain"))],
-    )
-    assert r.status_code == 400
-    assert r.json()["detail"] == "notes.txt n'est pas un PDF"
-
-
 def test_upload_needs_login(client: TestClient) -> None:
     r = client.post(URL, files=[("files", ("a.pdf", PDF_BYTES, "application/pdf"))])
     assert r.status_code == 401
@@ -411,3 +399,49 @@ def test_delivery_details_can_be_corrected(
         url, headers=normal_user_token_headers, json={"delivery_mode": "avion"}
     )
     assert r.status_code == 422
+
+
+def photo(fmt: str = "JPEG") -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    out = BytesIO()
+    Image.new("RGB", (60, 90), "white").save(out, format=fmt)
+    return out.getvalue()
+
+
+@pytest.mark.parametrize("fmt", ["JPEG", "PNG", "WEBP"])
+def test_phone_photo_becomes_a_pdf(
+    client: TestClient, normal_user_token_headers: dict[str, str], fmt: str
+) -> None:
+    created = upload(
+        client, normal_user_token_headers, ("bon-livraison.jpg", photo(fmt))
+    )
+    assert created[0]["filename"] == "bon-livraison.pdf"
+    r = client.get(f"{URL}{created[0]['id']}/file", headers=normal_user_token_headers)
+    assert r.content.startswith(b"%PDF")
+
+
+def test_broken_photo_is_refused(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    r = client.post(
+        URL,
+        headers=normal_user_token_headers,
+        files=[("files", ("photo.jpg", b"\xff\xd8\xff" + b"0" * 50, "image/jpeg"))],
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "photo.jpg : photo illisible"
+
+
+def test_other_files_are_refused(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    r = client.post(
+        URL,
+        headers=normal_user_token_headers,
+        files=[("files", ("note.txt", b"bonjour", "text/plain"))],
+    )
+    assert r.status_code == 400
+    assert "ni un PDF ni une photo" in r.json()["detail"]

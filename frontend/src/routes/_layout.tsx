@@ -1,40 +1,47 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { AxiosError } from "axios"
 
-import { Footer } from "@/components/Common/Footer"
-import AppSidebar from "@/components/Sidebar/AppSidebar"
 import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
+  BottomNav,
+  DemoBanner,
+  MobileTopBar,
+  SideNav,
+} from "@/components/App/Navigation"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { currentUserQuery } from "@/lib/queries"
 
 export const Route = createFileRoute("/_layout")({
-  component: Layout,
-  beforeLoad: async () => {
-    if (!isLoggedIn()) {
-      throw redirect({
-        to: "/login",
-      })
+  beforeLoad: () => {
+    if (!isLoggedIn()) throw redirect({ to: "/login" })
+  },
+  // The account is known before the first paint: the name and the demo banner
+  // are there at once instead of popping in.
+  loader: async ({ context }) => {
+    try {
+      await context.queryClient.ensureQueryData(currentUserQuery)
+    } catch (error) {
+      if (error instanceof AxiosError && error.response) {
+        localStorage.removeItem("access_token")
+        throw redirect({ to: "/login" })
+      }
+      throw error
     }
   },
+  component: Layout,
 })
 
 function Layout() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
-          <SidebarTrigger className="-ml-1 text-muted-foreground" />
-        </header>
-        <main className="flex-1 p-6 md:p-8">
-          <div className="mx-auto max-w-7xl">
-            <Outlet />
-          </div>
+    <div className="min-h-svh md:flex">
+      <SideNav />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MobileTopBar />
+        <DemoBanner />
+        <main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-10 md:pt-8 md:pb-16">
+          <Outlet />
         </main>
-        <Footer />
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+      <BottomNav />
+    </div>
   )
 }

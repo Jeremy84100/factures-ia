@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
@@ -21,6 +22,7 @@ from app.models import (
     User,
     get_datetime_utc,
 )
+from app.services.images import ImageError, image_to_pdf, is_image
 from app.services.processing import (
     expire_stale,
     process_document,
@@ -112,8 +114,17 @@ async def upload_documents(
         name = upload.filename or "document.pdf"
         if len(data) > MAX_FILE_SIZE:
             raise HTTPException(status_code=413, detail=f"{name} dépasse 10 Mo")
-        if not data.startswith(b"%PDF"):
-            raise HTTPException(status_code=400, detail=f"{name} n'est pas un PDF")
+        if is_image(data):
+            try:
+                data = image_to_pdf(data)
+            except ImageError:
+                raise HTTPException(status_code=400, detail=f"{name} : photo illisible")
+            name = f"{Path(name).stem}.pdf"
+        elif not data.startswith(b"%PDF"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} n'est ni un PDF ni une photo (JPEG, PNG, WebP)",
+            )
         contents.append((name, data))
 
     documents = [

@@ -19,25 +19,46 @@ client.setConfig({
   auth: () => localStorage.getItem("access_token") || "",
 })
 
+// A token that no longer works (expired, or demo account removed after 24 h)
+// sends the visitor back to the home page instead of an error screen.
+const isSessionGone = (error: Error) =>
+  error instanceof AxiosError &&
+  ([401, 403].includes(error.response?.status ?? 0) ||
+    (error.response?.status === 404 &&
+      (error.config?.url ?? "").endsWith("/users/me")))
+
 const handleApiError = (error: Error) => {
-  if (
-    error instanceof AxiosError &&
-    [401, 403].includes(error.response?.status ?? 0)
-  ) {
+  if (isSessionGone(error) && localStorage.getItem("access_token")) {
     localStorage.removeItem("access_token")
-    window.location.href = "/login"
+    queryClient.clear()
+    router.navigate({ to: "/login", replace: true })
   }
 }
+
 const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: handleApiError,
-  }),
-  mutationCache: new MutationCache({
-    onError: handleApiError,
-  }),
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: (count, error) => !isSessionGone(error) && count < 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+  queryCache: new QueryCache({ onError: handleApiError }),
+  mutationCache: new MutationCache({ onError: handleApiError }),
 })
 
-const router = createRouter({ routeTree })
+// Pages load their data before showing (preloaded as soon as a finger or the
+// mouse touches a link), so nothing appears empty then fills in.
+const router = createRouter({
+  routeTree,
+  context: { queryClient },
+  defaultPreload: "intent",
+  defaultPreloadStaleTime: 0,
+  defaultPendingMs: 400,
+  defaultPendingMinMs: 300,
+  scrollRestoration: true,
+})
+
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router
@@ -46,10 +67,10 @@ declare module "@tanstack/react-router" {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
-        <Toaster richColors closeButton />
+        <Toaster position="top-center" />
       </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>,

@@ -34,21 +34,29 @@ export const PURCHASE_STATUS: Record<
 export const isBusy = (document: { status: DocumentStatus }) =>
   document.status === "pending" || document.status === "processing"
 
+// French puts a narrow space between thousands, which some fonts draw almost
+// invisible: a normal non-breaking space keeps "1 128,00 €" readable.
+export const visibleSpaces = (text: string) => text.replace(/ /g, " ")
+
 export function formatAmount(
   value: string | number | null | undefined,
   currency = "EUR",
 ) {
   if (value === null || value === undefined || value === "") return "—"
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: currency || "EUR",
-  }).format(Number(value))
+  return visibleSpaces(
+    new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: currency || "EUR",
+    }).format(Number(value)),
+  )
 }
 
 export function formatQuantity(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") return "—"
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 3 }).format(
-    Number(value),
+  return visibleSpaces(
+    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 3 }).format(
+      Number(value),
+    ),
   )
 }
 
@@ -56,3 +64,54 @@ export function formatDate(value: string | null | undefined) {
   if (!value) return "—"
   return new Date(`${value}T00:00:00`).toLocaleDateString("fr-FR")
 }
+
+export type Tone = "success" | "danger" | "warning" | "info" | "neutral"
+
+export const TONE_CLASSES: Record<Tone, string> = {
+  success: "bg-success/12 text-success",
+  danger: "bg-destructive/12 text-destructive",
+  warning: "bg-warning/15 text-warning",
+  info: "bg-info/12 text-info",
+  neutral: "bg-muted text-muted-foreground",
+}
+
+export const TONE_TEXT: Record<Tone, string> = {
+  success: "text-success",
+  danger: "text-destructive",
+  warning: "text-warning",
+  info: "text-info",
+  neutral: "text-muted-foreground",
+}
+
+export const KIND_LONG: Record<DocumentKind, string> = {
+  unknown: "Document",
+  invoice: "Facture",
+  order: "Bon de commande",
+  delivery: "Bon de livraison",
+}
+
+export const STATUS_TONE: Record<DocumentStatus, Tone> = {
+  pending: "neutral",
+  processing: "neutral",
+  ok: "success",
+  to_check: "warning",
+  unreadable: "danger",
+  failed: "danger",
+}
+
+export const PURCHASE_TONE: Record<PurchaseStatus, Tone> = {
+  to_pay: "success",
+  dispute: "danger",
+  waiting: "neutral",
+  no_order: "info",
+}
+
+export const needsReview = (document: { status: DocumentStatus }) =>
+  ["to_check", "unreadable", "failed"].includes(document.status)
+
+export const plural = (count: number, one: string, many: string) =>
+  `${count} ${count > 1 ? many : one}`
+
+// "Ciment CEM II : facturé 50, livré 45" -> "facturé 50, livré 45"
+export const afterLabel = (text: string) =>
+  text.includes(" : ") ? text.slice(text.indexOf(" : ") + 3) : text

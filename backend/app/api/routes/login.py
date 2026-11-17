@@ -10,6 +10,7 @@ from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
 from app.models import Message, NewPassword, Token, UserPublic, UserUpdate
+from app.services.demo import DEMO_LIFETIME, DemoUnavailable, create_demo_user
 from app.utils import (
     generate_password_reset_token,
     generate_reset_password_email,
@@ -39,6 +40,22 @@ def login_access_token(
         access_token=security.create_access_token(
             user.id, expires_delta=access_token_expires
         )
+    )
+
+
+@router.post("/login/demo")
+def login_demo(session: SessionDep) -> Token:
+    """
+    Open a fresh demo account, filled with 30 documents already read.
+    """
+    try:
+        user = create_demo_user(session)
+    except DemoUnavailable:
+        raise HTTPException(
+            status_code=429, detail="La démo est très demandée, réessayez plus tard"
+        )
+    return Token(
+        access_token=security.create_access_token(user.id, expires_delta=DEMO_LIFETIME)
     )
 
 

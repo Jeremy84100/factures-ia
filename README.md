@@ -17,13 +17,21 @@ Il rapproche ensuite les trois documents d'un même achat, ligne par ligne, et r
 
 Le cas d'usage visé : une PME du bâtiment ou un grossiste qui reçoit des centaines de factures fournisseurs par mois et ne veut plus les saisir ni les pointer à la main.
 
-![Liste des documents](docs/screenshots/documents.png)
+<table>
+  <tr>
+    <td><img src="docs/screenshots/mobile-accueil.png" alt="Accueil sur téléphone : le montant à payer et ce qu'il faut regarder"></td>
+    <td><img src="docs/screenshots/mobile-achats.png" alt="Achats sur téléphone : litiges, retards, bons à payer"></td>
+    <td><img src="docs/screenshots/mobile-detail.png" alt="Détail d'un litige sur téléphone"></td>
+  </tr>
+</table>
 
 ## Démo
 
 https://factures-ia.vercel.app
 
-Créez un compte, puis déposez quelques documents, tous types mélangés. Les 30 PDF de [`backend/tests/fixtures/purchases`](backend/tests/fixtures/purchases) forment 10 achats avec chacun un piège : déposez-les en vrac et ouvrez la page Rapprochements. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
+Le bouton **Essayer la démo** ouvre, sans inscription, un compte rempli avec les 30 documents de [`backend/app/demo/purchases`](backend/app/demo/purchases), déjà lus : 10 achats avec chacun un piège. Chaque visiteur a son propre compte de démo, effacé au bout de 24 heures. Les documents y sont chargés tels que Gemini les lit (30 sur 30, mesuré plus bas), puis passent les vrais contrôles et le vrai rapprochement : le verdict affiché sort du même code qu'un vrai dépôt.
+
+Pour voir l'IA lire, créez un compte et déposez ces PDF en vrac, ou prenez un bon de livraison en photo avec votre téléphone : les photos JPEG, PNG et WebP sont réduites dans le navigateur, puis converties en PDF par le serveur. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
 
 La première lecture prend jusqu'à une minute, le temps que le serveur gratuit démarre et charge Docling. Les suivantes prennent entre 5 et 20 secondes.
 
@@ -47,16 +55,22 @@ flowchart LR
     S --> V[En attente]
 ```
 
-1. Le fichier est contrôlé (signature `%PDF`, 10 Mo au plus) puis stocké en base, sans type. Le traitement part en arrière-plan et l'interface se met à jour toute seule.
+1. Le fichier est contrôlé (signature `%PDF` ou photo, 10 Mo au plus ; une photo devient un PDF d'une page) puis stocké en base, sans type. Le traitement part en arrière-plan et l'interface se met à jour toute seule.
 2. [Docling](https://github.com/docling-project/docling) extrait le texte et les tableaux des 5 premières pages.
 3. Gemini reçoit le PDF complet et le texte de Docling. Il voit les logos et la mise en page, le texte l'aide à lire les chiffres. En un seul appel, il renvoie le type (facture, avoir, bon de commande, bon de livraison), le fournisseur, le numéro, la date, le numéro de commande de l'acheteur, les totaux, la mention d'exonération de TVA et chaque ligne d'article (référence, désignation, quantité, prix).
 4. Les règles de [`checks.py`](backend/app/services/checks.py) décident du statut, avec des règles propres à chaque type. Elles ne font pas appel à l'IA et sont testées seules.
 5. [`reconciliation.py`](backend/app/services/reconciliation.py) regroupe les documents par numéro de commande et les compare ligne par ligne.
 6. Un document corrigé à la main (type, champs, numéro de commande, lignes) repasse les contrôles, et son achat est recalculé. On peut aussi relancer la lecture par l'IA.
 
-Le tableau de bord compte les factures par statut et additionne les dépenses de l'année par fournisseur, avoirs déduits.
+L'accueil donne en gros le montant qu'on peut payer, puis ce qu'il faut regarder, en phrases : litiges et montant facturé en trop, livraisons en retard, documents à relier ou à vérifier.
 
-![Tableau de bord](docs/screenshots/dashboard.png)
+![Accueil](docs/screenshots/dashboard.png)
+
+## Interface
+
+- Faite pour le téléphone autant que pour l'ordinateur : barre d'onglets en bas avec un bouton « + » pour déposer, panneaux qui montent du bas de l'écran, listes sans tableaux.
+- Aucun écran qui clignote : chaque page charge ses données avant de s'afficher (préchargées dès que le doigt ou la souris touche le lien), les onglets filtrent dans le navigateur sans recharger, le thème clair ou sombre est appliqué avant le premier affichage, et le téléphone est détecté dès le premier rendu.
+- [shadcn/ui](https://ui.shadcn.com) sur Tailwind CSS 4, police Inter, une seule couleur d'accent.
 
 ## Vérifications
 
@@ -122,7 +136,7 @@ Le rapprochement n'est pas stocké : il est recalculé à chaque affichage par u
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/rapprochements.png" alt="Liste des achats rapprochés"></td>
+    <td><img src="docs/screenshots/rapprochements.png" alt="Liste des achats"></td>
     <td><img src="docs/screenshots/rapprochement-detail.png" alt="Détail d'un achat ligne par ligne"></td>
   </tr>
 </table>
@@ -201,7 +215,7 @@ frontend/src/
   components/Reconciliations/         détail d'un achat ligne par ligne
 ```
 
-Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 196 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 207 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
 Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 

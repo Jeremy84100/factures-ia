@@ -345,6 +345,10 @@ export type LineMatch = {
      */
     invoice_price?: string | null;
     /**
+     * Fee
+     */
+    fee?: boolean;
+    /**
      * Issues
      */
     issues?: Array<string>;
@@ -441,6 +445,10 @@ export type Purchase = {
      * Notes
      */
     notes?: Array<string>;
+    /**
+     * Late
+     */
+    late?: boolean;
     /**
      * Invoiced Excl Tax
      */
@@ -710,6 +718,22 @@ export type loginLoginAccessTokenResponses = {
 };
 
 export type loginLoginAccessTokenResponse = loginLoginAccessTokenResponses[keyof loginLoginAccessTokenResponses];
+
+export type loginLoginDemoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/demo';
+};
+
+export type loginLoginDemoResponses = {
+    /**
+     * Successful Response
+     */
+    200: Token;
+};
+
+export type loginLoginDemoResponse = loginLoginDemoResponses[keyof loginLoginDemoResponses];
 
 export type loginTestTokenData = {
     body?: never;

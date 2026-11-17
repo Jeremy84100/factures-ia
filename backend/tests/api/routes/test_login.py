@@ -194,3 +194,15 @@ def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) 
 
     assert user.hashed_password == original_hash
     assert user.hashed_password.startswith("$argon2")
+
+
+def test_demo_login_opens_a_filled_account(client: TestClient) -> None:
+    r = client.post(f"{settings.API_V1_STR}/login/demo")
+    assert r.status_code == 200
+    headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    me = client.get(f"{settings.API_V1_STR}/users/me", headers=headers).json()
+    assert me["email"].endswith("@demo.example.com")
+    purchases = client.get(
+        f"{settings.API_V1_STR}/reconciliations/", headers=headers
+    ).json()
+    assert purchases["count"] == 10
