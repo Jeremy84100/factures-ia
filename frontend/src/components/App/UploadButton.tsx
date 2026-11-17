@@ -1,10 +1,9 @@
 import { Plus } from "lucide-react"
-import { type ReactNode, useRef } from "react"
+import { type ComponentProps, type ReactNode, useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { ACCEPTED, useUpload } from "@/hooks/useUpload"
-import { cn } from "@/lib/utils"
 
 export function useFilePicker() {
   const input = useRef<HTMLInputElement>(null)
@@ -27,47 +26,24 @@ export function useFilePicker() {
 }
 
 export function UploadButton({
-  className,
   children = "Ajouter des documents",
-}: {
-  className?: string
-  children?: ReactNode
-}) {
+  ...props
+}: { children?: ReactNode } & Omit<
+  ComponentProps<typeof Button>,
+  "onClick" | "children"
+>) {
   const { picker, open, isPending } = useFilePicker()
   return (
     <>
       {picker}
-      <Button
-        onClick={open}
-        disabled={isPending}
-        className={cn("h-11 rounded-full px-5", className)}
-      >
-        {isPending ? <Spinner /> : <Plus />}
+      <Button onClick={open} disabled={isPending} {...props}>
+        {isPending ? (
+          <Spinner data-icon="inline-start" />
+        ) : (
+          <Plus data-icon="inline-start" />
+        )}
         {isPending ? "Envoi…" : children}
       </Button>
-    </>
-  )
-}
-
-// The round "+" in the middle of the phone's bottom bar.
-export function UploadFab() {
-  const { picker, open, isPending } = useFilePicker()
-  return (
-    <>
-      {picker}
-      <button
-        type="button"
-        onClick={open}
-        disabled={isPending}
-        aria-label="Ajouter des documents"
-        className="-mt-5 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
-      >
-        {isPending ? (
-          <Spinner className="size-6" />
-        ) : (
-          <Plus className="size-7" />
-        )}
-      </button>
     </>
   )
 }

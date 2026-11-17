@@ -9,8 +9,9 @@ import { AxiosError } from "axios"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { client } from "./client/client.gen"
-import { ThemeProvider } from "./components/theme-provider"
+import { ThemeProvider } from "next-themes"
 import { Toaster } from "./components/ui/sonner"
+import { TooltipProvider } from "./components/ui/tooltip"
 import "./index.css"
 import { routeTree } from "./routeTree.gen"
 
@@ -67,9 +68,17 @@ declare module "@tanstack/react-router" {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      storageKey="vite-ui-theme"
+    >
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
         <Toaster position="top-center" />
       </QueryClientProvider>
     </ThemeProvider>

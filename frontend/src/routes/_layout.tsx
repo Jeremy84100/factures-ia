@@ -1,12 +1,19 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouterState,
+} from "@tanstack/react-router"
 import { AxiosError } from "axios"
 
+import { AppSidebar, DemoBanner, TITLES } from "@/components/App/Navigation"
+import { UploadButton } from "@/components/App/UploadButton"
+import { Separator } from "@/components/ui/separator"
 import {
-  BottomNav,
-  DemoBanner,
-  MobileTopBar,
-  SideNav,
-} from "@/components/App/Navigation"
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { currentUserQuery } from "@/lib/queries"
 
@@ -31,17 +38,26 @@ export const Route = createFileRoute("/_layout")({
 })
 
 function Layout() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
   return (
-    <div className="min-h-svh md:flex">
-      <SideNav />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopBar />
-        <DemoBanner />
-        <main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-10 md:pt-8 md:pb-16">
-          <Outlet />
-        </main>
-      </div>
-      <BottomNav />
-    </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <h1 className="text-sm font-medium">{TITLES[pathname] ?? ""}</h1>
+          <UploadButton size="sm" className="ml-auto">
+            Ajouter
+          </UploadButton>
+        </header>
+        <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+            <DemoBanner />
+            <Outlet />
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
