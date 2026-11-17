@@ -8,20 +8,22 @@
   [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
   [![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE)
 
-  [Démo](#démo) • [Fonctionnement](#fonctionnement) • [Vérifications](#vérifications) • [Résultats](#résultats-mesurés) • [Lancer en local](#lancer-en-local) • [Crédits](#crédits-et-licence)
+  [Démo](#démo) • [Fonctionnement](#fonctionnement) • [Vérifications](#vérifications) • [Rapprochement](#rapprochement) • [Résultats](#résultats-mesurés) • [Lancer en local](#lancer-en-local) • [Crédits](#crédits-et-licence)
 </div>
 
-Factures IA lit des factures PDF avec Gemini, contrôle ce qu'il a lu avec des règles écrites en Python, puis range le résultat dans PostgreSQL. Une facture qui ne passe pas les contrôles est mise de côté avec la raison, et se corrige à la main.
+Factures IA lit des factures, des bons de commande et des bons de livraison en PDF avec Gemini, contrôle ce qu'il a lu avec des règles écrites en Python, puis range le résultat dans PostgreSQL. Un document qui ne passe pas les contrôles est mis de côté avec la raison, et se corrige à la main.
 
-Le cas d'usage visé : un cabinet comptable qui reçoit 300 factures par mois et ne veut plus les saisir.
+Il rapproche ensuite les trois documents d'un même achat, ligne par ligne, et répond à la question du patron : est-ce que je dois payer cette facture ?
 
-![Liste des factures](docs/screenshots/factures.png)
+Le cas d'usage visé : une PME du bâtiment ou un grossiste qui reçoit des centaines de factures fournisseurs par mois et ne veut plus les saisir ni les pointer à la main.
+
+![Liste des documents](docs/screenshots/documents.png)
 
 ## Démo
 
 https://factures-ia.vercel.app
 
-Créez un compte, puis déposez quelques factures. Celles de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
+Créez un compte, puis déposez quelques documents, tous types mélangés. Les 24 PDF de [`backend/tests/fixtures/purchases`](backend/tests/fixtures/purchases) forment 8 achats avec chacun un piège : déposez-les en vrac et ouvrez la page Rapprochements. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
 
 La première lecture prend jusqu'à une minute, le temps que le serveur gratuit démarre et charge Docling. Les suivantes prennent entre 5 et 20 secondes.
 
@@ -29,21 +31,28 @@ La première lecture prend jusqu'à une minute, le temps que le serveur gratuit 
 
 ```mermaid
 flowchart LR
-    A[PDF déposé] --> B[Docling<br>texte et tableaux]
+    A[PDF déposé en vrac] --> B[Docling<br>texte et tableaux]
     A --> C[Gemini<br>3.5 Flash-Lite]
     B --> C
-    C -->|JSON validé par Pydantic| D[Règles en Python]
+    C -->|type, en-tête, lignes<br>validés par Pydantic| D[Règles en Python]
     D --> E{Statut}
-    E --> F[Validée]
+    E --> F[Validé]
     E --> G[À vérifier]
     E --> H[Illisible]
+    F --> R[Rapprochement<br>commande, livraison, facture]
+    G --> R
+    R --> S{Achat}
+    S --> T[Bon à payer]
+    S --> U[Litige]
+    S --> V[En attente]
 ```
 
-1. Le fichier est contrôlé (signature `%PDF`, 10 Mo au plus) puis stocké en base. Le traitement part en arrière-plan et l'interface se met à jour toute seule.
+1. Le fichier est contrôlé (signature `%PDF`, 10 Mo au plus) puis stocké en base, sans type. Le traitement part en arrière-plan et l'interface se met à jour toute seule.
 2. [Docling](https://github.com/docling-project/docling) extrait le texte et les tableaux des 5 premières pages.
-3. Gemini reçoit le PDF complet et le texte de Docling. Il voit les logos et la mise en page, le texte l'aide à lire les chiffres. Il renvoie fournisseur, numéro, date, HT, TVA, TTC, devise, type de document (facture ou avoir) et mention d'exonération de TVA.
-4. Les règles de [`checks.py`](backend/app/services/checks.py) décident du statut. Elles ne font pas appel à l'IA et sont testées seules.
-5. Une facture corrigée à la main repasse les contrôles. On peut aussi relancer la lecture par l'IA.
+3. Gemini reçoit le PDF complet et le texte de Docling. Il voit les logos et la mise en page, le texte l'aide à lire les chiffres. En un seul appel, il renvoie le type (facture, avoir, bon de commande, bon de livraison), le fournisseur, le numéro, la date, le numéro de commande de l'acheteur, les totaux, la mention d'exonération de TVA et chaque ligne d'article (référence, désignation, quantité, prix).
+4. Les règles de [`checks.py`](backend/app/services/checks.py) décident du statut, avec des règles propres à chaque type. Elles ne font pas appel à l'IA et sont testées seules.
+5. [`reconciliation.py`](backend/app/services/reconciliation.py) regroupe les documents par numéro de commande et les compare ligne par ligne.
+6. Un document corrigé à la main (type, champs, numéro de commande, lignes) repasse les contrôles, et son achat est recalculé. On peut aussi relancer la lecture par l'IA.
 
 Le tableau de bord compte les factures par statut et additionne les dépenses de l'année par fournisseur, avoirs déduits.
 
@@ -62,6 +71,13 @@ Le tableau de bord compte les factures par statut et additionne les dépenses de
 | Montant négatif sur une facture qui n'est pas un avoir | Montant négatif sur une facture (avoir ?) |
 | Date américaine ambiguë lue au format européen | Date « 06/02/2015 » à vérifier : jour et mois peuvent être inversés |
 | Date dans le futur | Date dans le futur |
+| Quantité × prix = montant de chaque ligne | CAB-3G25 : 50 × 1.19 = 59.50 mais montant = 95.20 |
+| Somme des lignes = total HT | Somme des lignes = 59.50 mais total HT = 70.00 (remise globale ?) |
+| Bon de commande ou de livraison sans ligne | Aucune ligne d'article trouvée |
+| Bon de livraison sans numéro de commande | Numéro de commande introuvable : à relier à une commande |
+| Document qui n'est ni une facture, ni une commande, ni une livraison | Ni facture, ni bon de commande, ni bon de livraison |
+
+Les doublons sont cherchés parmi les documents du même type : une facture et un bon de livraison peuvent porter le même numéro.
 
 Un avoir est toujours compté en négatif, même quand il est écrit avec des montants positifs comme le prévoit la norme EN 16931.
 
@@ -69,6 +85,37 @@ Un avoir est toujours compté en négatif, même quand il est écrit avec des mo
   <tr>
     <td><img src="docs/screenshots/a-verifier.png" alt="Factures à vérifier"></td>
     <td><img src="docs/screenshots/correction.png" alt="Correction d'une facture"></td>
+  </tr>
+</table>
+
+## Rapprochement
+
+Les documents d'un même achat sont retrouvés par le numéro de commande, imprimé sur le bon de livraison et la facture (« Votre commande »). Une commande peut avoir plusieurs livraisons et plusieurs factures : les quantités s'additionnent, les avoirs se déduisent.
+
+Chaque article est retrouvé d'un document à l'autre par sa référence, sinon par sa désignation avec [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz) : « PACK WC SUSPENDU + BATI SUPPORT » et « Pack WC suspendu bâti-support » sont le même article. Deux désignations qui ne portent pas les mêmes cotes ne sont jamais confondues : une gaine de 20 mm n'est pas une gaine de 25 mm.
+
+La règle de fond est celle d'Odoo et d'ERPNext : **on paie ce qui a été commandé et livré, au prix commandé.**
+
+| Règle | Exemple de message | Effet |
+|---|---|---|
+| Facturé plus que livré | Ciment CEM II : facturé 50, livré 45 | Litige |
+| Livré plus que commandé | Câble R2V : livré 60, commandé 50 | Litige |
+| Prix facturé plus cher que la commande (à 1 centime près) | Cheville Ø8 : prix facturé 7,45 € au lieu de 6,75 € commandé | Litige |
+| Article facturé ou livré sans avoir été commandé | Vanne 20x27 : facturé mais pas commandé | Litige |
+| Fournisseurs ou devises différents dans un même achat | Fournisseurs différents : Rexel / Sonepar | Litige |
+| Livraison datée avant la commande | Livraison « bl.pdf » datée avant la commande | Litige |
+| Total facturé supérieur à ce qui est dû | Total facturé 131,50 € HT au lieu de 101,50 € | Litige |
+| Prix facturé moins cher que la commande | prix facturé 1,10 €, plus bas que les 1,19 € commandés | Noté |
+| Livraison partielle | reste 5 à livrer | Noté |
+
+Un achat est **bon à payer** quand la commande, une livraison et une facture sont là, sans litige. Il est **en attente** s'il manque la livraison ou la facture, et **sans commande** si seules la livraison et la facture sont là : elles sont alors comparées entre elles. Un bon de livraison sans numéro de commande, ou une facture sans numéro d'un fournisseur à qui l'on a passé commande, attend dans « À relier » qu'on saisisse ce numéro.
+
+Le rapprochement n'est pas stocké : il est recalculé à chaque affichage par une fonction pure. Une correction ou une suppression ne laisse donc jamais de résultat périmé.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/rapprochements.png" alt="Liste des achats rapprochés"></td>
+    <td><img src="docs/screenshots/rapprochement-detail.png" alt="Détail d'un achat ligne par ligne"></td>
   </tr>
 </table>
 
@@ -93,6 +140,17 @@ Le projet a aussi été passé sur 42 factures publiques :
 
 (*) La facture AWS porte la phrase « This is not a VAT invoice ». Selon les passages, Gemini la recopie comme mention d'exonération ou non : la facture est alors validée ou signalée.
 
+Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 8 achats de grossistes et d'entreprises du bâtiment, soit 24 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les passe dans Docling et Gemini :
+
+| | Résultat |
+|---|---|
+| Type de document reconnu | 24 / 24 |
+| Numéro et numéro de commande | 24 / 24 |
+| Lignes lues (nombre, quantités, prix) | 24 / 24 |
+| Verdict de l'achat | 8 / 8 |
+
+Ces PDF sont propres et générés : ce score montre que la chaîne marche de bout en bout, pas qu'elle résiste à un bon de livraison scanné et froissé. C'est le prochain jeu de test à constituer.
+
 Deux idées ont été essayées puis retirées, parce que les mesures ne les justifiaient pas :
 
 - préciser le format des dates dans la consigne : Gemini inverse toujours les dates américaines, seule la règle en Python les attrape ;
@@ -114,23 +172,29 @@ Le site tourne sur une fonction Python Vercel gratuite (2 Go de mémoire, 5 minu
 
 ```
 backend/app/
-  api/routes/invoices.py   dépôt, liste, correction, relecture, PDF, totaux
-  services/pdf_reader.py   PDF vers texte (Docling)
-  services/extraction.py   PDF et texte vers champs (Gemini)
-  services/checks.py       règles de contrôle, sans base ni IA
-  services/processing.py   enchaîne lecture, extraction et contrôles
+  api/routes/documents.py        dépôt en vrac, liste, correction, relecture, PDF, totaux
+  api/routes/reconciliations.py  achats rapprochés et documents à relier
+  services/pdf_reader.py         PDF vers texte (Docling)
+  services/extraction.py         PDF et texte vers type, champs et lignes (Gemini)
+  services/checks.py             règles de contrôle par type, sans base ni IA
+  services/reconciliation.py     rapprochement ligne par ligne, sans base ni IA
+  services/processing.py         enchaîne lecture, extraction et contrôles
 backend/scripts/
   create_admin.py          crée un administrateur, mot de passe saisi au clavier
   evaluate.py              score sur les 12 factures de test
+  generate_purchases.py    8 achats de démonstration (24 PDF)
+  evaluate_purchases.py    score de lecture et de rapprochement sur ces achats
   vercel-build.sh          build de l'interface, modèles Docling, migrations
 frontend/src/
-  routes/_layout/invoices.tsx   tableau des factures, filtres par statut
-  components/Invoices/          dépôt, correction, actions
+  routes/_layout/documents.tsx        documents, filtres par type et par statut
+  routes/_layout/reconciliations.tsx  achats, litiges, documents à relier
+  components/Documents/               dépôt, correction (type, champs, lignes), actions
+  components/Reconciliations/         détail d'un achat ligne par ligne
 ```
 
-Docling et Gemini sont derrière deux interfaces (`PdfReader`, `InvoiceExtractor`). Les 96 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Docling et Gemini sont derrière deux interfaces (`PdfReader`, `InvoiceExtractor`). Les 165 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
-Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
+Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 
 ## Lancer en local
 
@@ -154,6 +218,7 @@ L'application est sur http://localhost:8000. Sous Windows, préfixez les command
 ```bash
 cd backend && uv run pytest
 cd backend && uv run python scripts/evaluate.py
+cd backend && uv run python scripts/evaluate_purchases.py
 ```
 
 ## Crédits et licence
@@ -162,5 +227,7 @@ cd backend && uv run python scripts/evaluate.py
 - [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) : traitement en arrière-plan, une erreur claire par étape.
 - [sparrow](https://github.com/katanaml/sparrow) : interface commune pour changer de modèle d'extraction.
 - [TaxHacker](https://github.com/vas3k/TaxHacker) : consigne par champ dans le schéma, règle « ne rien inventer », limite du nombre de pages lues.
+- [Odoo](https://github.com/odoo/odoo) et [ERPNext](https://github.com/frappe/erpnext) : règles du rapprochement (contrôle sur les quantités reçues, tolérance sur les quantités, prix facturé égal au prix commandé). [Dolibarr](https://github.com/Dolibarr/dolibarr) : vocabulaire français commande, réception, facture fournisseur. Idées seulement, aucun code repris.
+- [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz) (MIT) : comparaison des désignations d'articles.
 
 Licence GPL-3.0.

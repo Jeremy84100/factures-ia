@@ -67,16 +67,16 @@ def line_label(line: LineFields, index: int) -> str:
     return line.reference or line.description or f"Ligne {index + 1}"
 
 
-def check_lines(lines: Sequence[LineFields], allow_negative: bool = False) -> list[str]:
+def check_lines(lines: Sequence[LineFields], check_quantities: bool) -> list[str]:
     issues = []
     for index, line in enumerate(lines):
         label = line_label(line, index)
         quantity, price, amount = line.quantity, line.unit_price, line.amount_excl_tax
-        if quantity is not None and quantity <= 0 and not allow_negative:
+        if check_quantities and quantity is not None and quantity <= 0:
             issues.append(f"{label} : quantité {show(quantity)}")
         if quantity is not None and price is not None and amount is not None:
-            expected = (quantity * price).quantize(CENT)
-            if abs(expected - amount) > TOLERANCE:
+            expected = abs(quantity * price).quantize(CENT)
+            if abs(amount) > expected + TOLERANCE:
                 issues.append(
                     f"{label} : {show(quantity)} × {show(price)} = {expected}"
                     f" mais montant = {amount}"
@@ -85,13 +85,16 @@ def check_lines(lines: Sequence[LineFields], allow_negative: bool = False) -> li
 
 
 def check_lines_total(
-    lines: Sequence[LineFields], total_excl_tax: Decimal | None
+    lines: Sequence[LineFields],
+    total_excl_tax: Decimal | None,
+    total_incl_tax: Decimal | None = None,
 ) -> str | None:
     amounts = [line.amount_excl_tax for line in lines]
     if not amounts or total_excl_tax is None or None in amounts:
         return None
     lines_total = sum((a for a in amounts if a is not None), Decimal(0))
-    if abs(abs(lines_total) - abs(total_excl_tax)) > TOLERANCE:
+    totals = [t for t in (total_excl_tax, total_incl_tax) if t is not None]
+    if all(abs(abs(lines_total) - abs(total)) > TOLERANCE for total in totals):
         return (
             f"Somme des lignes = {lines_total} mais total HT = {total_excl_tax}"
             " (remise globale ?)"
@@ -148,9 +151,12 @@ def check_document(
     elif not lines:
         issues.append(NO_LINES)
 
-    issues += check_lines(lines, allow_negative=document.is_credit_note)
+    issues += check_lines(lines, check_quantities=document.kind != DocumentKind.invoice)
     if document.kind != DocumentKind.delivery:
-        if total_issue := check_lines_total(lines, document.amount_excl_tax):
+        total_issue = check_lines_total(
+            lines, document.amount_excl_tax, document.amount_incl_tax
+        )
+        if total_issue:
             issues.append(total_issue)
 
     if document.kind == DocumentKind.delivery and not document.order_reference:

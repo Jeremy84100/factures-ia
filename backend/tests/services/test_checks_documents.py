@@ -181,10 +181,43 @@ def test_invoice_with_lines_is_ok() -> None:
 
 
 def test_invoice_lines_must_add_up_to_total() -> None:
-    wrong = invoice(lines=[line(), line(reference="ICTA-20", amount="0.42")])
+    wrong = invoice(lines=[line(), line(reference="ICTA-20", amount="95.00")])
     issues = check_document(wrong, None, TODAY)[1]
-    assert "ICTA-20 : 50 × 1.19 = 59.50 mais montant = 0.42" in issues
-    assert "Somme des lignes = 59.92 mais total HT = 59.50 (remise globale ?)" in issues
+    assert "ICTA-20 : 50 × 1.19 = 59.50 mais montant = 95.00" in issues
+    assert (
+        "Somme des lignes = 154.50 mais total HT = 59.50 (remise globale ?)" in issues
+    )
+
+
+def test_line_discount_is_not_an_error() -> None:
+    discounted = invoice(lines=[line(amount="53.55")], amount_excl_tax=Decimal("53.55"))
+    discounted.vat_amount = Decimal("10.71")
+    discounted.amount_incl_tax = Decimal("64.26")
+    assert check_document(discounted, None, TODAY) == (DocumentStatus.ok, [])
+
+
+def test_lines_may_add_up_to_total_incl_tax() -> None:
+    retail = invoice(
+        lines=[line(amount="71.40", unit_price="1.428")],
+        amount_excl_tax=Decimal("59.50"),
+    )
+    assert check_document(retail, None, TODAY)[0] == DocumentStatus.ok
+
+
+def test_zero_quantity_line_on_an_invoice_is_fine() -> None:
+    note = line(reference="Justificatif papier", quantity="0", amount="0")
+    assert check_document(invoice(lines=[line(), note]), None, TODAY)[1] == []
+
+
+def test_credit_note_with_positive_quantities_and_negative_amounts() -> None:
+    credit = invoice(
+        is_credit_note=True,
+        amount_excl_tax=Decimal("-59.50"),
+        vat_amount=Decimal("-11.90"),
+        amount_incl_tax=Decimal("-71.40"),
+        lines=[line(amount="-59.50")],
+    )
+    assert check_document(credit, None, TODAY) == (DocumentStatus.ok, [])
 
 
 def test_invoice_without_lines_is_still_checked_as_before() -> None:

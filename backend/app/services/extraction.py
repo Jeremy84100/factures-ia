@@ -40,7 +40,7 @@ class ExtractedLine(BaseModel):
 class ExtractedDocument(BaseModel):
     document_type: DocumentType | None = Field(
         default=None,
-        description="facture (ou avoir), bon_de_commande (commande d'achat, purchase order), bon_de_livraison (bon de livraison, bordereau de livraison, delivery note, Lieferschein) ou autre",
+        description="facture (y compris avoir, reçu, ticket, note d'hôtel, invoice, Rechnung, bill), bon_de_commande (commande d'achat, purchase order), bon_de_livraison (bon de livraison, bordereau de livraison, delivery note, Lieferschein) ou autre",
     )
     supplier: str | None = Field(
         default=None,

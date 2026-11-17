@@ -151,6 +151,13 @@ def place(line: DocumentLine, items: list[Item]) -> Item:
     return item
 
 
+def net_price(line: DocumentLine) -> Decimal | None:
+    quantity, amount = line.quantity, line.amount_excl_tax
+    if quantity and amount is not None:
+        return abs(amount / quantity).quantize(Decimal("0.0001"))
+    return line.unit_price
+
+
 def signed(document: Document, value: Decimal) -> Decimal:
     return -abs(value) if document.is_credit_note else value
 
@@ -168,7 +175,7 @@ def build_items(
             if line.quantity is not None:
                 item.ordered = (item.ordered or ZERO) + line.quantity
             if item.order_price is None:
-                item.order_price = line.unit_price
+                item.order_price = net_price(line)
     for delivery in deliveries:
         for line in delivery.lines:
             if line.quantity is not None:
@@ -178,8 +185,9 @@ def build_items(
             item = place(line, items)
             if line.quantity is not None:
                 item.invoiced += signed(invoice, abs(line.quantity))
-            if line.unit_price is not None and not invoice.is_credit_note:
-                item.invoice_prices.append(line.unit_price)
+            price = net_price(line)
+            if price is not None and not invoice.is_credit_note:
+                item.invoice_prices.append(price)
     return items
 
 
@@ -381,7 +389,11 @@ def build_purchases(documents: Iterable[Document]) -> Purchases:
         ):
             unlinked.append(document)
 
-    purchases = [reconcile(key, docs) for key, docs in groups.items()]
+    purchases = [
+        reconcile(key, docs)
+        for key, docs in groups.items()
+        if any(d.kind != DocumentKind.invoice for d in docs)
+    ]
     purchases.sort(key=lambda p: (STATUS_ORDER[p.status], p.order_reference))
     return Purchases(
         data=purchases,

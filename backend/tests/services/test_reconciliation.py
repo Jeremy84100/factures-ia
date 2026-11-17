@@ -321,3 +321,16 @@ def test_articles_with_other_sizes_are_not_confused() -> None:
     )
     assert len(purchase.lines) == 2
     assert purchase.lines[1].issues == ["Gaine ICTA 25 mm : livré mais pas commandé"]
+
+
+def test_line_discount_uses_the_net_price() -> None:
+    net = ln("Câble R2V 3G2,5 100 m", "50", "1.25", "CAB-3G25")
+    net.amount_excl_tax = Decimal("59.50")
+    purchase = reconcile("CMD2041", [order(), delivery(), invoice(net, gaine())])
+    assert purchase.lines[0].invoice_price == Decimal("1.1900")
+    assert purchase.status == PurchaseStatus.to_pay
+
+
+def test_invoice_alone_is_not_a_purchase() -> None:
+    result = build_purchases([invoice(order_reference="PO-778")])
+    assert result.count == 0

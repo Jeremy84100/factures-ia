@@ -230,3 +230,15 @@ def test_same_number_on_another_type_is_not_a_duplicate(db: Session) -> None:
     )
     process_document(delivery.id, engine, FakeReader(), FakeExtractor(same_number))
     assert reload(db, delivery).status == DocumentStatus.ok
+
+
+def test_queued_document_is_not_expired_too_early(db: Session) -> None:
+    queued = create_random_document(db)
+    queued.created_at = get_datetime_utc() - timedelta(minutes=30)
+    old = create_random_document(db)
+    old.created_at = get_datetime_utc() - timedelta(minutes=61)
+    db.add_all([queued, old])
+    db.commit()
+    expire_stale(db)
+    assert reload(db, queued).status == DocumentStatus.pending
+    assert reload(db, old).status == DocumentStatus.failed

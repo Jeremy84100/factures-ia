@@ -3,7 +3,7 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import Engine, func
+from sqlalchemy import Engine, and_, func, or_
 from sqlmodel import Session, col, select
 
 from app.models import (
@@ -34,6 +34,7 @@ CENT = Decimal("0.01")
 QUANTITY_STEP = Decimal("0.001")
 PRICE_STEP = Decimal("0.0001")
 STALE_AFTER = timedelta(minutes=10)
+QUEUED_TOO_LONG = timedelta(hours=1)
 INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
 
 KINDS = {
@@ -136,13 +137,20 @@ def find_duplicate(session: Session, document: Document) -> Document | None:
 
 
 def expire_stale(session: Session) -> None:
-    cutoff = get_datetime_utc() - STALE_AFTER
+    now = get_datetime_utc()
+    since = func.coalesce(Document.started_at, Document.created_at)
     stale = session.exec(
         select(Document).where(
-            col(Document.status).in_(
-                [DocumentStatus.pending, DocumentStatus.processing]
-            ),
-            func.coalesce(Document.started_at, Document.created_at) < cutoff,
+            or_(
+                and_(
+                    Document.status == DocumentStatus.processing,
+                    since < now - STALE_AFTER,
+                ),
+                and_(
+                    Document.status == DocumentStatus.pending,
+                    since < now - QUEUED_TOO_LONG,
+                ),
+            )
         )
     ).all()
     for document in stale:
