@@ -1,7 +1,6 @@
 import {
   ClipboardList,
   File,
-  Loader2,
   type LucideIcon,
   Receipt,
   Truck,
@@ -50,7 +49,7 @@ export function DocumentRow({
   const kind = document.is_credit_note ? "Avoir" : KIND[document.kind]
   return (
     <ListRow
-      icon={busy ? Loader2 : KIND_ICON[document.kind]}
+      icon={KIND_ICON[document.kind]}
       spin={busy}
       tone={busy || document.status === "ok" ? "neutral" : tone}
       title={document.supplier ?? document.filename}

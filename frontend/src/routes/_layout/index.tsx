@@ -6,7 +6,6 @@ import {
   FileWarning,
   Hourglass,
   Link2,
-  Loader2,
   TriangleAlert,
   Upload,
 } from "lucide-react"
@@ -19,6 +18,21 @@ import { displayName, isDemoUser } from "@/components/App/Navigation"
 import { UploadButton, useFilePicker } from "@/components/App/UploadButton"
 import { overbilled, PurchaseRow } from "@/components/Purchases/PurchaseRow"
 import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item"
+import { Spinner } from "@/components/ui/spinner"
 import useAuth from "@/hooks/useAuth"
 import { formatAmount, isBusy, needsReview, plural } from "@/lib/documents"
 import { documentsQuery, purchasesQuery, useLiveOptions } from "@/lib/queries"
@@ -34,46 +48,48 @@ export const Route = createFileRoute("/_layout/")({
   head: () => ({ meta: [{ title: "Accueil - Factures IA" }] }),
 })
 
+// shadcn Empty with a dashed border: click to choose, or drop files on it.
 function DropZone({ big = false }: { big?: boolean }) {
   const { picker, open, upload, isPending } = useFilePicker()
   const [over, setOver] = useState(false)
-  const onDrop = (event: DragEvent) => {
-    event.preventDefault()
-    setOver(false)
-    upload(Array.from(event.dataTransfer.files))
-  }
   return (
     <>
       {picker}
-      <button
-        type="button"
+      <Empty
+        role="button"
+        tabIndex={0}
         onClick={open}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") open()
+        }}
         onDragOver={(event) => {
           event.preventDefault()
           setOver(true)
         }}
         onDragLeave={() => setOver(false)}
-        onDrop={onDrop}
+        onDrop={(event: DragEvent) => {
+          event.preventDefault()
+          setOver(false)
+          upload(Array.from(event.dataTransfer.files))
+        }}
         className={cn(
-          "flex w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border px-6 text-center transition-colors hover:border-primary/50 hover:bg-primary/5",
-          big ? "py-16" : "hidden py-10 md:flex",
-          over && "border-primary bg-primary/5",
+          "cursor-pointer border border-dashed transition-colors hover:border-foreground/30 hover:bg-muted/40",
+          big ? "py-16" : "hidden md:flex",
+          over && "border-foreground/40 bg-muted/60",
         )}
       >
-        <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          {isPending ? (
-            <Loader2 className="size-6 animate-spin" />
-          ) : (
-            <Upload className="size-6" />
-          )}
-        </span>
-        <span className="font-medium">
-          {isPending ? "Envoi…" : "Glissez vos documents ici"}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          Commandes, bons de livraison, factures · PDF ou photo · tout en vrac
-        </span>
-      </button>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            {isPending ? <Spinner /> : <Upload />}
+          </EmptyMedia>
+          <EmptyTitle>
+            {isPending ? "Envoi…" : "Glissez vos documents ici"}
+          </EmptyTitle>
+          <EmptyDescription>
+            Commandes, bons de livraison, factures · PDF ou photo · tout en vrac
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     </>
   )
 }
@@ -219,12 +235,19 @@ function Home() {
       </section>
 
       {reading > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-primary">
-          <Loader2 className="size-5 animate-spin" />
-          <span className="font-medium">
-            L'IA lit {plural(reading, "document", "documents")}…
-          </span>
-        </div>
+        <Item variant="muted" size="sm">
+          <ItemMedia>
+            <Spinner className="size-5" />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>
+              L'IA lit {plural(reading, "document", "documents")}…
+            </ItemTitle>
+            <ItemDescription>
+              La page se met à jour toute seule.
+            </ItemDescription>
+          </ItemContent>
+        </Item>
       )}
 
       {todo.length > 0 && <ListGroup title="À regarder">{todo}</ListGroup>}

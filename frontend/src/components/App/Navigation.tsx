@@ -148,7 +148,7 @@ export function SideNav() {
             key={to}
             to={to}
             activeOptions={{ exact: to === "/" }}
-            className="flex h-11 items-center gap-3 rounded-2xl px-3 font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground data-[status=active]:bg-surface data-[status=active]:text-foreground"
+            className="flex h-11 items-center gap-3 rounded-2xl px-3 font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground data-[status=active]:bg-muted data-[status=active]:text-foreground"
           >
             <Icon className="size-5" />
             {label}

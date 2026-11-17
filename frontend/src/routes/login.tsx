@@ -4,13 +4,7 @@ import {
   Link as RouterLink,
   redirect,
 } from "@tanstack/react-router"
-import {
-  ArrowRight,
-  Camera,
-  GitCompareArrows,
-  Loader2,
-  ShieldCheck,
-} from "lucide-react"
+import { ArrowRight, Camera, GitCompareArrows, ShieldCheck } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
@@ -18,6 +12,7 @@ import type { Body_login_login_access_token as AccessToken } from "@/client"
 import { IconBubble } from "@/components/App/ListRow"
 import { Logo } from "@/components/Common/Logo"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   Form,
   FormControl,
@@ -29,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { PasswordInput } from "@/components/ui/password-input"
+import { Spinner } from "@/components/ui/spinner"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
 const formSchema = z.object({
@@ -84,7 +80,7 @@ function DemoButton() {
       >
         {demoMutation.isPending ? (
           <>
-            <Loader2 className="animate-spin" />
+            <Spinner />
             Préparation de la démo…
           </>
         ) : (
@@ -220,9 +216,9 @@ function Login() {
           </ul>
         </section>
 
-        <section className="rounded-3xl bg-surface p-6 md:p-8">
+        <Card className="p-6 md:p-8">
           <LoginForm />
-        </section>
+        </Card>
       </div>
     </div>
   )

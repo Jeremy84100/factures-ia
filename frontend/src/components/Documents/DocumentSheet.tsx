@@ -4,7 +4,9 @@ import { type ReactNode, useState } from "react"
 
 import { type DocumentPublic, DocumentsService } from "@/client"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   formatAmount,
@@ -68,13 +70,13 @@ function Details({ document }: { document: DocumentPublic }) {
     </span>,
   ])
   return (
-    <div className="flex flex-col divide-y divide-border/70 rounded-3xl bg-surface px-4">
+    <Card className="gap-0 divide-y divide-border/70 px-5 py-1">
       {rows.map(([label, value]) => (
         <Detail key={label} label={label}>
           {value}
         </Detail>
       ))}
-    </div>
+    </Card>
   )
 }
 
@@ -86,7 +88,7 @@ function Lines({ document }: { document: DocumentPublic }) {
       <h3 className="px-1 pb-1 text-sm font-medium text-muted-foreground">
         {lines.length > 1 ? `${lines.length} articles` : "1 article"}
       </h3>
-      <div className="flex flex-col divide-y divide-border/70 rounded-3xl bg-surface px-4">
+      <Card className="gap-0 divide-y divide-border/70 px-5 py-1">
         {lines.map((line, index) => (
           <div
             key={`${line.reference}-${index}`}
@@ -108,7 +110,7 @@ function Lines({ document }: { document: DocumentPublic }) {
             )}
           </div>
         ))}
-      </div>
+      </Card>
     </section>
   )
 }
@@ -165,14 +167,9 @@ export function DocumentSheet({
       >
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-3">
-            <span
-              className={cn(
-                "w-fit rounded-full px-3 py-1 text-sm font-medium",
-                TONE_CLASSES[tone],
-              )}
-            >
+            <Badge className={cn("h-7 px-3 text-sm", TONE_CLASSES[tone])}>
               {STATUS[document.status].label}
-            </span>
+            </Badge>
             {amount && (
               <span className="text-4xl font-semibold tracking-tight tabular-nums">
                 {amount}

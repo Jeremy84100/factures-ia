@@ -1,7 +1,8 @@
-import { Loader2, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { type ReactNode, useRef } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { ACCEPTED, useUpload } from "@/hooks/useUpload"
 import { cn } from "@/lib/utils"
 
@@ -41,7 +42,7 @@ export function UploadButton({
         disabled={isPending}
         className={cn("h-11 rounded-full px-5", className)}
       >
-        {isPending ? <Loader2 className="animate-spin" /> : <Plus />}
+        {isPending ? <Spinner /> : <Plus />}
         {isPending ? "Envoi…" : children}
       </Button>
     </>
@@ -62,7 +63,7 @@ export function UploadFab() {
         className="-mt-5 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
       >
         {isPending ? (
-          <Loader2 className="size-6 animate-spin" />
+          <Spinner className="size-6" />
         ) : (
           <Plus className="size-7" />
         )}

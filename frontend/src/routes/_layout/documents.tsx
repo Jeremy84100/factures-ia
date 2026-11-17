@@ -4,8 +4,9 @@ import { FileText } from "lucide-react"
 import { useState } from "react"
 
 import type { DocumentPublic } from "@/client"
+import { EmptyState } from "@/components/App/EmptyState"
 import { type Chip, FilterChips } from "@/components/App/FilterChips"
-import { IconBubble, ListGroup } from "@/components/App/ListRow"
+import { ListGroup } from "@/components/App/ListRow"
 import { UploadButton } from "@/components/App/UploadButton"
 import DeleteAllDocuments from "@/components/Documents/DeleteAllDocuments"
 import { DocumentRow } from "@/components/Documents/DocumentRow"
@@ -42,19 +43,21 @@ export const Route = createFileRoute("/_layout/documents")({
   head: () => ({ meta: [{ title: "Documents - Factures IA" }] }),
 })
 
-function Empty({ filter }: { filter: Filter }) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <IconBubble icon={FileText} className="size-14" />
-      <p className="font-medium">
-        {filter === "review" ? "Rien à vérifier" : "Aucun document ici"}
-      </p>
-      <p className="max-w-sm text-muted-foreground">
-        {filter === "review"
-          ? "L'IA a tout lu sans hésiter."
-          : "Déposez vos commandes, bons de livraison et factures en vrac : ils sont triés tout seuls."}
-      </p>
-    </div>
+function Nothing({ filter }: { filter: Filter }) {
+  return filter === "review" ? (
+    <EmptyState
+      icon={FileText}
+      title="Rien à vérifier"
+      description="L'IA a tout lu sans hésiter."
+    />
+  ) : (
+    <EmptyState
+      icon={FileText}
+      title="Aucun document ici"
+      description="Déposez vos commandes, bons de livraison et factures en vrac : ils sont triés tout seuls."
+    >
+      <UploadButton />
+    </EmptyState>
   )
 }
 
@@ -97,7 +100,7 @@ function Documents() {
       />
 
       {shown.length === 0 ? (
-        <Empty filter={filter} />
+        <Nothing filter={filter} />
       ) : (
         <ListGroup>
           {shown.map((document) => (

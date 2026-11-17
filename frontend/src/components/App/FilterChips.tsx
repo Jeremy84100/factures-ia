@@ -1,3 +1,4 @@
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 
 export interface Chip<T extends string> {
@@ -6,6 +7,7 @@ export interface Chip<T extends string> {
   count?: number
 }
 
+// shadcn ToggleGroup, one choice at a time, scrollable sideways on a phone.
 export function FilterChips<T extends string>({
   chips,
   value,
@@ -16,40 +18,39 @@ export function FilterChips<T extends string>({
   onChange: (value: T) => void
 }) {
   return (
-    <div
-      role="tablist"
-      className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0"
-    >
-      {chips.map((chip) => {
-        const active = chip.value === value
-        return (
-          <button
+    <div className="no-scrollbar -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        spacing={2}
+        value={value}
+        onValueChange={(next) => {
+          if (next) onChange(next as T)
+        }}
+        className="md:flex-wrap"
+      >
+        {chips.map((chip) => (
+          <ToggleGroupItem
             key={chip.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(chip.value)}
-            className={cn(
-              "flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-colors",
-              active
-                ? "bg-foreground text-background"
-                : "bg-surface text-foreground hover:bg-muted",
-            )}
+            value={chip.value}
+            className="h-9 px-4 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
           >
             {chip.label}
             {chip.count !== undefined && chip.count > 0 && (
               <span
                 className={cn(
                   "tabular-nums",
-                  active ? "text-background/70" : "text-muted-foreground",
+                  chip.value === value
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground",
                 )}
               >
                 {chip.count}
               </span>
             )}
-          </button>
-        )
-      })}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
     </div>
   )
 }

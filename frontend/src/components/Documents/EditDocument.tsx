@@ -387,7 +387,7 @@ const EditDocument = ({ document, open, onOpenChange }: EditDocumentProps) => {
             {lines.fields.map((line, index) => (
               <div
                 key={line.id}
-                className="flex flex-wrap items-end gap-2 rounded-2xl bg-surface p-2 sm:flex-nowrap sm:bg-transparent sm:p-0"
+                className="flex flex-wrap items-end gap-2 rounded-2xl bg-muted/50 p-2 sm:flex-nowrap sm:bg-transparent sm:p-0"
               >
                 {LINE_FIELDS.map(({ name, label, className, numeric }) => (
                   <FormField

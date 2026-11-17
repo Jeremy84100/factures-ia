@@ -4,8 +4,9 @@ import { Link2, ShoppingBag } from "lucide-react"
 import { useState } from "react"
 
 import type { Purchase } from "@/client"
+import { EmptyState } from "@/components/App/EmptyState"
 import { type Chip, FilterChips } from "@/components/App/FilterChips"
-import { IconBubble, ListGroup, ListRow } from "@/components/App/ListRow"
+import { ListGroup, ListRow } from "@/components/App/ListRow"
 import { DocumentSheet } from "@/components/Documents/DocumentSheet"
 import { PurchaseRow } from "@/components/Purchases/PurchaseRow"
 import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
@@ -56,17 +57,17 @@ export const Route = createFileRoute("/_layout/reconciliations")({
   head: () => ({ meta: [{ title: "Achats - Factures IA" }] }),
 })
 
-function Empty({ filter }: { filter: Filter }) {
-  const text =
-    filter === "unlinked"
-      ? "Tous les documents sont rattachés à leur commande."
-      : "Déposez une commande, son bon de livraison et sa facture : ils sont rapprochés tout seuls."
+function Nothing({ filter }: { filter: Filter }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <IconBubble icon={ShoppingBag} className="size-14" />
-      <p className="font-medium">Rien ici</p>
-      <p className="max-w-sm text-muted-foreground">{text}</p>
-    </div>
+    <EmptyState
+      icon={ShoppingBag}
+      title="Rien ici"
+      description={
+        filter === "unlinked"
+          ? "Tous les documents sont rattachés à leur commande."
+          : "Déposez une commande, son bon de livraison et sa facture : ils sont rapprochés tout seuls."
+      }
+    />
   )
 }
 
@@ -117,7 +118,7 @@ function Purchases() {
       />
 
       {empty ? (
-        <Empty filter={filter} />
+        <Nothing filter={filter} />
       ) : filter === "unlinked" ? (
         <ListGroup>
           <p className="px-3 pt-2 pb-1 text-sm text-muted-foreground md:px-4">

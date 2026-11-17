@@ -1,6 +1,17 @@
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { Card } from "@/components/ui/card"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item"
+import { Spinner } from "@/components/ui/spinner"
 import { TONE_CLASSES, type Tone } from "@/lib/documents"
 import { cn } from "@/lib/utils"
 
@@ -23,7 +34,11 @@ export function IconBubble({
         className,
       )}
     >
-      <Icon className={cn("size-[18px]", spin && "animate-spin")} />
+      {spin ? (
+        <Spinner className="size-[18px]" />
+      ) : (
+        <Icon className="size-[18px]" />
+      )}
     </span>
   )
 }
@@ -39,6 +54,8 @@ interface ListRowProps {
   onClick?: () => void
 }
 
+// One row of a list, built on shadcn's Item: round icon, title, subtitle,
+// amount on the right.
 export function ListRow({
   icon,
   tone,
@@ -49,39 +66,48 @@ export function ListRow({
   endSub,
   onClick,
 }: ListRowProps) {
-  const content = (
+  const body = (
     <>
-      <IconBubble icon={icon} tone={tone} spin={spin} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">{title}</span>
+      <ItemMedia>
+        <IconBubble icon={icon} tone={tone} spin={spin} />
+      </ItemMedia>
+      <ItemContent className="min-w-0 gap-0.5">
+        <ItemTitle className="block w-full truncate text-[15px]">
+          {title}
+        </ItemTitle>
         {subtitle && (
-          <span className="truncate text-sm text-muted-foreground">
-            {subtitle}
-          </span>
+          <ItemDescription className="line-clamp-1">{subtitle}</ItemDescription>
         )}
-      </span>
+      </ItemContent>
       {(end || endSub) && (
-        <span className="flex shrink-0 flex-col items-end">
-          {end && <span className="font-medium tabular-nums">{end}</span>}
-          {endSub && <span className="text-sm">{endSub}</span>}
-        </span>
+        <ItemActions className="flex-col items-end gap-0.5 text-sm">
+          {end && (
+            <span className="text-[15px] font-medium tabular-nums">{end}</span>
+          )}
+          {endSub}
+        </ItemActions>
       )}
     </>
   )
-  const base =
-    "flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left md:px-4"
-  if (!onClick) return <div className={base}>{content}</div>
+
+  if (!onClick) {
+    return (
+      <Item size="sm" role="listitem" className="flex-nowrap">
+        {body}
+      </Item>
+    )
+  }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        base,
-        "transition-colors hover:bg-muted/70 active:bg-muted focus-visible:outline-2",
-      )}
+    <Item
+      asChild
+      size="sm"
+      role="listitem"
+      className="flex-nowrap text-left hover:bg-muted/70 active:bg-muted"
     >
-      {content}
-    </button>
+      <button type="button" onClick={onClick}>
+        {body}
+      </button>
+    </Item>
   )
 }
 
@@ -97,9 +123,9 @@ export function ListGroup({
   className?: string
 }) {
   return (
-    <section className={cn("flex flex-col gap-1", className)}>
+    <section className={cn("flex flex-col gap-2", className)}>
       {(title || action) && (
-        <div className="flex items-center justify-between px-1 pb-1">
+        <div className="flex items-center justify-between px-2">
           {title && (
             <h2 className="text-sm font-medium text-muted-foreground">
               {title}
@@ -108,9 +134,9 @@ export function ListGroup({
           {action}
         </div>
       )}
-      <div className="flex flex-col rounded-3xl bg-surface p-1.5">
-        {children}
-      </div>
+      <Card className="gap-0 p-1.5">
+        <ItemGroup className="gap-0">{children}</ItemGroup>
+      </Card>
     </section>
   )
 }

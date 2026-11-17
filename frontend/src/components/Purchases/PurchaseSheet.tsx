@@ -10,6 +10,7 @@ import type { DocumentRef, LineMatch, Purchase } from "@/client"
 import { Amount } from "@/components/App/Amount"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
+import { Badge } from "@/components/ui/badge"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   afterLabel,
@@ -225,14 +226,9 @@ export function PurchaseSheet({
     >
       <div className="flex flex-col gap-7">
         <div className="flex flex-col gap-4">
-          <span
-            className={cn(
-              "w-fit rounded-full px-3 py-1 text-sm font-medium",
-              TONE_CLASSES[tone],
-            )}
-          >
+          <Badge className={cn("h-7 px-3 text-sm", TONE_CLASSES[tone])}>
             {PURCHASE_STATUS[purchase.status].label}
-          </span>
+          </Badge>
           <Verdict purchase={purchase} />
           <Reasons purchase={purchase} />
         </div>
