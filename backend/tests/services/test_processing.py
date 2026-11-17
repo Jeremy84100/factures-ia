@@ -126,6 +126,37 @@ def test_duplicate_for_same_owner(db: Session) -> None:
     assert second.issues == ["Doublon possible de « facture.pdf »"]
 
 
+class DeletingExtractor(FakeExtractor):
+    """Deletes the document while the AI reads it, like « Tout supprimer »."""
+
+    def __init__(self, document_id: uuid.UUID, error: str | None = None) -> None:
+        super().__init__(error=error)
+        self.document_id = document_id
+
+    def extract(self, text: str, pdf: bytes) -> ExtractedDocument:
+        with Session(engine) as other:
+            document = other.get(Document, self.document_id)
+            assert document is not None
+            other.delete(document)
+            other.commit()
+        return super().extract(text, pdf)
+
+
+def test_document_deleted_during_reading_is_dropped(db: Session) -> None:
+    document_id = create_random_invoice(db).id
+    process_document(document_id, engine, FakeReader(), DeletingExtractor(document_id))
+    db.expire_all()
+    assert db.get(Document, document_id) is None
+
+
+def test_document_deleted_during_failed_reading_is_dropped(db: Session) -> None:
+    document_id = create_random_invoice(db).id
+    extractor = DeletingExtractor(document_id, error="Clé GEMINI_API_KEY manquante")
+    process_document(document_id, engine, FakeReader(), extractor)
+    db.expire_all()
+    assert db.get(Document, document_id) is None
+
+
 def test_missing_invoice_is_ignored() -> None:
     process_document(uuid.uuid4(), engine, FakeReader(), FakeExtractor())
 

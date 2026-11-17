@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import Engine, and_, func, or_
+from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 from sqlmodel import Session, col, select
 
 from app.models import (
@@ -221,19 +222,32 @@ def process_document(
         session.commit()
 
         try:
-            text = reader.read(document.file, document.filename)
-        except Exception:
-            logger.exception("Lecture OCR impossible de %s", document.filename)
-            text = ""
+            _read(session, document, reader, extractor)
+        except StaleDataError, ObjectDeletedError:
+            session.rollback()
+            logger.info("Document %s supprimé pendant sa lecture", document_id)
 
-        try:
-            extracted = extractor.extract(text, document.file)
-        except ExtractionError as e:
-            _finish(session, document, DocumentStatus.failed, str(e))
-            return
 
-        apply_extraction(document, extracted)
-        run_checks(session, document, review_extraction(extracted))
-        document.processed_at = get_datetime_utc()
-        session.add(document)
-        session.commit()
+def _read(
+    session: Session,
+    document: Document,
+    reader: PdfReader,
+    extractor: DocumentExtractor,
+) -> None:
+    try:
+        text = reader.read(document.file, document.filename)
+    except Exception:
+        logger.exception("Lecture OCR impossible de %s", document.filename)
+        text = ""
+
+    try:
+        extracted = extractor.extract(text, document.file)
+    except ExtractionError as e:
+        _finish(session, document, DocumentStatus.failed, str(e))
+        return
+
+    apply_extraction(document, extracted)
+    run_checks(session, document, review_extraction(extracted))
+    document.processed_at = get_datetime_utc()
+    session.add(document)
+    session.commit()
