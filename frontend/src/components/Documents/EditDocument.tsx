@@ -6,6 +6,7 @@ import { useFieldArray, useForm } from "react-hook-form"
 import { z } from "zod"
 
 import {
+  type DeliveryMode,
   type DocumentKind,
   type DocumentPublic,
   DocumentsService,
@@ -70,13 +71,19 @@ const formSchema = z.object({
   amount_incl_tax: amount,
   currency: z.string().max(3),
   vat_exemption: z.string().max(255),
+  delivery_method: z.string().max(100),
+  expected_delivery_date: z.string(),
+  delivery_mode: z.enum(["none", "pickup", "standard", "express"]),
   is_credit_note: z.boolean(),
   lines: z.array(lineSchema),
 })
 
 type FormData = z.infer<typeof formSchema>
 type LineData = z.infer<typeof lineSchema>
-type TextField = Exclude<keyof FormData, "kind" | "is_credit_note" | "lines">
+type TextField = Exclude<
+  keyof FormData,
+  "kind" | "delivery_mode" | "is_credit_note" | "lines"
+>
 
 const KIND_OPTIONS: { value: DocumentKind; label: string }[] = [
   { value: "invoice", label: "Facture ou avoir" },
@@ -85,7 +92,21 @@ const KIND_OPTIONS: { value: DocumentKind; label: string }[] = [
   { value: "unknown", label: "Autre document" },
 ]
 
+const MODE_OPTIONS: { value: DeliveryMode | "none"; label: string }[] = [
+  { value: "none", label: "Non indiqué" },
+  { value: "standard", label: "Livraison standard" },
+  { value: "express", label: "Livraison express" },
+  { value: "pickup", label: "Retrait par le client" },
+]
+
 const WIDE: TextField[] = ["supplier", "vat_exemption"]
+const NUMERIC = new Set([
+  "amount_excl_tax",
+  "vat_amount",
+  "amount_incl_tax",
+  "quantity",
+  "unit_price",
+])
 
 const FIELDS: {
   name: TextField
@@ -109,6 +130,17 @@ const FIELDS: {
     name: "vat_exemption",
     label: "Mention d'exonération de TVA",
     kinds: ["invoice"],
+  },
+  {
+    name: "delivery_method",
+    label: "Mode de livraison écrit",
+    kinds: ["order", "delivery"],
+  },
+  {
+    name: "expected_delivery_date",
+    label: "Livraison promise le",
+    type: "date",
+    kinds: ["order"],
   },
 ]
 
@@ -146,14 +178,17 @@ const toText = (value: string | number | null | undefined) =>
 const toNumberText = (value: string | number | null | undefined) =>
   value === null || value === undefined ? "" : String(Number(value))
 
-const toValue = (value: string) => {
-  const trimmed = value.trim().replace(",", ".")
+const toValue = (value: string, numeric: boolean) => {
+  const trimmed = numeric ? value.trim().replace(",", ".") : value.trim()
   return trimmed === "" ? null : trimmed
 }
 
 const toValues = <T extends Record<string, string>>(values: T) =>
   Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [key, toValue(value)]),
+    Object.entries(values).map(([key, value]) => [
+      key,
+      toValue(value, NUMERIC.has(key)),
+    ]),
   )
 
 interface EditDocumentProps {
@@ -175,6 +210,7 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
         FIELDS.map(({ name }) => [name, toText(document[name])]),
       ),
       kind: document.kind,
+      delivery_mode: document.delivery_mode ?? "none",
       is_credit_note: document.is_credit_note ?? false,
       lines: (document.lines ?? []).map((line) => ({
         reference: toText(line.reference),
@@ -190,12 +226,19 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
   const kind = form.watch("kind")
 
   const mutation = useMutation({
-    mutationFn: ({ kind, is_credit_note, lines, ...text }: FormData) =>
+    mutationFn: ({
+      kind,
+      delivery_mode,
+      is_credit_note,
+      lines,
+      ...text
+    }: FormData) =>
       DocumentsService.updateDocument({
         path: { id: document.id },
         body: {
           ...toValues(text),
           kind,
+          delivery_mode: delivery_mode === "none" ? null : delivery_mode,
           is_credit_note,
           lines: lines.map(toValues),
         },
@@ -289,6 +332,34 @@ const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
                     )}
                   />
                 ),
+              )}
+              {(kind === "order" || kind === "delivery") && (
+                <FormField
+                  control={form.control}
+                  name="delivery_mode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type de livraison</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {MODE_OPTIONS.map(({ value, label }) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
               )}
               {kind === "invoice" && (
                 <FormField

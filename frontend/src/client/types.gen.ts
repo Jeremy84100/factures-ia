@@ -45,6 +45,11 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * DeliveryMode
+ */
+export type DeliveryMode = 'pickup' | 'standard' | 'express';
+
+/**
  * DocumentKind
  */
 export type DocumentKind = 'unknown' | 'invoice' | 'order' | 'delivery';
@@ -93,6 +98,15 @@ export type DocumentPublic = {
      * Vat Exemption
      */
     vat_exemption?: string | null;
+    /**
+     * Delivery Method
+     */
+    delivery_method?: string | null;
+    delivery_mode?: DeliveryMode | null;
+    /**
+     * Expected Delivery Date
+     */
+    expected_delivery_date?: string | null;
     /**
      * Id
      */
@@ -198,6 +212,15 @@ export type DocumentUpdate = {
      * Vat Exemption
      */
     vat_exemption?: string | null;
+    /**
+     * Delivery Method
+     */
+    delivery_method?: string | null;
+    delivery_mode?: DeliveryMode | null;
+    /**
+     * Expected Delivery Date
+     */
+    expected_delivery_date?: string | null;
     kind?: DocumentKind | null;
     /**
      * Lines

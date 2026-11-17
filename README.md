@@ -23,7 +23,7 @@ Le cas d'usage visé : une PME du bâtiment ou un grossiste qui reçoit des cent
 
 https://factures-ia.vercel.app
 
-Créez un compte, puis déposez quelques documents, tous types mélangés. Les 24 PDF de [`backend/tests/fixtures/purchases`](backend/tests/fixtures/purchases) forment 8 achats avec chacun un piège : déposez-les en vrac et ouvrez la page Rapprochements. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
+Créez un compte, puis déposez quelques documents, tous types mélangés. Les 30 PDF de [`backend/tests/fixtures/purchases`](backend/tests/fixtures/purchases) forment 10 achats avec chacun un piège : déposez-les en vrac et ouvrez la page Rapprochements. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
 
 La première lecture prend jusqu'à une minute, le temps que le serveur gratuit démarre et charge Docling. Les suivantes prennent entre 5 et 20 secondes.
 
@@ -75,6 +75,7 @@ Le tableau de bord compte les factures par statut et additionne les dépenses de
 | Somme des lignes = total HT | Somme des lignes = 59.50 mais total HT = 70.00 (remise globale ?) |
 | Bon de commande ou de livraison sans ligne | Aucune ligne d'article trouvée |
 | Bon de livraison sans numéro de commande | Numéro de commande introuvable : à relier à une commande |
+| Bon de commande dont la livraison promise précède la commande | Date de livraison promise avant la date du document |
 | Document qui n'est ni une facture, ni une commande, ni une livraison | Ni facture, ni bon de commande, ni bon de livraison |
 
 Les doublons sont cherchés parmi les documents du même type : une facture et un bon de livraison peuvent porter le même numéro.
@@ -104,9 +105,16 @@ La règle de fond est celle d'Odoo et d'ERPNext : **on paie ce qui a été comma
 | Article facturé ou livré sans avoir été commandé | Vanne 20x27 : facturé mais pas commandé | Litige |
 | Fournisseurs ou devises différents dans un même achat | Fournisseurs différents : Rexel / Sonepar | Litige |
 | Livraison datée avant la commande | Livraison « bl.pdf » datée avant la commande | Litige |
+| Mode de livraison différent de la commande | Mode de livraison du BL-IVP-2208 : « Livraison standard J+3 » au lieu de « Livraison express 24 h » commandé | Litige |
 | Total facturé supérieur à ce qui est dû | Total facturé 131,50 € HT au lieu de 101,50 € | Litige |
 | Prix facturé moins cher que la commande | prix facturé 1,10 €, plus bas que les 1,19 € commandés | Noté |
 | Livraison partielle | reste 5 à livrer | Noté |
+| Livré après la date promise | BL-CL-4471 livré le 19/10/2026, 7 jours après la date promise (12/10/2026) | Noté |
+| Date promise dépassée, rien de livré | Livraison promise le 12/10/2026, toujours pas reçue (36 jours de retard) | Noté |
+
+Le mode de livraison est recopié tel qu'il est écrit, puis rangé par Gemini en trois catégories : retrait par le client, livraison standard, livraison express. Ce sont les catégories qui sont comparées, pas les mots : « Retrait au comptoir » et « Enlèvement par le client » sont la même chose. Un retard n'empêche pas de payer, il est seulement noté, par exemple pour réclamer des pénalités.
+
+Les frais de port, de livraison, l'écotaxe ou l'emballage ne figurent jamais sur un bon de livraison. Comme les services dans Odoo, ils sont payés sur la quantité commandée, pas sur la quantité livrée. Des frais facturés sans avoir été commandés restent un litige.
 
 Un achat est **bon à payer** quand la commande, une livraison et une facture sont là, sans litige. Il est **en attente** s'il manque la livraison ou la facture, et **sans commande** si seules la livraison et la facture sont là : elles sont alors comparées entre elles. Un bon de livraison sans numéro de commande, ou une facture sans numéro d'un fournisseur à qui l'on a passé commande, attend dans « À relier » qu'on saisisse ce numéro.
 
@@ -140,14 +148,15 @@ Le projet a aussi été passé sur 42 factures publiques :
 
 (*) La facture AWS porte la phrase « This is not a VAT invoice ». Selon les passages, Gemini la recopie comme mention d'exonération ou non : la facture est alors validée ou signalée.
 
-Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 8 achats de grossistes et d'entreprises du bâtiment, soit 24 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les passe dans Docling et Gemini :
+Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 10 achats de grossistes et d'entreprises du bâtiment, soit 30 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande, livraison en retard, express commandé mais livré en standard. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les passe dans Docling et Gemini :
 
 | | Résultat |
 |---|---|
-| Type de document reconnu | 24 / 24 |
-| Numéro et numéro de commande | 24 / 24 |
-| Lignes lues (nombre, quantités, prix) | 24 / 24 |
-| Verdict de l'achat | 8 / 8 |
+| Type de document reconnu | 30 / 30 |
+| Numéro et numéro de commande | 30 / 30 |
+| Lignes lues (nombre, quantités, prix) | 30 / 30 |
+| Mode et date de livraison (commandes et bons de livraison) | 20 / 20 |
+| Verdict de l'achat | 10 / 10 |
 
 Ces PDF sont propres et générés : ce score montre que la chaîne marche de bout en bout, pas qu'elle résiste à un bon de livraison scanné et froissé. C'est le prochain jeu de test à constituer.
 
@@ -192,7 +201,7 @@ frontend/src/
   components/Reconciliations/         détail d'un achat ligne par ligne
 ```
 
-Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 172 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 196 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
 Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 

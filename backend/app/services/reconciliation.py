@@ -2,11 +2,13 @@ import re
 import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import Decimal
 
 from rapidfuzz import fuzz
 
 from app.models import (
+    DeliveryMode,
     Document,
     DocumentKind,
     DocumentLine,
@@ -28,6 +30,11 @@ ZERO = Decimal(0)
 
 USABLE = (DocumentStatus.ok, DocumentStatus.to_check)
 PURCHASE_KINDS = (DocumentKind.order, DocumentKind.delivery, DocumentKind.invoice)
+MODE_LABELS = {
+    DeliveryMode.pickup: "retrait",
+    DeliveryMode.standard: "livraison standard",
+    DeliveryMode.express: "livraison express",
+}
 STATUS_ORDER = {
     PurchaseStatus.dispute: 0,
     PurchaseStatus.waiting: 1,
@@ -44,6 +51,12 @@ def fold(text: str) -> str:
 
 
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# Shipping fees, eco-taxes and the like never appear on a delivery note. Like
+# Odoo's service products, they are paid on the ordered quantity.
+FEE = re.compile(
+    r"\b(frais|port|transport|livraison|ecotaxe|eco (participation|contribution)"
+    r"|deee|emballage|consigne)\b"
+)
 
 
 def similar(a: str, b: str) -> float:
@@ -92,6 +105,10 @@ class Item:
     invoiced: Decimal = ZERO
     invoice_prices: list[Decimal] = field(default_factory=list)
     from_order: bool = False
+
+    @property
+    def is_fee(self) -> bool:
+        return bool(FEE.search(fold(f"{self.description} {self.reference or ''}")))
 
     def to_match(self, issues: list[str], notes: list[str]) -> LineMatch:
         return LineMatch(
@@ -205,6 +222,42 @@ def check_item(
             issues.append(f"{label} : livré mais pas commandé")
         return issues, notes
 
+    if item.is_fee:
+        if has_invoice and item.ordered is not None and item.invoiced > item.ordered:
+            issues.append(
+                f"{label} : facturé {quantity(item.invoiced)},"
+                f" commandé {quantity(item.ordered)}"
+            )
+    else:
+        quantity_issues, quantity_notes = check_quantities(
+            item, has_delivery, has_invoice
+        )
+        issues += quantity_issues
+        notes += quantity_notes
+
+    if item.order_price is not None:
+        for price in dict.fromkeys(item.invoice_prices):
+            gap = price - item.order_price
+            if gap > PRICE_TOLERANCE:
+                issues.append(
+                    f"{label} : prix facturé {euros(price)}"
+                    f" au lieu de {euros(item.order_price)} commandé"
+                )
+            elif gap < -PRICE_TOLERANCE:
+                notes.append(
+                    f"{label} : prix facturé {euros(price)}, plus bas que"
+                    f" les {euros(item.order_price)} commandés"
+                )
+    return issues, notes
+
+
+def check_quantities(
+    item: Item, has_delivery: bool, has_invoice: bool
+) -> tuple[list[str], list[str]]:
+    issues: list[str] = []
+    notes: list[str] = []
+    label = item.label
+
     if item.ordered is not None:
         allowed = item.ordered * (1 + QTY_TOLERANCE_PCT / 100)
         if item.delivered > allowed:
@@ -232,20 +285,6 @@ def check_item(
             f"{label} : facturé {quantity(item.invoiced)},"
             f" commandé {quantity(item.ordered)}"
         )
-
-    if item.order_price is not None:
-        for price in dict.fromkeys(item.invoice_prices):
-            gap = price - item.order_price
-            if gap > PRICE_TOLERANCE:
-                issues.append(
-                    f"{label} : prix facturé {euros(price)}"
-                    f" au lieu de {euros(item.order_price)} commandé"
-                )
-            elif gap < -PRICE_TOLERANCE:
-                notes.append(
-                    f"{label} : prix facturé {euros(price)}, plus bas que"
-                    f" les {euros(item.order_price)} commandés"
-                )
     return issues, notes
 
 
@@ -260,7 +299,7 @@ def amount_due(
         if price is None:
             return None
         payable = item.invoiced
-        if has_delivery:
+        if has_delivery and not item.is_fee:
             payable = min(payable, item.delivered)
         if has_order:
             payable = min(payable, item.ordered or ZERO)
@@ -301,7 +340,72 @@ def check_documents(documents: Sequence[Document]) -> list[str]:
     return issues
 
 
-def reconcile(key: str, documents: Sequence[Document]) -> Purchase:
+def day(value: date) -> str:
+    return value.strftime("%d/%m/%Y")
+
+
+def days(count: int) -> str:
+    return f"{count} jour{'s' if count > 1 else ''}"
+
+
+def delivery_method(document: Document) -> str:
+    if document.delivery_method:
+        return document.delivery_method
+    return MODE_LABELS[document.delivery_mode] if document.delivery_mode else "?"
+
+
+def name(document: Document) -> str:
+    return document.number or document.filename
+
+
+def promised_date(orders: Sequence[Document]) -> date | None:
+    return next(
+        (o.expected_delivery_date for o in orders if o.expected_delivery_date), None
+    )
+
+
+def check_delivery_mode(
+    orders: Sequence[Document], deliveries: Sequence[Document]
+) -> list[str]:
+    ordered = next((o for o in orders if o.delivery_mode), None)
+    if ordered is None:
+        return []
+    return [
+        f"Mode de livraison du {name(d)} : « {delivery_method(d)} » au lieu de"
+        f" « {delivery_method(ordered)} » commandé"
+        for d in deliveries
+        if d.delivery_mode and d.delivery_mode != ordered.delivery_mode
+    ]
+
+
+def late_deliveries(
+    orders: Sequence[Document], deliveries: Sequence[Document]
+) -> list[str]:
+    promised = promised_date(orders)
+    if promised is None:
+        return []
+    return [
+        f"{name(d)} livré le {day(d.document_date)},"
+        f" {days((d.document_date - promised).days)} après la date promise"
+        f" ({day(promised)})"
+        for d in deliveries
+        if d.document_date and d.document_date > promised
+    ]
+
+
+def missing_delivery(orders: Sequence[Document], today: date) -> str:
+    promised = promised_date(orders)
+    if promised is None or today <= promised:
+        return "Livraison pas encore reçue"
+    return (
+        f"Livraison promise le {day(promised)}, toujours pas reçue"
+        f" ({days((today - promised).days)} de retard)"
+    )
+
+
+def reconcile(
+    key: str, documents: Sequence[Document], today: date | None = None
+) -> Purchase:
     orders = [d for d in documents if d.kind == DocumentKind.order]
     deliveries = [d for d in documents if d.kind == DocumentKind.delivery]
     invoices = [d for d in documents if d.kind == DocumentKind.invoice]
@@ -320,7 +424,8 @@ def reconcile(key: str, documents: Sequence[Document]) -> Purchase:
         line_issues += len(issues)
         matches.append(item.to_match(issues, item_notes))
 
-    issues = check_documents(documents)
+    issues = check_documents(documents) + check_delivery_mode(orders, deliveries)
+    notes += late_deliveries(orders, deliveries)
     total = invoiced_total(invoices)
     due = amount_due(items, has_order, has_delivery) if has_invoice else None
     gap = None if total is None or due is None else total - due
@@ -332,7 +437,7 @@ def reconcile(key: str, documents: Sequence[Document]) -> Purchase:
     if not has_order:
         notes.append("Commande pas encore déposée")
     if has_order and not has_delivery:
-        notes.append("Livraison pas encore reçue")
+        notes.append(missing_delivery(orders, today or date.today()))
     if has_order and not has_invoice:
         notes.append("Facture pas encore reçue")
 
@@ -371,7 +476,9 @@ def purchase_key(document: Document) -> str:
     return reference_key(document.order_reference)
 
 
-def build_purchases(documents: Iterable[Document]) -> Purchases:
+def build_purchases(
+    documents: Iterable[Document], today: date | None = None
+) -> Purchases:
     usable = [d for d in documents if d.kind in PURCHASE_KINDS and d.status in USABLE]
     order_suppliers = [
         d.supplier for d in usable if d.kind == DocumentKind.order and d.supplier
@@ -390,7 +497,7 @@ def build_purchases(documents: Iterable[Document]) -> Purchases:
             unlinked.append(document)
 
     purchases = [
-        reconcile(key, docs)
+        reconcile(key, docs, today)
         for key, docs in groups.items()
         if any(d.kind != DocumentKind.invoice for d in docs)
     ]

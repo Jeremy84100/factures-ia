@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.models import (
+    DeliveryMode,
     Document,
     DocumentKind,
     DocumentLine,
@@ -334,3 +335,155 @@ def test_line_discount_uses_the_net_price() -> None:
 def test_invoice_alone_is_not_a_purchase() -> None:
     result = build_purchases([invoice(order_reference="PO-778")])
     assert result.count == 0
+
+
+TODAY = date(2026, 11, 17)
+
+
+def test_same_delivery_mode_is_fine() -> None:
+    purchase = reconcile(
+        "CMD2041",
+        [
+            order(delivery_mode=DeliveryMode.express),
+            delivery(delivery_mode=DeliveryMode.express),
+            invoice(),
+        ],
+    )
+    assert purchase.status == PurchaseStatus.to_pay
+
+
+def test_other_delivery_mode_is_a_dispute() -> None:
+    purchase = reconcile(
+        "CMD2041",
+        [
+            order(delivery_mode=DeliveryMode.express, delivery_method="Express 24 h"),
+            delivery(delivery_mode=DeliveryMode.standard),
+            invoice(),
+        ],
+    )
+    assert purchase.status == PurchaseStatus.dispute
+    assert purchase.issues == [
+        "Mode de livraison du BL-88 : « livraison standard » au lieu de"
+        " « Express 24 h » commandé"
+    ]
+
+
+def test_unknown_delivery_mode_is_not_checked() -> None:
+    purchase = reconcile(
+        "CMD2041", [order(delivery_mode=DeliveryMode.pickup), delivery(), invoice()]
+    )
+    assert purchase.status == PurchaseStatus.to_pay
+
+
+def test_late_delivery_is_noted_but_still_payable() -> None:
+    purchase = reconcile(
+        "CMD2041",
+        [order(expected_delivery_date=date(2026, 10, 1)), delivery(), invoice()],
+    )
+    assert purchase.status == PurchaseStatus.to_pay
+    assert purchase.notes == [
+        "BL-88 livré le 05/10/2026, 4 jours après la date promise (01/10/2026)"
+    ]
+
+
+def test_delivery_on_the_promised_day_is_on_time() -> None:
+    purchase = reconcile(
+        "CMD2041",
+        [order(expected_delivery_date=date(2026, 10, 5)), delivery(), invoice()],
+    )
+    assert purchase.notes == []
+
+
+def test_each_late_delivery_is_noted() -> None:
+    first = delivery(cable(price=None), document_date=date(2026, 10, 3))
+    second = delivery(
+        gaine(price=None), number="BL-89", document_date=date(2026, 10, 6)
+    )
+    purchase = reconcile(
+        "CMD2041",
+        [order(expected_delivery_date=date(2026, 10, 4)), first, second, invoice()],
+    )
+    assert purchase.notes == [
+        "BL-89 livré le 06/10/2026, 2 jours après la date promise (04/10/2026)"
+    ]
+
+
+def test_missing_delivery_after_the_promised_date_is_late() -> None:
+    purchase = reconcile(
+        "CMD2041", [order(expected_delivery_date=date(2026, 11, 16))], TODAY
+    )
+    assert purchase.status == PurchaseStatus.waiting
+    assert purchase.notes == [
+        "Livraison promise le 16/11/2026, toujours pas reçue (1 jour de retard)",
+        "Facture pas encore reçue",
+    ]
+
+
+def test_missing_delivery_before_the_promised_date_is_just_waiting() -> None:
+    purchase = reconcile(
+        "CMD2041", [order(expected_delivery_date=date(2026, 11, 20))], TODAY
+    )
+    assert purchase.notes[0] == "Livraison pas encore reçue"
+
+
+def test_build_purchases_passes_today_along() -> None:
+    result = build_purchases([order(expected_delivery_date=date(2026, 11, 7))], TODAY)
+    assert result.data[0].notes[0] == (
+        "Livraison promise le 07/11/2026, toujours pas reçue (10 jours de retard)"
+    )
+
+
+def port(quantity: str = "1", price: str | None = "45.00") -> DocumentLine:
+    return ln("Frais de port", quantity, price, "PORT")
+
+
+def test_shipping_fees_are_not_expected_on_the_delivery_note() -> None:
+    purchase = reconcile(
+        "CMD2041",
+        [
+            order(cable(), gaine(), port()),
+            delivery(),
+            invoice(cable(), gaine(), port()),
+        ],
+    )
+    assert purchase.status == PurchaseStatus.to_pay
+    assert purchase.gap_excl_tax == Decimal("0.00")
+    assert all(line.notes == [] for line in purchase.lines)
+
+
+def test_shipping_fees_not_ordered_are_a_dispute() -> None:
+    purchase = reconcile(
+        "CMD2041", [order(), delivery(), invoice(cable(), gaine(), port())]
+    )
+    assert purchase.status == PurchaseStatus.dispute
+    assert purchase.lines[-1].issues == ["Frais de port : facturé mais pas commandé"]
+
+
+def test_shipping_fees_invoiced_twice_are_a_dispute() -> None:
+    purchase = reconcile(
+        "CMD2041",
+        [
+            order(cable(), gaine(), port()),
+            delivery(),
+            invoice(cable(), gaine(), port(quantity="2")),
+        ],
+    )
+    assert purchase.lines[-1].issues == ["Frais de port : facturé 2, commandé 1"]
+
+
+def test_eco_tax_is_a_fee_but_support_is_not() -> None:
+    def eco() -> DocumentLine:
+        return ln("Éco-participation DEEE", "1", "2.50")
+
+    def support() -> DocumentLine:
+        return ln("Bâti-support WC", "1", "120.00")
+
+    purchase = reconcile(
+        "CMD2041",
+        [
+            order(eco(), support()),
+            delivery(ln("Bâti-support WC", "1")),
+            invoice(eco(), support()),
+        ],
+    )
+    assert purchase.status == PurchaseStatus.to_pay

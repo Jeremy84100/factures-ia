@@ -13,6 +13,7 @@ Texte OCR du document :
 """
 
 DocumentType = Literal["facture", "bon_de_commande", "bon_de_livraison", "autre"]
+DeliveryModeName = Literal["retrait", "standard", "express"]
 
 
 class ExtractedLine(BaseModel):
@@ -78,6 +79,18 @@ class ExtractedDocument(BaseModel):
     vat_exemption: str | None = Field(
         default=None,
         description="Mention qui justifie l'absence de TVA, recopiée telle quelle (« TVA non applicable, art. 293 B du CGI », « Autoliquidation », « Exonération de TVA, article 262 ter I du CGI », « §4 UStG »…). null si le document n'en contient pas.",
+    )
+    delivery_method: str | None = Field(
+        default=None,
+        description="Mode de livraison recopié tel quel (« Livraison sur chantier », « Retrait en agence », « Express 24 h », « Transporteur »…). null si le document n'en parle pas.",
+    )
+    delivery_mode: DeliveryModeName | None = Field(
+        default=None,
+        description="Le même mode de livraison rangé dans une catégorie : retrait (le client vient chercher la marchandise), express (livraison urgente, express, 24 h, chronopost), standard (toute autre livraison par le fournisseur ou un transporteur). null si le document n'en parle pas.",
+    )
+    expected_delivery_date: str | None = Field(
+        default=None,
+        description="Sur un bon de commande : date de livraison souhaitée, promise ou prévue, au format AAAA-MM-JJ. Jamais la date du document. null si absente.",
     )
     lines: list[ExtractedLine] = Field(
         default_factory=list, description="Lignes d'articles du document"

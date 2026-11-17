@@ -78,6 +78,12 @@ class DocumentKind(StrEnum):
     delivery = "delivery"
 
 
+class DeliveryMode(StrEnum):
+    pickup = "pickup"
+    standard = "standard"
+    express = "express"
+
+
 class DocumentStatus(StrEnum):
     pending = "pending"
     processing = "processing"
@@ -113,6 +119,9 @@ class DocumentFields(SQLModel):
     currency: str | None = Field(default=None, max_length=3)
     is_credit_note: bool = False
     vat_exemption: str | None = Field(default=None, max_length=255)
+    delivery_method: str | None = Field(default=None, max_length=100)
+    delivery_mode: DeliveryMode | None = Field(default=None, sa_type=String(20))
+    expected_delivery_date: date | None = None
 
 
 class DocumentUpdate(DocumentFields):

@@ -7,6 +7,8 @@
       "number": "CMD-26-101",
       "date": "2026-10-01",
       "order_reference": null,
+      "delivery_mode": "standard",
+      "expected_delivery_date": "2026-10-03",
       "amount_excl_tax": 1225.8,
       "lines": [
         {
@@ -36,6 +38,8 @@
       "number": "BL-70412",
       "date": "2026-10-03",
       "order_reference": "CMD-26-101",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -65,6 +69,8 @@
       "number": "FA-26-5531",
       "date": "2026-10-04",
       "order_reference": "CMD-26-101",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 1225.8,
       "lines": [
         {
@@ -94,6 +100,8 @@
       "number": "CMD-26-102",
       "date": "2026-10-02",
       "order_reference": null,
+      "delivery_mode": "standard",
+      "expected_delivery_date": "2026-10-06",
       "amount_excl_tax": 1128.0,
       "lines": [
         {
@@ -123,6 +131,8 @@
       "number": "BL-2026-0877",
       "date": "2026-10-06",
       "order_reference": "CMD-26-102",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -152,6 +162,8 @@
       "number": "F-0098812",
       "date": "2026-10-07",
       "order_reference": "CMD-26-102",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 1128.0,
       "lines": [
         {
@@ -181,6 +193,8 @@
       "number": "CMD-26-103",
       "date": "2026-10-05",
       "order_reference": null,
+      "delivery_mode": "pickup",
+      "expected_delivery_date": "2026-10-07",
       "amount_excl_tax": 374.4,
       "lines": [
         {
@@ -210,6 +224,8 @@
       "number": "BL-55120",
       "date": "2026-10-07",
       "order_reference": "CMD-26-103",
+      "delivery_mode": "pickup",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -239,6 +255,8 @@
       "number": "FC-26-7740",
       "date": "2026-10-08",
       "order_reference": "CMD-26-103",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 388.4,
       "lines": [
         {
@@ -268,6 +286,8 @@
       "number": "CMD-26-104",
       "date": "2026-10-06",
       "order_reference": null,
+      "delivery_mode": "standard",
+      "expected_delivery_date": "2026-10-09",
       "amount_excl_tax": 696.2,
       "lines": [
         {
@@ -297,6 +317,8 @@
       "number": "BL-88231",
       "date": "2026-10-09",
       "order_reference": "CMD-26-104",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -326,6 +348,8 @@
       "number": "FA-104552",
       "date": "2026-10-10",
       "order_reference": "CMD-26-104",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 810.2,
       "lines": [
         {
@@ -361,6 +385,8 @@
       "number": "CMD-26-105",
       "date": "2026-10-07",
       "order_reference": null,
+      "delivery_mode": "standard",
+      "expected_delivery_date": "2026-10-14",
       "amount_excl_tax": 2629.0,
       "lines": [
         {
@@ -390,6 +416,8 @@
       "number": "BL-B-3301",
       "date": "2026-10-09",
       "order_reference": "CMD-26-105",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -413,6 +441,8 @@
       "number": "BL-B-3318",
       "date": "2026-10-14",
       "order_reference": "CMD-26-105",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -436,6 +466,8 @@
       "number": "FBP-26-412",
       "date": "2026-10-15",
       "order_reference": "CMD-26-105",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 2629.0,
       "lines": [
         {
@@ -465,6 +497,8 @@
       "number": "CMD-26-106",
       "date": "2026-10-08",
       "order_reference": null,
+      "delivery_mode": "standard",
+      "expected_delivery_date": "2026-10-12",
       "amount_excl_tax": 1484.0,
       "lines": [
         {
@@ -494,6 +528,8 @@
       "number": "BL-SAN-9902",
       "date": "2026-10-12",
       "order_reference": "CMD-26-106",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -523,6 +559,8 @@
       "number": "SAN-F-26-1187",
       "date": "2026-10-13",
       "order_reference": "CMD-26-106",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 1484.0,
       "lines": [
         {
@@ -552,6 +590,8 @@
       "number": "CMD-26-107",
       "date": "2026-10-09",
       "order_reference": null,
+      "delivery_mode": "pickup",
+      "expected_delivery_date": "2026-10-12",
       "amount_excl_tax": 1328.0,
       "lines": [
         {
@@ -581,6 +621,8 @@
       "number": "BL-PM-6620",
       "date": "2026-10-12",
       "order_reference": null,
+      "delivery_mode": "pickup",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -610,6 +652,8 @@
       "number": "PM-26-3390",
       "date": "2026-10-13",
       "order_reference": "CMD-26-107",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 1328.0,
       "lines": [
         {
@@ -639,6 +683,8 @@
       "number": "BL-OD-1029",
       "date": "2026-10-14",
       "order_reference": "CMD-26-108",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
       "amount_excl_tax": null,
       "lines": [
         {
@@ -662,6 +708,8 @@
       "number": "OD-F-26-0731",
       "date": "2026-10-15",
       "order_reference": "CMD-26-108",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
       "amount_excl_tax": 343.0,
       "lines": [
         {
@@ -675,6 +723,186 @@
           "description": "Disque à tronçonner inox 125 mm lot de 10",
           "quantity": 6,
           "unit_price": 17.5
+        }
+      ]
+    },
+    {
+      "filename": "09-cmd-26-109.pdf",
+      "kind": "order",
+      "supplier": "Carrelages du Luberon",
+      "number": "CMD-26-109",
+      "date": "2026-10-08",
+      "order_reference": null,
+      "delivery_mode": "standard",
+      "expected_delivery_date": "2026-10-12",
+      "amount_excl_tax": 1676.8,
+      "lines": [
+        {
+          "reference": "CAR-60-GRS",
+          "description": "Carrelage grès cérame 60x60 gris",
+          "quantity": 40,
+          "unit_price": 32.5
+        },
+        {
+          "reference": "COL-C2-25",
+          "description": "Mortier-colle C2 sac 25 kg",
+          "quantity": 16,
+          "unit_price": 18.9
+        },
+        {
+          "reference": "JNT-GRS-5",
+          "description": "Joint carrelage gris 5 kg",
+          "quantity": 6,
+          "unit_price": 12.4
+        }
+      ]
+    },
+    {
+      "filename": "09-bl-cl-4471.pdf",
+      "kind": "delivery",
+      "supplier": "Carrelages du Luberon",
+      "number": "BL-CL-4471",
+      "date": "2026-10-19",
+      "order_reference": "CMD-26-109",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "CAR-60-GRS",
+          "description": "Carrelage grès cérame 60x60 gris",
+          "quantity": 40,
+          "unit_price": null
+        },
+        {
+          "reference": "COL-C2-25",
+          "description": "Mortier-colle C2 sac 25 kg",
+          "quantity": 16,
+          "unit_price": null
+        },
+        {
+          "reference": "JNT-GRS-5",
+          "description": "Joint carrelage gris 5 kg",
+          "quantity": 6,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "09-cl-26-0912.pdf",
+      "kind": "invoice",
+      "supplier": "Carrelages du Luberon",
+      "number": "CL-26-0912",
+      "date": "2026-10-20",
+      "order_reference": "CMD-26-109",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
+      "amount_excl_tax": 1676.8,
+      "lines": [
+        {
+          "reference": "CAR-60-GRS",
+          "description": "Carrelage grès cérame 60x60 gris",
+          "quantity": 40,
+          "unit_price": 32.5
+        },
+        {
+          "reference": "COL-C2-25",
+          "description": "Mortier-colle C2 sac 25 kg",
+          "quantity": 16,
+          "unit_price": 18.9
+        },
+        {
+          "reference": "JNT-GRS-5",
+          "description": "Joint carrelage gris 5 kg",
+          "quantity": 6,
+          "unit_price": 12.4
+        }
+      ]
+    },
+    {
+      "filename": "10-cmd-26-110.pdf",
+      "kind": "order",
+      "supplier": "Isolation Ventoux Pro",
+      "number": "CMD-26-110",
+      "date": "2026-10-09",
+      "order_reference": null,
+      "delivery_mode": "express",
+      "expected_delivery_date": "2026-10-10",
+      "amount_excl_tax": 1023.4,
+      "lines": [
+        {
+          "reference": "PSE-TH38-100",
+          "description": "Panneau isolant PSE Th38 100 mm",
+          "quantity": 60,
+          "unit_price": 14.8
+        },
+        {
+          "reference": "CHV-ISO-140",
+          "description": "Cheville à frapper isolant 140 mm boîte de 100",
+          "quantity": 4,
+          "unit_price": 22.6
+        },
+        {
+          "reference": "PORT-EXP",
+          "description": "Frais de livraison express 24 h",
+          "quantity": 1,
+          "unit_price": 45.0
+        }
+      ]
+    },
+    {
+      "filename": "10-bl-ivp-2208.pdf",
+      "kind": "delivery",
+      "supplier": "Isolation Ventoux Pro",
+      "number": "BL-IVP-2208",
+      "date": "2026-10-13",
+      "order_reference": "CMD-26-110",
+      "delivery_mode": "standard",
+      "expected_delivery_date": null,
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "PSE-TH38-100",
+          "description": "Panneau isolant PSE Th38 100 mm",
+          "quantity": 60,
+          "unit_price": null
+        },
+        {
+          "reference": "CHV-ISO-140",
+          "description": "Cheville à frapper isolant 140 mm boîte de 100",
+          "quantity": 4,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "10-ivp-f-26-377.pdf",
+      "kind": "invoice",
+      "supplier": "Isolation Ventoux Pro",
+      "number": "IVP-F-26-377",
+      "date": "2026-10-14",
+      "order_reference": "CMD-26-110",
+      "delivery_mode": null,
+      "expected_delivery_date": null,
+      "amount_excl_tax": 1023.4,
+      "lines": [
+        {
+          "reference": "PSE-TH38-100",
+          "description": "Panneau isolant PSE Th38 100 mm",
+          "quantity": 60,
+          "unit_price": 14.8
+        },
+        {
+          "reference": "CHV-ISO-140",
+          "description": "Cheville à frapper isolant 140 mm boîte de 100",
+          "quantity": 4,
+          "unit_price": 22.6
+        },
+        {
+          "reference": "PORT-EXP",
+          "description": "Frais de livraison express 24 h",
+          "quantity": 1,
+          "unit_price": 45.0
         }
       ]
     }
@@ -728,6 +956,18 @@
       "case": "Livraison et facture sans bon de commande",
       "order_reference": "CMD-26-108",
       "status": "no_order",
+      "unlinked": []
+    },
+    {
+      "case": "Livré en retard",
+      "order_reference": "CMD-26-109",
+      "status": "to_pay",
+      "unlinked": []
+    },
+    {
+      "case": "Express commandé, livré en standard",
+      "order_reference": "CMD-26-110",
+      "status": "dispute",
       "unlinked": []
     }
   ]

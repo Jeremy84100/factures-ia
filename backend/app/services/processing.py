@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 from sqlmodel import Session, col, select
 
 from app.models import (
+    DeliveryMode,
     Document,
     DocumentKind,
     DocumentLine,
@@ -42,6 +43,11 @@ KINDS = {
     "facture": DocumentKind.invoice,
     "bon_de_commande": DocumentKind.order,
     "bon_de_livraison": DocumentKind.delivery,
+}
+DELIVERY_MODES = {
+    "retrait": DeliveryMode.pickup,
+    "standard": DeliveryMode.standard,
+    "express": DeliveryMode.express,
 }
 
 
@@ -117,6 +123,9 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
     document.currency = (extracted.currency or "").upper()[:3] or None
     document.is_credit_note = bool(extracted.is_credit_note)
     document.vat_exemption = to_text(extracted.vat_exemption, 255)
+    document.delivery_method = to_text(extracted.delivery_method, 100)
+    document.delivery_mode = DELIVERY_MODES.get(extracted.delivery_mode or "")
+    document.expected_delivery_date = to_date(extracted.expected_delivery_date)
     document.lines = to_lines(extracted.lines)
     sign_credit_note(document)
 

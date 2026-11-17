@@ -5,7 +5,13 @@ from decimal import Decimal
 from sqlmodel import Session
 
 from app.core.db import engine
-from app.models import Document, DocumentKind, DocumentStatus, get_datetime_utc
+from app.models import (
+    DeliveryMode,
+    Document,
+    DocumentKind,
+    DocumentStatus,
+    get_datetime_utc,
+)
 from app.services.extraction import ExtractedDocument, ExtractedLine
 from app.services.processing import (
     INTERRUPTED,
@@ -246,6 +252,31 @@ def test_order_reference_is_kept(db: Session) -> None:
     )
     process_document(document.id, engine, FakeReader(), FakeExtractor(delivery))
     assert reload(db, document).order_reference == "CMD-2041"
+
+
+def test_delivery_details_are_kept(db: Session) -> None:
+    document = create_random_document(db)
+    order = ORDER.model_copy(
+        update={
+            "delivery_method": " Express 24 h ",
+            "delivery_mode": "express",
+            "expected_delivery_date": "2026-10-09",
+        }
+    )
+    process_document(document.id, engine, FakeReader(), FakeExtractor(order))
+    document = reload(db, document)
+    assert document.delivery_method == "Express 24 h"
+    assert document.delivery_mode == DeliveryMode.express
+    assert document.expected_delivery_date == date(2026, 10, 9)
+
+
+def test_missing_delivery_details_stay_empty(db: Session) -> None:
+    document = create_random_document(db)
+    order = ORDER.model_copy(update={"expected_delivery_date": "bientôt"})
+    process_document(document.id, engine, FakeReader(), FakeExtractor(order))
+    document = reload(db, document)
+    assert document.delivery_mode is None
+    assert document.expected_delivery_date is None
 
 
 def test_same_number_on_another_type_is_not_a_duplicate(db: Session) -> None:

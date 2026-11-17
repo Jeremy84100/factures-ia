@@ -14,6 +14,7 @@ NUMBER_ISSUES = (DUPLICATE_OF, SAME_NUMBER_AS)
 NOT_A_PURCHASE_DOCUMENT = "Ni facture, ni bon de commande, ni bon de livraison"
 NO_LINES = "Aucune ligne d'article trouvée"
 NO_ORDER_REFERENCE = "Numéro de commande introuvable : à relier à une commande"
+PROMISED_BEFORE_ORDER = "Date de livraison promise avant la date du document"
 
 
 def number_issue(document: Document, other: Document) -> str:
@@ -164,6 +165,10 @@ def check_document(
 
     if document.document_date and document.document_date > (today or date.today()):
         issues.append("Date dans le futur")
+
+    promised = document.expected_delivery_date
+    if promised and document.document_date and promised < document.document_date:
+        issues.append(PROMISED_BEFORE_ORDER)
 
     if duplicate_of is not None:
         issues.append(number_issue(document, duplicate_of))

@@ -14,6 +14,7 @@ from app.services.processing import apply_extraction
 from app.services.reconciliation import build_purchases, reference_key
 
 FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures" / "purchases"
+DELIVERY_KINDS = ("order", "delivery")
 
 
 def same_number(a: object, b: object) -> bool:
@@ -42,7 +43,7 @@ def main() -> None:
     owner = uuid.uuid4()
 
     documents: list[Document] = []
-    scores = {"type": 0, "numéro": 0, "n° commande": 0, "lignes": 0}
+    scores = {"type": 0, "numéro": 0, "n° commande": 0, "lignes": 0, "livraison": 0}
     for case in expected["documents"]:
         path = FIXTURES / case["filename"]
         data = path.read_bytes()
@@ -65,6 +66,14 @@ def main() -> None:
             == reference_key(case["order_reference"]),
             "lignes": lines_ok(document, case["lines"]),
         }
+        # Delivery mode and promised date are only compared on orders and
+        # delivery notes: an invoice may mention them, they are never used.
+        if case["kind"] in DELIVERY_KINDS:
+            checks["livraison"] = (document.delivery_mode or None) == case[
+                "delivery_mode"
+            ] and str(document.expected_delivery_date or "") == (
+                case["expected_delivery_date"] or ""
+            )
         for name, ok in checks.items():
             scores[name] += ok
         wrong = [name for name, ok in checks.items() if not ok]
@@ -72,9 +81,13 @@ def main() -> None:
         print(f"{'OK  ' if not wrong else 'FAUX'} {path.name}{status} {wrong or ''}")
 
     total = len(expected["documents"])
+    totals = dict.fromkeys(scores, total)
+    totals["livraison"] = sum(
+        case["kind"] in DELIVERY_KINDS for case in expected["documents"]
+    )
     print(f"\nModèle : {settings.GEMINI_MODEL} — {total} documents")
     for name, hits in scores.items():
-        print(f"  {name:<12} {hits}/{total}")
+        print(f"  {name:<12} {hits}/{totals[name]}")
 
     result = build_purchases(documents)
     verdicts = {p.key: p for p in result.data}

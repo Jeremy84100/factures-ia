@@ -5,7 +5,13 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from app.models import Document, DocumentKind, DocumentLine, DocumentStatus
+from app.models import (
+    DeliveryMode,
+    Document,
+    DocumentKind,
+    DocumentLine,
+    DocumentStatus,
+)
 from app.services.checks import check_document
 from app.services.reconciliation import build_purchases, reference_key
 
@@ -46,6 +52,12 @@ def as_read_perfectly(case: dict[str, Any]) -> Document:
         number=case["number"],
         document_date=date.fromisoformat(case["date"]),
         order_reference=case["order_reference"],
+        delivery_mode=DeliveryMode(case["delivery_mode"])
+        if case["delivery_mode"]
+        else None,
+        expected_delivery_date=date.fromisoformat(case["expected_delivery_date"])
+        if case["expected_delivery_date"]
+        else None,
         amount_excl_tax=to_decimal(case["amount_excl_tax"]),
         currency="EUR",
         lines=lines,
@@ -62,7 +74,7 @@ def test_demo_purchases_get_the_expected_verdict() -> None:
     documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
     assert {d.status for d in documents} <= {DocumentStatus.ok, DocumentStatus.to_check}
 
-    result = build_purchases(documents)
+    result = build_purchases(documents, TODAY)
     verdicts = {p.key: p.status.value for p in result.data}
     expected = {
         reference_key(p["order_reference"]): p["status"] for p in EXPECTED["purchases"]
@@ -71,3 +83,19 @@ def test_demo_purchases_get_the_expected_verdict() -> None:
 
     unlinked = sorted(ref.number or "" for ref in result.unlinked)
     assert unlinked == sorted(n for p in EXPECTED["purchases"] for n in p["unlinked"])
+
+
+def test_demo_delivery_problems_are_explained() -> None:
+    documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    purchases = {p.key: p for p in build_purchases(documents, TODAY).data}
+
+    late = purchases["CMD26109"]
+    assert late.notes == [
+        "BL-CL-4471 livré le 19/10/2026, 7 jours après la date promise (12/10/2026)"
+    ]
+    express = purchases["CMD26110"]
+    assert express.issues == [
+        "Mode de livraison du BL-IVP-2208 : « livraison standard » au lieu de"
+        " « livraison express » commandé"
+    ]
+    assert [line.issues for line in express.lines] == [[], [], []]

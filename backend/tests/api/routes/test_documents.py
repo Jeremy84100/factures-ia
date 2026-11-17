@@ -384,3 +384,30 @@ def test_totals_count_only_invoices(
     r = client.get(f"{URL}totals", headers=normal_user_token_headers)
     suppliers = {row["supplier"] for row in r.json()["data"]}
     assert "Commande Seule SARL" not in suppliers
+
+
+def test_delivery_details_can_be_corrected(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    use_ai_result(ORDER.model_copy(update={"number": "LIV-1"}))
+    order = upload(client, normal_user_token_headers, ("commande.pdf", PDF_BYTES))[0]
+    url = f"{URL}{order['id']}"
+    r = client.put(
+        url,
+        headers=normal_user_token_headers,
+        json={
+            "delivery_method": "Express 24 h",
+            "delivery_mode": "express",
+            "expected_delivery_date": "2026-09-30",
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["delivery_mode"] == "express"
+    assert data["expected_delivery_date"] == "2026-09-30"
+    assert data["issues"] == ["Date de livraison promise avant la date du document"]
+
+    r = client.put(
+        url, headers=normal_user_token_headers, json={"delivery_mode": "avion"}
+    )
+    assert r.status_code == 422

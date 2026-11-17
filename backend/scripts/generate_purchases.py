@@ -26,6 +26,9 @@ class Doc:
     day: str
     lines: list[Line]
     order_reference: str | None = None
+    delivery_method: str | None = None
+    delivery_mode: str | None = None
+    promised_day: str | None = None
 
 
 @dataclass
@@ -73,6 +76,14 @@ PEINTURE = Line("PEI-BLC-15", "Peinture acrylique blanc mat 15 L", 12, "pot", 79
 ENDUIT = Line("END-LIS-25", "Enduit de lissage 25 kg", 10, "sac", 21.40)
 ROULEAU = Line("ROU-180", "Rouleau microfibre 180 mm", 20, "u", 8.30)
 MEULEUSE = Line("MEU-125", "Meuleuse d'angle 125 mm 1200 W", 2, "u", 119.00)
+CARRELAGE = Line("CAR-60-GRS", "Carrelage grès cérame 60x60 gris", 40, "m²", 32.50)
+COLLE = Line("COL-C2-25", "Mortier-colle C2 sac 25 kg", 16, "sac", 18.90)
+JOINT = Line("JNT-GRS-5", "Joint carrelage gris 5 kg", 6, "u", 12.40)
+ISOLANT = Line("PSE-TH38-100", "Panneau isolant PSE Th38 100 mm", 60, "u", 14.80)
+FIXATION = Line(
+    "CHV-ISO-140", "Cheville à frapper isolant 140 mm boîte de 100", 4, "bte", 22.60
+)
+EXPRESS = Line("PORT-EXP", "Frais de livraison express 24 h", 1, "forfait", 45.00)
 DISQUE = Line(
     "DIS-125-INOX", "Disque à tronçonner inox 125 mm lot de 10", 6, "lot", 17.50
 )
@@ -266,6 +277,91 @@ CASES = [
     ),
 ]
 
+CASES += [
+    Case(
+        "Livré en retard",
+        "Carrelages du Luberon",
+        "CMD-26-109",
+        "to_pay",
+        [
+            Doc("order", "CMD-26-109", "2026-10-08", [CARRELAGE, COLLE, JOINT]),
+            Doc(
+                "delivery",
+                "BL-CL-4471",
+                "2026-10-19",
+                [CARRELAGE, COLLE, JOINT],
+                "CMD-26-109",
+            ),
+            Doc(
+                "invoice",
+                "CL-26-0912",
+                "2026-10-20",
+                [CARRELAGE, COLLE, JOINT],
+                "CMD-26-109",
+            ),
+        ],
+    ),
+    Case(
+        "Express commandé, livré en standard",
+        "Isolation Ventoux Pro",
+        "CMD-26-110",
+        "dispute",
+        [
+            Doc("order", "CMD-26-110", "2026-10-09", [ISOLANT, FIXATION, EXPRESS]),
+            Doc(
+                "delivery",
+                "BL-IVP-2208",
+                "2026-10-13",
+                [ISOLANT, FIXATION],
+                "CMD-26-110",
+            ),
+            Doc(
+                "invoice",
+                "IVP-F-26-377",
+                "2026-10-14",
+                [ISOLANT, FIXATION, EXPRESS],
+                "CMD-26-110",
+            ),
+        ],
+    ),
+]
+
+# How each document is delivered: written method, mode, promised date (orders).
+DELIVERY = {
+    "CMD-26-101": ("Livraison sur chantier", "standard", "2026-10-03"),
+    "BL-70412": ("Livraison chantier", "standard", None),
+    "CMD-26-102": ("Livraison par camion-grue", "standard", "2026-10-06"),
+    "BL-2026-0877": ("Camion-grue", "standard", None),
+    "CMD-26-103": ("Retrait au comptoir", "pickup", "2026-10-07"),
+    "BL-55120": ("Enlèvement par le client", "pickup", None),
+    "CMD-26-104": ("Transporteur", "standard", "2026-10-09"),
+    "BL-88231": ("Messagerie transporteur", "standard", None),
+    "CMD-26-105": ("Livraison sur chantier", "standard", "2026-10-14"),
+    "BL-B-3301": ("Livraison chantier", "standard", None),
+    "BL-B-3318": ("Livraison chantier", "standard", None),
+    "CMD-26-106": ("Livraison au dépôt", "standard", "2026-10-12"),
+    "BL-SAN-9902": ("Livraison dépôt", "standard", None),
+    "CMD-26-107": ("Retrait en agence", "pickup", "2026-10-12"),
+    "BL-PM-6620": ("Retrait en agence", "pickup", None),
+    "BL-OD-1029": ("Livraison standard", "standard", None),
+    "CMD-26-109": ("Livraison sur chantier", "standard", "2026-10-12"),
+    "BL-CL-4471": ("Livraison chantier", "standard", None),
+    "CMD-26-110": ("Livraison express 24 h", "express", "2026-10-10"),
+    "BL-IVP-2208": ("Livraison standard J+3", "standard", None),
+}
+for _case in CASES:
+    _case.documents = [
+        replace(
+            doc,
+            delivery_method=DELIVERY[doc.number][0],
+            delivery_mode=DELIVERY[doc.number][1],
+            promised_day=DELIVERY[doc.number][2],
+        )
+        if doc.number in DELIVERY
+        else doc
+        for doc in _case.documents
+    ]
+
 TITLES = {
     "order": "BON DE COMMANDE",
     "delivery": "BON DE LIVRAISON",
@@ -304,6 +400,23 @@ def draw(case: Case, index: int, doc: Doc) -> FPDF:
         pdf.cell(
             0, 6, latin(f"Fournisseur : {case.supplier}"), new_x="LMARGIN", new_y="NEXT"
         )
+        if doc.delivery_method:
+            pdf.cell(
+                0,
+                6,
+                latin(f"Livraison : {doc.delivery_method}"),
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
+        if doc.promised_day:
+            py, pm, pd = doc.promised_day.split("-")
+            pdf.cell(
+                0,
+                6,
+                latin(f"Livraison souhaitée le : {pd}/{pm}/{py}"),
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
     else:
         pdf.cell(0, 6, latin(f"Client : {BUYER}"), new_x="LMARGIN", new_y="NEXT")
         if doc.order_reference:
@@ -311,6 +424,14 @@ def draw(case: Case, index: int, doc: Doc) -> FPDF:
                 0,
                 6,
                 latin(f"Votre commande : {doc.order_reference}"),
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
+        if doc.kind == "delivery" and doc.delivery_method:
+            pdf.cell(
+                0,
+                6,
+                latin(f"Mode de livraison : {doc.delivery_method}"),
                 new_x="LMARGIN",
                 new_y="NEXT",
             )
@@ -387,6 +508,8 @@ def expected_document(case: Case, filename: str, doc: Doc) -> dict[str, object]:
         "number": doc.number,
         "date": doc.day,
         "order_reference": doc.order_reference,
+        "delivery_mode": doc.delivery_mode,
+        "expected_delivery_date": doc.promised_day,
         "amount_excl_tax": excl if priced else None,
         "lines": lines,
     }

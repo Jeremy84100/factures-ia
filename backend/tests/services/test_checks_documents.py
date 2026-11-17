@@ -7,6 +7,7 @@ from app.services.checks import (
     NO_LINES,
     NO_ORDER_REFERENCE,
     NOT_A_PURCHASE_DOCUMENT,
+    PROMISED_BEFORE_ORDER,
     check_document,
 )
 
@@ -239,3 +240,16 @@ def test_credit_note_lines_may_be_negative() -> None:
         lines=[line(quantity="-50", amount="-59.50")],
     )
     assert check_document(credit, None, TODAY) == (DocumentStatus.ok, [])
+
+
+def test_promised_delivery_after_the_order_is_fine() -> None:
+    order = make(DocumentKind.order, expected_delivery_date=date(2026, 10, 9))
+    assert check_document(order, None, TODAY) == (DocumentStatus.ok, [])
+
+
+def test_promised_delivery_before_the_order_needs_check() -> None:
+    order = make(DocumentKind.order, expected_delivery_date=date(2026, 9, 28))
+    assert check_document(order, None, TODAY) == (
+        DocumentStatus.to_check,
+        [PROMISED_BEFORE_ORDER],
+    )
