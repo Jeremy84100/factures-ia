@@ -1,0 +1,734 @@
+{
+  "documents": [
+    {
+      "filename": "01-cmd-26-101.pdf",
+      "kind": "order",
+      "supplier": "Électro Provence Distribution",
+      "number": "CMD-26-101",
+      "date": "2026-10-01",
+      "order_reference": null,
+      "amount_excl_tax": 1225.8,
+      "lines": [
+        {
+          "reference": "CAB-R2V-3G25",
+          "description": "Câble R2V 3G2,5 mm² couronne 100 m",
+          "quantity": 6,
+          "unit_price": 118.4
+        },
+        {
+          "reference": "ICTA-20",
+          "description": "Gaine ICTA Ø20 mm couronne 100 m",
+          "quantity": 10,
+          "unit_price": 27.9
+        },
+        {
+          "reference": "DJ-16A",
+          "description": "Disjoncteur phase+neutre 16 A",
+          "quantity": 24,
+          "unit_price": 9.85
+        }
+      ]
+    },
+    {
+      "filename": "01-bl-70412.pdf",
+      "kind": "delivery",
+      "supplier": "Électro Provence Distribution",
+      "number": "BL-70412",
+      "date": "2026-10-03",
+      "order_reference": "CMD-26-101",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "CAB-R2V-3G25",
+          "description": "Câble R2V 3G2,5 mm² couronne 100 m",
+          "quantity": 6,
+          "unit_price": null
+        },
+        {
+          "reference": "ICTA-20",
+          "description": "Gaine ICTA Ø20 mm couronne 100 m",
+          "quantity": 10,
+          "unit_price": null
+        },
+        {
+          "reference": "DJ-16A",
+          "description": "Disjoncteur phase+neutre 16 A",
+          "quantity": 24,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "01-fa-26-5531.pdf",
+      "kind": "invoice",
+      "supplier": "Électro Provence Distribution",
+      "number": "FA-26-5531",
+      "date": "2026-10-04",
+      "order_reference": "CMD-26-101",
+      "amount_excl_tax": 1225.8,
+      "lines": [
+        {
+          "reference": "CAB-R2V-3G25",
+          "description": "Câble R2V 3G2,5 mm² couronne 100 m",
+          "quantity": 6,
+          "unit_price": 118.4
+        },
+        {
+          "reference": "ICTA-20",
+          "description": "Gaine ICTA Ø20 mm couronne 100 m",
+          "quantity": 10,
+          "unit_price": 27.9
+        },
+        {
+          "reference": "DJ-16A",
+          "description": "Disjoncteur phase+neutre 16 A",
+          "quantity": 24,
+          "unit_price": 9.85
+        }
+      ]
+    },
+    {
+      "filename": "02-cmd-26-102.pdf",
+      "kind": "order",
+      "supplier": "Matériaux du Comtat",
+      "number": "CMD-26-102",
+      "date": "2026-10-02",
+      "order_reference": null,
+      "amount_excl_tax": 1128.0,
+      "lines": [
+        {
+          "reference": "CIM-CEM2-35",
+          "description": "Ciment CEM II 32,5 sac 35 kg",
+          "quantity": 50,
+          "unit_price": 8.9
+        },
+        {
+          "reference": "SAB-0-4",
+          "description": "Sable 0/4 lavé big bag 1 t",
+          "quantity": 4,
+          "unit_price": 62.0
+        },
+        {
+          "reference": "PAR-20-50",
+          "description": "Parpaing creux 20x20x50",
+          "quantity": 300,
+          "unit_price": 1.45
+        }
+      ]
+    },
+    {
+      "filename": "02-bl-2026-0877.pdf",
+      "kind": "delivery",
+      "supplier": "Matériaux du Comtat",
+      "number": "BL-2026-0877",
+      "date": "2026-10-06",
+      "order_reference": "CMD-26-102",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "CIM-CEM2-35",
+          "description": "Ciment CEM II 32,5 sac 35 kg",
+          "quantity": 45,
+          "unit_price": null
+        },
+        {
+          "reference": "SAB-0-4",
+          "description": "Sable 0/4 lavé big bag 1 t",
+          "quantity": 4,
+          "unit_price": null
+        },
+        {
+          "reference": "PAR-20-50",
+          "description": "Parpaing creux 20x20x50",
+          "quantity": 300,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "02-f-0098812.pdf",
+      "kind": "invoice",
+      "supplier": "Matériaux du Comtat",
+      "number": "F-0098812",
+      "date": "2026-10-07",
+      "order_reference": "CMD-26-102",
+      "amount_excl_tax": 1128.0,
+      "lines": [
+        {
+          "reference": "CIM-CEM2-35",
+          "description": "Ciment CEM II 32,5 sac 35 kg",
+          "quantity": 50,
+          "unit_price": 8.9
+        },
+        {
+          "reference": "SAB-0-4",
+          "description": "Sable 0/4 lavé big bag 1 t",
+          "quantity": 4,
+          "unit_price": 62.0
+        },
+        {
+          "reference": "PAR-20-50",
+          "description": "Parpaing creux 20x20x50",
+          "quantity": 300,
+          "unit_price": 1.45
+        }
+      ]
+    },
+    {
+      "filename": "03-cmd-26-103.pdf",
+      "kind": "order",
+      "supplier": "Quincaillerie Rhône-Durance",
+      "number": "CMD-26-103",
+      "date": "2026-10-05",
+      "order_reference": null,
+      "amount_excl_tax": 374.4,
+      "lines": [
+        {
+          "reference": "VIS-TF-4x40",
+          "description": "Vis tête fraisée 4x40 boîte de 500",
+          "quantity": 12,
+          "unit_price": 14.2
+        },
+        {
+          "reference": "CHV-8",
+          "description": "Cheville nylon Ø8 boîte de 100",
+          "quantity": 20,
+          "unit_price": 6.75
+        },
+        {
+          "reference": "FOR-SDS-8",
+          "description": "Foret SDS+ Ø8 longueur 160",
+          "quantity": 15,
+          "unit_price": 4.6
+        }
+      ]
+    },
+    {
+      "filename": "03-bl-55120.pdf",
+      "kind": "delivery",
+      "supplier": "Quincaillerie Rhône-Durance",
+      "number": "BL-55120",
+      "date": "2026-10-07",
+      "order_reference": "CMD-26-103",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "VIS-TF-4x40",
+          "description": "Vis tête fraisée 4x40 boîte de 500",
+          "quantity": 12,
+          "unit_price": null
+        },
+        {
+          "reference": "CHV-8",
+          "description": "Cheville nylon Ø8 boîte de 100",
+          "quantity": 20,
+          "unit_price": null
+        },
+        {
+          "reference": "FOR-SDS-8",
+          "description": "Foret SDS+ Ø8 longueur 160",
+          "quantity": 15,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "03-fc-26-7740.pdf",
+      "kind": "invoice",
+      "supplier": "Quincaillerie Rhône-Durance",
+      "number": "FC-26-7740",
+      "date": "2026-10-08",
+      "order_reference": "CMD-26-103",
+      "amount_excl_tax": 388.4,
+      "lines": [
+        {
+          "reference": "VIS-TF-4x40",
+          "description": "Vis tête fraisée 4x40 boîte de 500",
+          "quantity": 12,
+          "unit_price": 14.2
+        },
+        {
+          "reference": "CHV-8",
+          "description": "Cheville nylon Ø8 boîte de 100",
+          "quantity": 20,
+          "unit_price": 7.45
+        },
+        {
+          "reference": "FOR-SDS-8",
+          "description": "Foret SDS+ Ø8 longueur 160",
+          "quantity": 15,
+          "unit_price": 4.6
+        }
+      ]
+    },
+    {
+      "filename": "04-cmd-26-104.pdf",
+      "kind": "order",
+      "supplier": "Plomberie Pro Sud",
+      "number": "CMD-26-104",
+      "date": "2026-10-06",
+      "order_reference": null,
+      "amount_excl_tax": 696.2,
+      "lines": [
+        {
+          "reference": "PER-16-50",
+          "description": "Tube PER nu Ø16 couronne 50 m",
+          "quantity": 8,
+          "unit_price": 39.5
+        },
+        {
+          "reference": "RAC-16-12",
+          "description": "Raccord à sertir PER 16 x 1/2",
+          "quantity": 60,
+          "unit_price": 3.15
+        },
+        {
+          "reference": "COL-4D",
+          "description": "Collecteur 4 départs 3/4",
+          "quantity": 4,
+          "unit_price": 47.8
+        }
+      ]
+    },
+    {
+      "filename": "04-bl-88231.pdf",
+      "kind": "delivery",
+      "supplier": "Plomberie Pro Sud",
+      "number": "BL-88231",
+      "date": "2026-10-09",
+      "order_reference": "CMD-26-104",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "PER-16-50",
+          "description": "Tube PER nu Ø16 couronne 50 m",
+          "quantity": 8,
+          "unit_price": null
+        },
+        {
+          "reference": "RAC-16-12",
+          "description": "Raccord à sertir PER 16 x 1/2",
+          "quantity": 60,
+          "unit_price": null
+        },
+        {
+          "reference": "COL-4D",
+          "description": "Collecteur 4 départs 3/4",
+          "quantity": 4,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "04-fa-104552.pdf",
+      "kind": "invoice",
+      "supplier": "Plomberie Pro Sud",
+      "number": "FA-104552",
+      "date": "2026-10-10",
+      "order_reference": "CMD-26-104",
+      "amount_excl_tax": 810.2,
+      "lines": [
+        {
+          "reference": "PER-16-50",
+          "description": "Tube PER nu Ø16 couronne 50 m",
+          "quantity": 8,
+          "unit_price": 39.5
+        },
+        {
+          "reference": "RAC-16-12",
+          "description": "Raccord à sertir PER 16 x 1/2",
+          "quantity": 60,
+          "unit_price": 3.15
+        },
+        {
+          "reference": "COL-4D",
+          "description": "Collecteur 4 départs 3/4",
+          "quantity": 4,
+          "unit_price": 47.8
+        },
+        {
+          "reference": "VAN-QT-20",
+          "description": "Vanne quart de tour 20x27",
+          "quantity": 10,
+          "unit_price": 11.4
+        }
+      ]
+    },
+    {
+      "filename": "05-cmd-26-105.pdf",
+      "kind": "order",
+      "supplier": "Bois & Panneaux Vaucluse",
+      "number": "CMD-26-105",
+      "date": "2026-10-07",
+      "order_reference": null,
+      "amount_excl_tax": 2629.0,
+      "lines": [
+        {
+          "reference": "OSB3-18",
+          "description": "Panneau OSB 3 ép. 18 mm 2500x1250",
+          "quantity": 40,
+          "unit_price": 31.9
+        },
+        {
+          "reference": "CHV-63x75",
+          "description": "Chevron sapin traité 63x75 L 4 m",
+          "quantity": 50,
+          "unit_price": 12.3
+        },
+        {
+          "reference": "LDV-100",
+          "description": "Laine de verre 100 mm rouleau 6 m²",
+          "quantity": 30,
+          "unit_price": 24.6
+        }
+      ]
+    },
+    {
+      "filename": "05-bl-b-3301.pdf",
+      "kind": "delivery",
+      "supplier": "Bois & Panneaux Vaucluse",
+      "number": "BL-B-3301",
+      "date": "2026-10-09",
+      "order_reference": "CMD-26-105",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "OSB3-18",
+          "description": "Panneau OSB 3 ép. 18 mm 2500x1250",
+          "quantity": 25,
+          "unit_price": null
+        },
+        {
+          "reference": "CHV-63x75",
+          "description": "Chevron sapin traité 63x75 L 4 m",
+          "quantity": 50,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "05-bl-b-3318.pdf",
+      "kind": "delivery",
+      "supplier": "Bois & Panneaux Vaucluse",
+      "number": "BL-B-3318",
+      "date": "2026-10-14",
+      "order_reference": "CMD-26-105",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "OSB3-18",
+          "description": "Panneau OSB 3 ép. 18 mm 2500x1250",
+          "quantity": 15,
+          "unit_price": null
+        },
+        {
+          "reference": "LDV-100",
+          "description": "Laine de verre 100 mm rouleau 6 m²",
+          "quantity": 30,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "05-fbp-26-412.pdf",
+      "kind": "invoice",
+      "supplier": "Bois & Panneaux Vaucluse",
+      "number": "FBP-26-412",
+      "date": "2026-10-15",
+      "order_reference": "CMD-26-105",
+      "amount_excl_tax": 2629.0,
+      "lines": [
+        {
+          "reference": "OSB3-18",
+          "description": "Panneau OSB 3 ép. 18 mm 2500x1250",
+          "quantity": 40,
+          "unit_price": 31.9
+        },
+        {
+          "reference": "CHV-63x75",
+          "description": "Chevron sapin traité 63x75 L 4 m",
+          "quantity": 50,
+          "unit_price": 12.3
+        },
+        {
+          "reference": "LDV-100",
+          "description": "Laine de verre 100 mm rouleau 6 m²",
+          "quantity": 30,
+          "unit_price": 24.6
+        }
+      ]
+    },
+    {
+      "filename": "06-cmd-26-106.pdf",
+      "kind": "order",
+      "supplier": "Sanitaire Avignon Négoce",
+      "number": "CMD-26-106",
+      "date": "2026-10-08",
+      "order_reference": null,
+      "amount_excl_tax": 1484.0,
+      "lines": [
+        {
+          "reference": "WC-SUS-PK",
+          "description": "Pack WC suspendu bâti-support",
+          "quantity": 3,
+          "unit_price": 289.0
+        },
+        {
+          "reference": "LAV-60",
+          "description": "Lavabo céramique 60 cm",
+          "quantity": 5,
+          "unit_price": 74.5
+        },
+        {
+          "reference": "MIT-LAV",
+          "description": "Mitigeur lavabo chromé",
+          "quantity": 5,
+          "unit_price": 48.9
+        }
+      ]
+    },
+    {
+      "filename": "06-bl-san-9902.pdf",
+      "kind": "delivery",
+      "supplier": "Sanitaire Avignon Négoce",
+      "number": "BL-SAN-9902",
+      "date": "2026-10-12",
+      "order_reference": "CMD-26-106",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "WC-SUS-PK",
+          "description": "Pack WC suspendu bâti-support",
+          "quantity": 3,
+          "unit_price": null
+        },
+        {
+          "reference": "LAV-60",
+          "description": "Lavabo céramique 60 cm",
+          "quantity": 5,
+          "unit_price": null
+        },
+        {
+          "reference": "MIT-LAV",
+          "description": "Mitigeur lavabo chromé",
+          "quantity": 5,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "06-san-f-26-1187.pdf",
+      "kind": "invoice",
+      "supplier": "Sanitaire Avignon Négoce",
+      "number": "SAN-F-26-1187",
+      "date": "2026-10-13",
+      "order_reference": "CMD-26-106",
+      "amount_excl_tax": 1484.0,
+      "lines": [
+        {
+          "reference": null,
+          "description": "PACK WC SUSPENDU + BATI SUPPORT",
+          "quantity": 3,
+          "unit_price": 289.0
+        },
+        {
+          "reference": null,
+          "description": "LAVABO CERAMIQUE BLANC 60CM",
+          "quantity": 5,
+          "unit_price": 74.5
+        },
+        {
+          "reference": null,
+          "description": "MITIGEUR LAVABO CHROME",
+          "quantity": 5,
+          "unit_price": 48.9
+        }
+      ]
+    },
+    {
+      "filename": "07-cmd-26-107.pdf",
+      "kind": "order",
+      "supplier": "Peintures Méditerranée",
+      "number": "CMD-26-107",
+      "date": "2026-10-09",
+      "order_reference": null,
+      "amount_excl_tax": 1328.0,
+      "lines": [
+        {
+          "reference": "PEI-BLC-15",
+          "description": "Peinture acrylique blanc mat 15 L",
+          "quantity": 12,
+          "unit_price": 79.0
+        },
+        {
+          "reference": "END-LIS-25",
+          "description": "Enduit de lissage 25 kg",
+          "quantity": 10,
+          "unit_price": 21.4
+        },
+        {
+          "reference": "ROU-180",
+          "description": "Rouleau microfibre 180 mm",
+          "quantity": 20,
+          "unit_price": 8.3
+        }
+      ]
+    },
+    {
+      "filename": "07-bl-pm-6620.pdf",
+      "kind": "delivery",
+      "supplier": "Peintures Méditerranée",
+      "number": "BL-PM-6620",
+      "date": "2026-10-12",
+      "order_reference": null,
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "PEI-BLC-15",
+          "description": "Peinture acrylique blanc mat 15 L",
+          "quantity": 12,
+          "unit_price": null
+        },
+        {
+          "reference": "END-LIS-25",
+          "description": "Enduit de lissage 25 kg",
+          "quantity": 10,
+          "unit_price": null
+        },
+        {
+          "reference": "ROU-180",
+          "description": "Rouleau microfibre 180 mm",
+          "quantity": 20,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "07-pm-26-3390.pdf",
+      "kind": "invoice",
+      "supplier": "Peintures Méditerranée",
+      "number": "PM-26-3390",
+      "date": "2026-10-13",
+      "order_reference": "CMD-26-107",
+      "amount_excl_tax": 1328.0,
+      "lines": [
+        {
+          "reference": "PEI-BLC-15",
+          "description": "Peinture acrylique blanc mat 15 L",
+          "quantity": 12,
+          "unit_price": 79.0
+        },
+        {
+          "reference": "END-LIS-25",
+          "description": "Enduit de lissage 25 kg",
+          "quantity": 10,
+          "unit_price": 21.4
+        },
+        {
+          "reference": "ROU-180",
+          "description": "Rouleau microfibre 180 mm",
+          "quantity": 20,
+          "unit_price": 8.3
+        }
+      ]
+    },
+    {
+      "filename": "08-bl-od-1029.pdf",
+      "kind": "delivery",
+      "supplier": "Outillage Delta",
+      "number": "BL-OD-1029",
+      "date": "2026-10-14",
+      "order_reference": "CMD-26-108",
+      "amount_excl_tax": null,
+      "lines": [
+        {
+          "reference": "MEU-125",
+          "description": "Meuleuse d'angle 125 mm 1200 W",
+          "quantity": 2,
+          "unit_price": null
+        },
+        {
+          "reference": "DIS-125-INOX",
+          "description": "Disque à tronçonner inox 125 mm lot de 10",
+          "quantity": 6,
+          "unit_price": null
+        }
+      ]
+    },
+    {
+      "filename": "08-od-f-26-0731.pdf",
+      "kind": "invoice",
+      "supplier": "Outillage Delta",
+      "number": "OD-F-26-0731",
+      "date": "2026-10-15",
+      "order_reference": "CMD-26-108",
+      "amount_excl_tax": 343.0,
+      "lines": [
+        {
+          "reference": "MEU-125",
+          "description": "Meuleuse d'angle 125 mm 1200 W",
+          "quantity": 2,
+          "unit_price": 119.0
+        },
+        {
+          "reference": "DIS-125-INOX",
+          "description": "Disque à tronçonner inox 125 mm lot de 10",
+          "quantity": 6,
+          "unit_price": 17.5
+        }
+      ]
+    }
+  ],
+  "purchases": [
+    {
+      "case": "Achat complet et conforme",
+      "order_reference": "CMD-26-101",
+      "status": "to_pay",
+      "unlinked": []
+    },
+    {
+      "case": "Facturé plus que livré",
+      "order_reference": "CMD-26-102",
+      "status": "dispute",
+      "unlinked": []
+    },
+    {
+      "case": "Prix facturé plus cher que commandé",
+      "order_reference": "CMD-26-103",
+      "status": "dispute",
+      "unlinked": []
+    },
+    {
+      "case": "Article facturé mais jamais commandé",
+      "order_reference": "CMD-26-104",
+      "status": "dispute",
+      "unlinked": []
+    },
+    {
+      "case": "Livraison en deux fois, une seule facture",
+      "order_reference": "CMD-26-105",
+      "status": "to_pay",
+      "unlinked": []
+    },
+    {
+      "case": "Mêmes articles, désignations différentes",
+      "order_reference": "CMD-26-106",
+      "status": "to_pay",
+      "unlinked": []
+    },
+    {
+      "case": "Bon de livraison sans numéro de commande",
+      "order_reference": "CMD-26-107",
+      "status": "waiting",
+      "unlinked": [
+        "BL-PM-6620"
+      ]
+    },
+    {
+      "case": "Livraison et facture sans bon de commande",
+      "order_reference": "CMD-26-108",
+      "status": "no_order",
+      "unlinked": []
+    }
+  ]
+}

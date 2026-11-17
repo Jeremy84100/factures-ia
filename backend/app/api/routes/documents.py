@@ -128,9 +128,7 @@ async def upload_documents(
             process_document, document.id, engine, reader, extractor
         )
 
-    return DocumentsPublic(
-        data=[to_public(d) for d in documents], count=len(documents)
-    )
+    return DocumentsPublic(data=[to_public(d) for d in documents], count=len(documents))
 
 
 @router.get("/totals", response_model=SupplierTotals)
@@ -166,9 +164,7 @@ def read_supplier_totals(
 
 
 @router.get("/{id}", response_model=DocumentPublic)
-def read_document(
-    session: SessionDep, current_user: CurrentUser, id: uuid.UUID
-) -> Any:
+def read_document(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
     """
     Get document by ID.
     """
@@ -241,9 +237,7 @@ def retry_document(
     session.add(document)
     session.commit()
     session.refresh(document)
-    background_tasks.add_task(
-        process_document, document.id, engine, reader, extractor
-    )
+    background_tasks.add_task(process_document, document.id, engine, reader, extractor)
     return to_public(document)
 
 
