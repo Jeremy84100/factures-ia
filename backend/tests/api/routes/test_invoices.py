@@ -7,7 +7,7 @@ from sqlmodel import Session
 from app.api.deps import get_extractor, get_pdf_reader
 from app.core.config import settings
 from app.main import app
-from app.models import InvoiceStatus
+from app.models import DocumentStatus
 from tests.utils.invoice import (
     EDF,
     PDF_BYTES,
@@ -89,7 +89,7 @@ def test_list_only_own_invoices(
 def test_filter_by_status(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    invoice = create_random_invoice(db, status=InvoiceStatus.unreadable)
+    invoice = create_random_invoice(db, status=DocumentStatus.unreadable)
     r = client.get(
         URL, headers=superuser_token_headers, params={"status": "unreadable"}
     )
@@ -138,7 +138,7 @@ def test_manual_correction_runs_checks(
 def test_correction_blocked_while_processing(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    invoice = create_random_invoice(db, status=InvoiceStatus.processing)
+    invoice = create_random_invoice(db, status=DocumentStatus.processing)
     r = client.put(
         f"{URL}{invoice.id}", headers=superuser_token_headers, json={"supplier": "X"}
     )
@@ -148,7 +148,7 @@ def test_correction_blocked_while_processing(
 def test_retry_blocked_while_processing(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    invoice = create_random_invoice(db, status=InvoiceStatus.processing)
+    invoice = create_random_invoice(db, status=DocumentStatus.processing)
     r = client.post(f"{URL}{invoice.id}/retry", headers=superuser_token_headers)
     assert r.status_code == 409
 
@@ -223,14 +223,14 @@ def test_deleting_the_original_clears_only_its_duplicates(
 def test_manual_credit_note_is_signed(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    invoice = create_random_invoice(db, status=InvoiceStatus.to_check)
+    invoice = create_random_invoice(db, status=DocumentStatus.to_check)
     r = client.put(
         f"{URL}{invoice.id}",
         headers=superuser_token_headers,
         json={
             "supplier": "Avoir SARL",
-            "invoice_number": "AV-9",
-            "invoice_date": "2026-03-04",
+            "number": "AV-9",
+            "document_date": "2026-03-04",
             "amount_excl_tax": "10.00",
             "vat_amount": "2.00",
             "amount_incl_tax": "12.00",

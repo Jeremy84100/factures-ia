@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from sqlalchemy import Engine, func
 from sqlmodel import Session, col, select
 
-from app.models import Invoice, InvoiceStatus, get_datetime_utc
+from app.models import Document, DocumentStatus, get_datetime_utc
 from app.services.checks import (
     NUMBER_ISSUES,
     check_invoice,
@@ -41,7 +41,7 @@ def to_date(value: str | None) -> date | None:
         return None
 
 
-def sign_credit_note(invoice: Invoice) -> None:
+def sign_credit_note(invoice: Document) -> None:
     if not invoice.is_credit_note:
         return
     for field in ("amount_excl_tax", "vat_amount", "amount_incl_tax"):
@@ -50,10 +50,10 @@ def sign_credit_note(invoice: Invoice) -> None:
             setattr(invoice, field, -abs(amount))
 
 
-def apply_extraction(invoice: Invoice, extracted: ExtractedInvoice) -> None:
+def apply_extraction(invoice: Document, extracted: ExtractedInvoice) -> None:
     invoice.supplier = extracted.supplier
-    invoice.invoice_number = extracted.invoice_number
-    invoice.invoice_date = to_date(extracted.invoice_date)
+    invoice.number = extracted.invoice_number
+    invoice.document_date = to_date(extracted.invoice_date)
     invoice.amount_excl_tax = to_amount(extracted.amount_excl_tax)
     invoice.vat_amount = to_amount(extracted.vat_amount)
     invoice.amount_incl_tax = to_amount(extracted.amount_incl_tax)
@@ -63,14 +63,14 @@ def apply_extraction(invoice: Invoice, extracted: ExtractedInvoice) -> None:
     sign_credit_note(invoice)
 
 
-def find_duplicate(session: Session, invoice: Invoice) -> Invoice | None:
-    if not invoice.supplier or not invoice.invoice_number:
+def find_duplicate(session: Session, invoice: Document) -> Document | None:
+    if not invoice.supplier or not invoice.number:
         return None
-    statement = select(Invoice).where(
-        Invoice.owner_id == invoice.owner_id,
-        Invoice.id != invoice.id,
-        Invoice.invoice_number == invoice.invoice_number,
-        func.lower(col(Invoice.supplier)) == invoice.supplier.lower(),
+    statement = select(Document).where(
+        Document.owner_id == invoice.owner_id,
+        Document.id != invoice.id,
+        Document.number == invoice.number,
+        func.lower(col(Document.supplier)) == invoice.supplier.lower(),
     )
     matches = session.exec(statement).all()
     same_amount = [m for m in matches if m.amount_incl_tax == invoice.amount_incl_tax]
@@ -81,29 +81,31 @@ def find_duplicate(session: Session, invoice: Invoice) -> Invoice | None:
 def expire_stale(session: Session) -> None:
     cutoff = get_datetime_utc() - STALE_AFTER
     stale = session.exec(
-        select(Invoice).where(
-            col(Invoice.status).in_([InvoiceStatus.pending, InvoiceStatus.processing]),
-            func.coalesce(Invoice.started_at, Invoice.created_at) < cutoff,
+        select(Document).where(
+            col(Document.status).in_(
+                [DocumentStatus.pending, DocumentStatus.processing]
+            ),
+            func.coalesce(Document.started_at, Document.created_at) < cutoff,
         )
     ).all()
     for invoice in stale:
-        invoice.status = InvoiceStatus.failed
+        invoice.status = DocumentStatus.failed
         invoice.issues = [INTERRUPTED]
         session.add(invoice)
     if stale:
         session.commit()
 
 
-def recheck_duplicates_of(session: Session, deleted: Invoice) -> None:
-    if not deleted.supplier or not deleted.invoice_number:
+def recheck_duplicates_of(session: Session, deleted: Document) -> None:
+    if not deleted.supplier or not deleted.number:
         return
     flagged = session.exec(
-        select(Invoice).where(
-            Invoice.owner_id == deleted.owner_id,
-            Invoice.id != deleted.id,
-            Invoice.status == InvoiceStatus.to_check,
-            Invoice.invoice_number == deleted.invoice_number,
-            func.lower(col(Invoice.supplier)) == deleted.supplier.lower(),
+        select(Document).where(
+            Document.owner_id == deleted.owner_id,
+            Document.id != deleted.id,
+            Document.status == DocumentStatus.to_check,
+            Document.number == deleted.number,
+            func.lower(col(Document.supplier)) == deleted.supplier.lower(),
         )
     ).all()
     for invoice in flagged:
@@ -111,12 +113,12 @@ def recheck_duplicates_of(session: Session, deleted: Invoice) -> None:
         if original := find_duplicate(session, invoice):
             issues.append(number_issue(invoice, original))
         invoice.issues = issues
-        invoice.status = InvoiceStatus.to_check if issues else InvoiceStatus.ok
+        invoice.status = DocumentStatus.to_check if issues else DocumentStatus.ok
         session.add(invoice)
 
 
 def run_checks(
-    session: Session, invoice: Invoice, extraction_issues: list[str] | None = None
+    session: Session, invoice: Document, extraction_issues: list[str] | None = None
 ) -> None:
     status, issues = check_invoice(
         invoice, find_duplicate(session, invoice), extraction_issues=extraction_issues
@@ -126,7 +128,7 @@ def run_checks(
 
 
 def _finish(
-    session: Session, invoice: Invoice, status: InvoiceStatus, issue: str
+    session: Session, invoice: Document, status: DocumentStatus, issue: str
 ) -> None:
     invoice.status = status
     invoice.issues = [issue]
@@ -142,10 +144,10 @@ def process_invoice(
     extractor: InvoiceExtractor,
 ) -> None:
     with Session(engine) as session:
-        invoice = session.get(Invoice, invoice_id)
+        invoice = session.get(Document, invoice_id)
         if invoice is None:
             return
-        invoice.status = InvoiceStatus.processing
+        invoice.status = DocumentStatus.processing
         invoice.started_at = get_datetime_utc()
         session.add(invoice)
         session.commit()
@@ -159,7 +161,7 @@ def process_invoice(
         try:
             extracted = extractor.extract(text, invoice.file)
         except ExtractionError as e:
-            _finish(session, invoice, InvoiceStatus.failed, str(e))
+            _finish(session, invoice, DocumentStatus.failed, str(e))
             return
 
         apply_extraction(invoice, extracted)

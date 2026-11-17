@@ -2,7 +2,7 @@ from pathlib import Path
 
 from sqlmodel import Session
 
-from app.models import Invoice, InvoiceStatus
+from app.models import Document, DocumentKind, DocumentStatus
 from app.services.extraction import ExtractedInvoice, ExtractionError
 from tests.utils.user import create_random_user
 
@@ -48,11 +48,15 @@ class FakeExtractor:
 
 
 def create_random_invoice(
-    db: Session, status: InvoiceStatus = InvoiceStatus.pending
-) -> Invoice:
+    db: Session, status: DocumentStatus = DocumentStatus.pending
+) -> Document:
     user = create_random_user(db)
-    invoice = Invoice(
-        filename="facture.pdf", file=PDF_BYTES, owner_id=user.id, status=status
+    invoice = Document(
+        kind=DocumentKind.invoice,
+        filename="facture.pdf",
+        file=PDF_BYTES,
+        owner_id=user.id,
+        status=status,
     )
     db.add(invoice)
     db.commit()

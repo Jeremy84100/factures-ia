@@ -7,11 +7,12 @@ from sqlmodel import col, extract, func, select
 
 from app.api.deps import CurrentUser, EngineDep, ExtractorDep, PdfReaderDep, SessionDep
 from app.models import (
-    Invoice,
-    InvoicePublic,
-    InvoicesPublic,
-    InvoiceStatus,
-    InvoiceUpdate,
+    Document,
+    DocumentKind,
+    DocumentPublic,
+    DocumentsPublic,
+    DocumentStatus,
+    DocumentUpdate,
     Message,
     SupplierTotal,
     SupplierTotals,
@@ -32,8 +33,8 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_FILES = 50
 
 
-def get_owned_invoice(session: SessionDep, user: User, id: uuid.UUID) -> Invoice:
-    invoice = session.get(Invoice, id)
+def get_owned_invoice(session: SessionDep, user: User, id: uuid.UUID) -> Document:
+    invoice = session.get(Document, id)
     if not invoice:
         raise HTTPException(status_code=404, detail="Facture introuvable")
     if not user.is_superuser and invoice.owner_id != user.id:
@@ -41,11 +42,11 @@ def get_owned_invoice(session: SessionDep, user: User, id: uuid.UUID) -> Invoice
     return invoice
 
 
-@router.get("/", response_model=InvoicesPublic)
+@router.get("/", response_model=DocumentsPublic)
 def read_invoices(
     session: SessionDep,
     current_user: CurrentUser,
-    status: InvoiceStatus | None = None,
+    status: DocumentStatus | None = None,
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
@@ -53,29 +54,29 @@ def read_invoices(
     Retrieve invoices.
     """
     expire_stale(session)
-    conditions = []
+    conditions = [Document.kind == DocumentKind.invoice]
     if not current_user.is_superuser:
-        conditions.append(Invoice.owner_id == current_user.id)
+        conditions.append(Document.owner_id == current_user.id)
     if status:
-        conditions.append(Invoice.status == status)
+        conditions.append(Document.status == status)
 
     count = session.exec(
-        select(func.count()).select_from(Invoice).where(*conditions)
+        select(func.count()).select_from(Document).where(*conditions)
     ).one()
     invoices = session.exec(
-        select(Invoice)
+        select(Document)
         .where(*conditions)
-        .order_by(col(Invoice.created_at).desc())
+        .order_by(col(Document.created_at).desc())
         .offset(skip)
         .limit(limit)
     ).all()
-    return InvoicesPublic(
-        data=[InvoicePublic.model_validate(invoice) for invoice in invoices],
+    return DocumentsPublic(
+        data=[DocumentPublic.model_validate(invoice) for invoice in invoices],
         count=count,
     )
 
 
-@router.post("/", response_model=InvoicesPublic)
+@router.post("/", response_model=DocumentsPublic)
 async def upload_invoices(
     session: SessionDep,
     current_user: CurrentUser,
@@ -104,7 +105,12 @@ async def upload_invoices(
         contents.append((name, data))
 
     invoices = [
-        Invoice(filename=name, file=data, owner_id=current_user.id)
+        Document(
+            kind=DocumentKind.invoice,
+            filename=name,
+            file=data,
+            owner_id=current_user.id,
+        )
         for name, data in contents
     ]
     session.add_all(invoices)
@@ -115,8 +121,8 @@ async def upload_invoices(
             process_invoice, invoice.id, engine, reader, extractor
         )
 
-    return InvoicesPublic(
-        data=[InvoicePublic.model_validate(invoice) for invoice in invoices],
+    return DocumentsPublic(
+        data=[DocumentPublic.model_validate(invoice) for invoice in invoices],
         count=len(invoices),
     )
 
@@ -128,17 +134,20 @@ def read_supplier_totals(
     """
     Total incl. tax per supplier, counting only validated invoices.
     """
-    total = func.sum(Invoice.amount_incl_tax)
+    total = func.sum(Document.amount_incl_tax)
     statement = (
-        select(Invoice.supplier, func.count(), total)
-        .where(Invoice.status == InvoiceStatus.ok)
-        .group_by(col(Invoice.supplier))
+        select(Document.supplier, func.count(), total)
+        .where(
+            Document.kind == DocumentKind.invoice,
+            Document.status == DocumentStatus.ok,
+        )
+        .group_by(col(Document.supplier))
         .order_by(total.desc())
     )
     if not current_user.is_superuser:
-        statement = statement.where(Invoice.owner_id == current_user.id)
+        statement = statement.where(Document.owner_id == current_user.id)
     if year:
-        statement = statement.where(extract("year", Invoice.invoice_date) == year)
+        statement = statement.where(extract("year", Document.document_date) == year)
 
     rows = session.exec(statement).all()
     return SupplierTotals(
@@ -150,7 +159,7 @@ def read_supplier_totals(
     )
 
 
-@router.get("/{id}", response_model=InvoicePublic)
+@router.get("/{id}", response_model=DocumentPublic)
 def read_invoice(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
     """
     Get invoice by ID.
@@ -173,18 +182,18 @@ def read_invoice_file(
     )
 
 
-@router.put("/{id}", response_model=InvoicePublic)
+@router.put("/{id}", response_model=DocumentPublic)
 def update_invoice(
     session: SessionDep,
     current_user: CurrentUser,
     id: uuid.UUID,
-    invoice_in: InvoiceUpdate,
+    invoice_in: DocumentUpdate,
 ) -> Any:
     """
     Correct invoice fields by hand. Checks run again afterwards.
     """
     invoice = get_owned_invoice(session, current_user, id)
-    if invoice.status in (InvoiceStatus.pending, InvoiceStatus.processing):
+    if invoice.status in (DocumentStatus.pending, DocumentStatus.processing):
         raise HTTPException(status_code=409, detail="Facture en cours de lecture")
     invoice.sqlmodel_update(invoice_in.model_dump(exclude_unset=True))
     sign_credit_note(invoice)
@@ -195,7 +204,7 @@ def update_invoice(
     return invoice
 
 
-@router.post("/{id}/retry", response_model=InvoicePublic)
+@router.post("/{id}/retry", response_model=DocumentPublic)
 def retry_invoice(
     session: SessionDep,
     current_user: CurrentUser,
@@ -210,9 +219,9 @@ def retry_invoice(
     """
     expire_stale(session)
     invoice = get_owned_invoice(session, current_user, id)
-    if invoice.status in (InvoiceStatus.pending, InvoiceStatus.processing):
+    if invoice.status in (DocumentStatus.pending, DocumentStatus.processing):
         raise HTTPException(status_code=409, detail="Facture en cours de lecture")
-    invoice.status = InvoiceStatus.pending
+    invoice.status = DocumentStatus.pending
     invoice.issues = []
     invoice.started_at = get_datetime_utc()
     session.add(invoice)

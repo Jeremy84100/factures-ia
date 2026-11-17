@@ -7,7 +7,7 @@ from sqlmodel import Session, delete
 from app.core.config import settings
 from app.core.db import create_superuser, engine
 from app.main import app
-from app.models import Invoice, User
+from app.models import Document, User
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import (
     SUPERUSER_EMAIL,
@@ -21,7 +21,7 @@ def db() -> Generator[Session]:
     with Session(engine) as session:
         create_superuser(session, SUPERUSER_EMAIL, SUPERUSER_PASSWORD)
         yield session
-        statement = delete(Invoice)
+        statement = delete(Document)
         session.execute(statement)
         statement = delete(User)
         session.execute(statement)

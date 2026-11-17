@@ -55,7 +55,9 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
-    invoices: list[Invoice] = Relationship(back_populates="owner", cascade_delete=True)
+    documents: list[Document] = Relationship(
+        back_populates="owner", cascade_delete=True
+    )
 
 
 # Properties to return via API, id is always required
@@ -69,7 +71,14 @@ class UsersPublic(SQLModel):
     count: int
 
 
-class InvoiceStatus(StrEnum):
+class DocumentKind(StrEnum):
+    unknown = "unknown"
+    invoice = "invoice"
+    order = "order"
+    delivery = "delivery"
+
+
+class DocumentStatus(StrEnum):
     pending = "pending"
     processing = "processing"
     ok = "ok"
@@ -78,10 +87,22 @@ class InvoiceStatus(StrEnum):
     failed = "failed"
 
 
-class InvoiceFields(SQLModel):
+class LineFields(SQLModel):
+    reference: str | None = Field(default=None, max_length=100)
+    description: str | None = Field(default=None, max_length=255)
+    quantity: Decimal | None = Field(default=None, max_digits=12, decimal_places=3)
+    unit: str | None = Field(default=None, max_length=20)
+    unit_price: Decimal | None = Field(default=None, max_digits=12, decimal_places=4)
+    amount_excl_tax: Decimal | None = Field(
+        default=None, max_digits=12, decimal_places=2
+    )
+
+
+class DocumentFields(SQLModel):
     supplier: str | None = Field(default=None, max_length=255)
-    invoice_number: str | None = Field(default=None, max_length=100)
-    invoice_date: date | None = None
+    number: str | None = Field(default=None, max_length=100)
+    document_date: date | None = None
+    order_reference: str | None = Field(default=None, max_length=100, index=True)
     amount_excl_tax: Decimal | None = Field(
         default=None, max_digits=12, decimal_places=2
     )
@@ -94,16 +115,20 @@ class InvoiceFields(SQLModel):
     vat_exemption: str | None = Field(default=None, max_length=255)
 
 
-class InvoiceUpdate(InvoiceFields):
-    pass
+class DocumentUpdate(DocumentFields):
+    kind: DocumentKind | None = None
+    lines: list[LineFields] | None = None
 
 
-class Invoice(InvoiceFields, table=True):
+class Document(DocumentFields, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    kind: DocumentKind = Field(
+        default=DocumentKind.unknown, sa_type=String(20), index=True
+    )
     filename: str = Field(max_length=255)
     file: bytes = Field(sa_type=LargeBinary)
-    status: InvoiceStatus = Field(
-        default=InvoiceStatus.pending, sa_type=String(20), index=True
+    status: DocumentStatus = Field(
+        default=DocumentStatus.pending, sa_type=String(20), index=True
     )
     issues: list[str] = Field(default_factory=list, sa_type=JSON)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
@@ -112,21 +137,37 @@ class Invoice(InvoiceFields, table=True):
     owner_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
-    owner: User | None = Relationship(back_populates="invoices")
+    owner: User | None = Relationship(back_populates="documents")
+    lines: list[DocumentLine] = Relationship(
+        back_populates="document",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "DocumentLine.position"},
+    )
 
 
-class InvoicePublic(InvoiceFields):
+class DocumentLine(LineFields, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    position: int = 0
+    document_id: uuid.UUID = Field(
+        foreign_key="document.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    document: Document | None = Relationship(back_populates="lines")
+
+
+class DocumentPublic(DocumentFields):
     id: uuid.UUID
     owner_id: uuid.UUID
+    kind: DocumentKind
     filename: str
-    status: InvoiceStatus
+    status: DocumentStatus
     issues: list[str]
+    lines: list[LineFields] = []
     created_at: datetime | None = None
     processed_at: datetime | None = None
 
 
-class InvoicesPublic(SQLModel):
-    data: list[InvoicePublic]
+class DocumentsPublic(SQLModel):
+    data: list[DocumentPublic]
     count: int
 
 

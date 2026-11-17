@@ -13,7 +13,7 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models import (
-    Invoice,
+    Document,
     Message,
     UpdatePassword,
     User,
@@ -228,7 +228,7 @@ def delete_user(
             status_code=403,
             detail="Un administrateur ne peut pas supprimer son propre compte",
         )
-    statement = delete(Invoice).where(col(Invoice.owner_id) == user_id)
+    statement = delete(Document).where(col(Document.owner_id) == user_id)
     session.exec(statement)
     session.delete(user)
     session.commit()

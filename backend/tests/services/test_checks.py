@@ -2,43 +2,44 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from app.models import Invoice, InvoiceStatus
+from app.models import Document, DocumentKind, DocumentStatus
 from app.services.checks import check_invoice, review_extraction
 from app.services.extraction import ExtractedInvoice
 
 TODAY = date(2026, 11, 16)
 
 
-def make_invoice(**fields: object) -> Invoice:
+def make_invoice(**fields: object) -> Document:
     values: dict[str, object] = {
+        "kind": DocumentKind.invoice,
         "filename": "a.pdf",
         "file": b"",
         "owner_id": uuid.uuid4(),
         "supplier": "EDF",
-        "invoice_number": "1",
-        "invoice_date": date(2026, 3, 4),
+        "number": "1",
+        "document_date": date(2026, 3, 4),
         "amount_excl_tax": Decimal("70.17"),
         "vat_amount": Decimal("14.03"),
         "amount_incl_tax": Decimal("84.20"),
     }
     values.update(fields)
-    return Invoice(**values)
+    return Document(**values)
 
 
 def test_valid_invoice_is_ok() -> None:
-    assert check_invoice(make_invoice(), None, TODAY) == (InvoiceStatus.ok, [])
+    assert check_invoice(make_invoice(), None, TODAY) == (DocumentStatus.ok, [])
 
 
 def test_rounding_cent_is_tolerated() -> None:
     invoice = make_invoice(amount_incl_tax=Decimal("84.21"))
-    assert check_invoice(invoice, None, TODAY)[0] == InvoiceStatus.ok
+    assert check_invoice(invoice, None, TODAY)[0] == DocumentStatus.ok
 
 
 def test_wrong_total_needs_check() -> None:
     status, issues = check_invoice(
         make_invoice(amount_incl_tax=Decimal("842.00")), None, TODAY
     )
-    assert status == InvoiceStatus.to_check
+    assert status == DocumentStatus.to_check
     assert issues == ["HT + TVA = 84.20 mais TTC = 842.00"]
 
 
@@ -46,23 +47,23 @@ def test_missing_fields_is_unreadable() -> None:
     status, issues = check_invoice(
         make_invoice(supplier=None, amount_incl_tax=None), None, TODAY
     )
-    assert status == InvoiceStatus.unreadable
+    assert status == DocumentStatus.unreadable
     assert issues == ["Champ introuvable : fournisseur, montant TTC"]
 
 
 def test_total_alone_is_readable_but_needs_vat() -> None:
     invoice = make_invoice(amount_excl_tax=None, vat_amount=None)
     assert check_invoice(invoice, None, TODAY) == (
-        InvoiceStatus.to_check,
+        DocumentStatus.to_check,
         ["Montant de TVA introuvable"],
     )
 
 
 def test_future_date_needs_check() -> None:
     status, issues = check_invoice(
-        make_invoice(invoice_date=date(2027, 1, 1)), None, TODAY
+        make_invoice(document_date=date(2027, 1, 1)), None, TODAY
     )
-    assert status == InvoiceStatus.to_check
+    assert status == DocumentStatus.to_check
     assert issues == ["Date dans le futur"]
 
 
@@ -81,7 +82,7 @@ def test_negative_invoice_needs_check() -> None:
 
 def test_negative_credit_note_is_ok() -> None:
     invoice = make_invoice(**NEGATIVE, is_credit_note=True)
-    assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
+    assert check_invoice(invoice, None, TODAY) == (DocumentStatus.ok, [])
 
 
 ZERO_VAT = {
@@ -99,7 +100,7 @@ def test_zero_vat_without_mention_needs_check() -> None:
 
 def test_zero_vat_with_mention_is_ok() -> None:
     invoice = make_invoice(**ZERO_VAT, vat_exemption="Article 262 I du CGI")
-    assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
+    assert check_invoice(invoice, None, TODAY) == (DocumentStatus.ok, [])
 
 
 def test_missing_vat_needs_check() -> None:
@@ -109,7 +110,7 @@ def test_missing_vat_needs_check() -> None:
 
 def test_missing_vat_with_mention_is_ok() -> None:
     invoice = make_invoice(vat_amount=None, vat_exemption="TVA incluse")
-    assert check_invoice(invoice, None, TODAY) == (InvoiceStatus.ok, [])
+    assert check_invoice(invoice, None, TODAY) == (DocumentStatus.ok, [])
 
 
 def test_same_number_other_amount_is_reported_separately() -> None:
@@ -122,7 +123,7 @@ def test_same_number_other_amount_is_reported_separately() -> None:
 def test_duplicate_needs_check() -> None:
     other = make_invoice(filename="edf-mars.pdf")
     status, issues = check_invoice(make_invoice(), other, TODAY)
-    assert status == InvoiceStatus.to_check
+    assert status == DocumentStatus.to_check
     assert issues == ["Doublon possible de « edf-mars.pdf »"]
 
 
@@ -155,5 +156,5 @@ def test_extraction_issues_send_to_review() -> None:
         TODAY,
         extraction_issues=["Date « 06/02/2015 » à vérifier"],
     )
-    assert status == InvoiceStatus.to_check
+    assert status == DocumentStatus.to_check
     assert issues == ["Date « 06/02/2015 » à vérifier"]
