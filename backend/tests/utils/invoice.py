@@ -50,6 +50,66 @@ ORDER = ExtractedDocument(
 )
 
 
+def purchase_documents(
+    order_number: str,
+) -> tuple[ExtractedDocument, ExtractedDocument, ExtractedDocument]:
+    order = ORDER.model_copy(update={"number": order_number})
+    delivery = ExtractedDocument(
+        document_type="bon_de_livraison",
+        supplier="Rexel",
+        number=f"BL-{order_number}",
+        date="2026-10-05",
+        order_reference=order_number,
+        lines=[
+            line.model_copy(update={"unit_price": None, "amount_excl_tax": None})
+            for line in (CABLE, GAINE)
+        ],
+    )
+    invoice = ExtractedDocument(
+        document_type="facture",
+        supplier="Rexel",
+        number=f"FA-{order_number}",
+        date="2026-10-06",
+        order_reference=order_number,
+        amount_excl_tax=101.50,
+        vat_amount=20.30,
+        amount_incl_tax=121.80,
+        currency="EUR",
+        lines=[CABLE, GAINE],
+    )
+    return order, delivery, invoice
+
+
+def purchase_documents(
+    order_number: str,
+) -> tuple[ExtractedDocument, ExtractedDocument, ExtractedDocument]:
+    order = ORDER.model_copy(update={"number": order_number})
+    delivery = ExtractedDocument(
+        document_type="bon_de_livraison",
+        supplier="Rexel",
+        number=f"BL-{order_number}",
+        date="2026-10-05",
+        order_reference=order_number,
+        lines=[
+            line.model_copy(update={"unit_price": None, "amount_excl_tax": None})
+            for line in (CABLE, GAINE)
+        ],
+    )
+    invoice = ExtractedDocument(
+        document_type="facture",
+        supplier="Rexel",
+        number=f"FA-{order_number}",
+        date="2026-10-06",
+        order_reference=order_number,
+        amount_excl_tax=101.50,
+        vat_amount=20.30,
+        amount_incl_tax=121.80,
+        currency="EUR",
+        lines=[CABLE, GAINE],
+    )
+    return order, delivery, invoice
+
+
 class FakeReader:
     def __init__(self, text: str = "facture", error: bool = False) -> None:
         self.text = text

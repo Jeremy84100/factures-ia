@@ -3,6 +3,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
 from fastapi import File as FileParam
+from sqlalchemy.orm import defer, selectinload
 from sqlmodel import col, extract, func, select
 
 from app.api.deps import CurrentUser, EngineDep, ExtractorDep, PdfReaderDep, SessionDep
@@ -13,6 +14,7 @@ from app.models import (
     DocumentsPublic,
     DocumentStatus,
     DocumentUpdate,
+    LineFields,
     Message,
     SupplierTotal,
     SupplierTotals,
@@ -25,59 +27,68 @@ from app.services.processing import (
     recheck_duplicates_of,
     run_checks,
     sign_credit_note,
+    to_lines,
 )
 
-router = APIRouter(prefix="/invoices", tags=["invoices"])
+router = APIRouter(prefix="/documents", tags=["documents"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_FILES = 50
+BUSY = (DocumentStatus.pending, DocumentStatus.processing)
 
 
-def get_owned_invoice(session: SessionDep, user: User, id: uuid.UUID) -> Document:
-    invoice = session.get(Document, id)
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Facture introuvable")
-    if not user.is_superuser and invoice.owner_id != user.id:
+def to_public(document: Document) -> DocumentPublic:
+    public = DocumentPublic.model_validate(document, update={"lines": []})
+    public.lines = [LineFields.model_validate(line) for line in document.lines]
+    return public
+
+
+def get_owned_document(session: SessionDep, user: User, id: uuid.UUID) -> Document:
+    document = session.get(Document, id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document introuvable")
+    if not user.is_superuser and document.owner_id != user.id:
         raise HTTPException(status_code=403, detail="Droits insuffisants")
-    return invoice
+    return document
 
 
 @router.get("/", response_model=DocumentsPublic)
-def read_invoices(
+def read_documents(
     session: SessionDep,
     current_user: CurrentUser,
+    kind: DocumentKind | None = None,
     status: DocumentStatus | None = None,
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
     """
-    Retrieve invoices.
+    Retrieve documents, optionally filtered by kind and status.
     """
     expire_stale(session)
-    conditions = [Document.kind == DocumentKind.invoice]
+    conditions = []
     if not current_user.is_superuser:
         conditions.append(Document.owner_id == current_user.id)
+    if kind:
+        conditions.append(Document.kind == kind)
     if status:
         conditions.append(Document.status == status)
 
     count = session.exec(
         select(func.count()).select_from(Document).where(*conditions)
     ).one()
-    invoices = session.exec(
+    documents = session.exec(
         select(Document)
         .where(*conditions)
+        .options(defer(Document.file), selectinload(Document.lines))  # type: ignore[arg-type]
         .order_by(col(Document.created_at).desc())
         .offset(skip)
         .limit(limit)
     ).all()
-    return DocumentsPublic(
-        data=[DocumentPublic.model_validate(invoice) for invoice in invoices],
-        count=count,
-    )
+    return DocumentsPublic(data=[to_public(d) for d in documents], count=count)
 
 
 @router.post("/", response_model=DocumentsPublic)
-async def upload_invoices(
+async def upload_documents(
     session: SessionDep,
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
@@ -87,7 +98,8 @@ async def upload_invoices(
     files: Annotated[list[UploadFile], FileParam()],
 ) -> Any:
     """
-    Upload PDF invoices. Each one is read and checked in the background.
+    Upload PDF documents of any kind. Each one is sorted, read and checked in
+    the background.
     """
     if len(files) > MAX_FILES:
         raise HTTPException(
@@ -97,33 +109,27 @@ async def upload_invoices(
     contents: list[tuple[str, bytes]] = []
     for upload in files:
         data = await upload.read(MAX_FILE_SIZE + 1)
-        name = upload.filename or "facture.pdf"
+        name = upload.filename or "document.pdf"
         if len(data) > MAX_FILE_SIZE:
             raise HTTPException(status_code=413, detail=f"{name} dépasse 10 Mo")
         if not data.startswith(b"%PDF"):
             raise HTTPException(status_code=400, detail=f"{name} n'est pas un PDF")
         contents.append((name, data))
 
-    invoices = [
-        Document(
-            kind=DocumentKind.invoice,
-            filename=name,
-            file=data,
-            owner_id=current_user.id,
-        )
+    documents = [
+        Document(filename=name, file=data, owner_id=current_user.id)
         for name, data in contents
     ]
-    session.add_all(invoices)
+    session.add_all(documents)
     session.commit()
-    for invoice in invoices:
-        session.refresh(invoice)
+    for document in documents:
+        session.refresh(document)
         background_tasks.add_task(
-            process_document, invoice.id, engine, reader, extractor
+            process_document, document.id, engine, reader, extractor
         )
 
     return DocumentsPublic(
-        data=[DocumentPublic.model_validate(invoice) for invoice in invoices],
-        count=len(invoices),
+        data=[to_public(d) for d in documents], count=len(documents)
     )
 
 
@@ -160,52 +166,60 @@ def read_supplier_totals(
 
 
 @router.get("/{id}", response_model=DocumentPublic)
-def read_invoice(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_document(
+    session: SessionDep, current_user: CurrentUser, id: uuid.UUID
+) -> Any:
     """
-    Get invoice by ID.
+    Get document by ID.
     """
-    return get_owned_invoice(session, current_user, id)
+    return to_public(get_owned_document(session, current_user, id))
 
 
 @router.get("/{id}/file", response_class=Response)
-def read_invoice_file(
+def read_document_file(
     session: SessionDep, current_user: CurrentUser, id: uuid.UUID
 ) -> Response:
     """
     Download the original PDF.
     """
-    invoice = get_owned_invoice(session, current_user, id)
+    document = get_owned_document(session, current_user, id)
     return Response(
-        content=invoice.file,
+        content=document.file,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{invoice.filename}"'},
+        headers={"Content-Disposition": f'inline; filename="{document.filename}"'},
     )
 
 
 @router.put("/{id}", response_model=DocumentPublic)
-def update_invoice(
+def update_document(
     session: SessionDep,
     current_user: CurrentUser,
     id: uuid.UUID,
-    invoice_in: DocumentUpdate,
+    document_in: DocumentUpdate,
 ) -> Any:
     """
-    Correct invoice fields by hand. Checks run again afterwards.
+    Correct a document by hand: kind, fields, order number or lines. Checks
+    run again afterwards.
     """
-    invoice = get_owned_invoice(session, current_user, id)
-    if invoice.status in (DocumentStatus.pending, DocumentStatus.processing):
-        raise HTTPException(status_code=409, detail="Facture en cours de lecture")
-    invoice.sqlmodel_update(invoice_in.model_dump(exclude_unset=True))
-    sign_credit_note(invoice)
-    run_checks(session, invoice)
-    session.add(invoice)
+    document = get_owned_document(session, current_user, id)
+    if document.status in BUSY:
+        raise HTTPException(status_code=409, detail="Document en cours de lecture")
+    changes = document_in.model_dump(exclude_unset=True, exclude={"lines"})
+    if changes.get("kind") is None:
+        changes.pop("kind", None)
+    document.sqlmodel_update(changes)
+    if document_in.lines is not None:
+        document.lines = to_lines(document_in.lines)
+    sign_credit_note(document)
+    run_checks(session, document)
+    session.add(document)
     session.commit()
-    session.refresh(invoice)
-    return invoice
+    session.refresh(document)
+    return to_public(document)
 
 
 @router.post("/{id}/retry", response_model=DocumentPublic)
-def retry_invoice(
+def retry_document(
     session: SessionDep,
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
@@ -215,32 +229,34 @@ def retry_invoice(
     id: uuid.UUID,
 ) -> Any:
     """
-    Read the invoice again with the AI.
+    Read the document again with the AI.
     """
     expire_stale(session)
-    invoice = get_owned_invoice(session, current_user, id)
-    if invoice.status in (DocumentStatus.pending, DocumentStatus.processing):
-        raise HTTPException(status_code=409, detail="Facture en cours de lecture")
-    invoice.status = DocumentStatus.pending
-    invoice.issues = []
-    invoice.started_at = get_datetime_utc()
-    session.add(invoice)
+    document = get_owned_document(session, current_user, id)
+    if document.status in BUSY:
+        raise HTTPException(status_code=409, detail="Document en cours de lecture")
+    document.status = DocumentStatus.pending
+    document.issues = []
+    document.started_at = get_datetime_utc()
+    session.add(document)
     session.commit()
-    session.refresh(invoice)
-    background_tasks.add_task(process_document, invoice.id, engine, reader, extractor)
-    return invoice
+    session.refresh(document)
+    background_tasks.add_task(
+        process_document, document.id, engine, reader, extractor
+    )
+    return to_public(document)
 
 
 @router.delete("/{id}")
-def delete_invoice(
+def delete_document(
     session: SessionDep, current_user: CurrentUser, id: uuid.UUID
 ) -> Message:
     """
-    Delete an invoice.
+    Delete a document.
     """
-    invoice = get_owned_invoice(session, current_user, id)
-    session.delete(invoice)
+    document = get_owned_document(session, current_user, id)
+    session.delete(document)
     session.flush()
-    recheck_duplicates_of(session, invoice)
+    recheck_duplicates_of(session, document)
     session.commit()
-    return Message(message="Facture supprimée")
+    return Message(message="Document supprimé")

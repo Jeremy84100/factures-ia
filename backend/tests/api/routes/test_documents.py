@@ -8,15 +8,17 @@ from app.api.deps import get_extractor, get_pdf_reader
 from app.core.config import settings
 from app.main import app
 from app.models import DocumentStatus
+from app.services.extraction import ExtractedDocument
 from tests.utils.invoice import (
     EDF,
+    ORDER,
     PDF_BYTES,
     FakeExtractor,
     FakeReader,
     create_random_invoice,
 )
 
-URL = f"{settings.API_V1_STR}/invoices/"
+URL = f"{settings.API_V1_STR}/documents/"
 
 
 @pytest.fixture(autouse=True)
@@ -241,3 +243,100 @@ def test_manual_credit_note_is_signed(
     assert r.status_code == 200
     assert r.json()["amount_incl_tax"] == "-12.00"
     assert r.json()["status"] == "ok"
+
+
+def use_ai_result(result: ExtractedDocument) -> None:
+    app.dependency_overrides[get_extractor] = lambda: FakeExtractor(result)
+
+
+def test_upload_sorts_each_document(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    use_ai_result(ORDER.model_copy(update={"number": "SORT-1"}))
+    created = upload(client, normal_user_token_headers, ("commande.pdf", PDF_BYTES))
+    assert created[0]["kind"] == "unknown"
+
+    r = client.get(f"{URL}{created[0]['id']}", headers=normal_user_token_headers)
+    assert r.json()["kind"] == "order"
+    assert r.json()["status"] == "ok"
+    references = [line["reference"] for line in r.json()["lines"]]
+    assert references == ["CAB-3G25", "ICTA-20"]
+
+
+def test_filter_by_kind(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    use_ai_result(ORDER.model_copy(update={"number": "KIND-1"}))
+    upload(client, normal_user_token_headers, ("commande.pdf", PDF_BYTES))
+    r = client.get(URL, headers=normal_user_token_headers, params={"kind": "order"})
+    assert {item["kind"] for item in r.json()["data"]} == {"order"}
+
+
+def test_kind_and_order_number_can_be_corrected(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    use_ai_result(
+        ORDER.model_copy(update={"document_type": "autre", "number": "BL-77"})
+    )
+    created = upload(client, normal_user_token_headers, ("scan.pdf", PDF_BYTES))
+    url = f"{URL}{created[0]['id']}"
+    r = client.get(url, headers=normal_user_token_headers)
+    assert r.json()["status"] == "unreadable"
+
+    r = client.put(url, headers=normal_user_token_headers, json={"kind": "delivery"})
+    assert r.json()["kind"] == "delivery"
+    assert r.json()["issues"] == [
+        "Numéro de commande introuvable : à relier à une commande"
+    ]
+
+    r = client.put(
+        url, headers=normal_user_token_headers, json={"order_reference": "CMD-77"}
+    )
+    assert r.json()["status"] == "ok"
+
+
+def test_lines_can_be_corrected(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    use_ai_result(
+        ORDER.model_copy(update={"number": "LINES-1", "amount_excl_tax": 120.0})
+    )
+    created = upload(client, normal_user_token_headers, ("commande.pdf", PDF_BYTES))
+    url = f"{URL}{created[0]['id']}"
+    r = client.get(url, headers=normal_user_token_headers)
+    assert r.json()["status"] == "to_check"
+
+    def line(reference: str, quantity: str, price: str, amount: str) -> dict[str, str]:
+        return {
+            "reference": reference,
+            "quantity": quantity,
+            "unit_price": price,
+            "amount_excl_tax": amount,
+        }
+
+    lines = [
+        line("CAB-3G25", "50", "1.19", "59.50"),
+        line("ICTA-20", "100", "0.42", "42.00"),
+        line("PORT", "1", "18.50", "18.50"),
+    ]
+    r = client.put(url, headers=normal_user_token_headers, json={"lines": lines})
+    assert r.json()["status"] == "ok"
+    assert len(r.json()["lines"]) == 3
+
+
+def test_totals_count_only_invoices(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    use_ai_result(
+        ORDER.model_copy(
+            update={
+                "number": "TOT-1",
+                "supplier": "Commande Seule SARL",
+                "amount_incl_tax": 121.80,
+            }
+        )
+    )
+    upload(client, normal_user_token_headers, ("commande.pdf", PDF_BYTES))
+    r = client.get(f"{URL}totals", headers=normal_user_token_headers)
+    suppliers = {row["supplier"] for row in r.json()["data"]}
+    assert "Commande Seule SARL" not in suppliers
