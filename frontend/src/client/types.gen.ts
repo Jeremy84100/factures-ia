@@ -1093,6 +1093,22 @@ export type utilsHealthCheckResponses = {
 
 export type utilsHealthCheckResponse = utilsHealthCheckResponses[keyof utilsHealthCheckResponses];
 
+export type documentsDeleteAllDocumentsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/documents/';
+};
+
+export type documentsDeleteAllDocumentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type documentsDeleteAllDocumentsResponse = documentsDeleteAllDocumentsResponses[keyof documentsDeleteAllDocumentsResponses];
+
 export type documentsReadDocumentsData = {
     body?: never;
     path?: never;

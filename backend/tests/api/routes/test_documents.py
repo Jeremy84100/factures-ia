@@ -2,12 +2,12 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.api.deps import get_extractor, get_pdf_reader
 from app.core.config import settings
 from app.main import app
-from app.models import DocumentStatus
+from app.models import DocumentLine, DocumentStatus
 from app.services.extraction import ExtractedDocument
 from tests.utils.invoice import (
     EDF,
@@ -195,6 +195,50 @@ def test_delete_invoice(
     url = f"{URL}{created[0]['id']}"
     assert client.delete(url, headers=normal_user_token_headers).status_code == 200
     assert client.get(url, headers=normal_user_token_headers).status_code == 404
+
+
+def test_delete_all_removes_only_my_documents(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    client.delete(URL, headers=normal_user_token_headers)
+    mine = upload(
+        client, normal_user_token_headers, ("a.pdf", PDF_BYTES), ("b.pdf", PDF_BYTES)
+    )
+    theirs = upload(client, superuser_token_headers, ("c.pdf", PDF_BYTES))
+
+    response = client.delete(URL, headers=normal_user_token_headers)
+    assert response.status_code == 200
+    assert response.json() == {"message": "Documents supprimés : 2"}
+    for document in mine:
+        url = f"{URL}{document['id']}"
+        assert client.get(url, headers=normal_user_token_headers).status_code == 404
+    url = f"{URL}{theirs[0]['id']}"
+    assert client.get(url, headers=superuser_token_headers).status_code == 200
+
+
+def test_delete_all_by_an_admin_keeps_other_users_documents(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    theirs = upload(client, normal_user_token_headers, ("a.pdf", PDF_BYTES))
+    assert client.delete(URL, headers=superuser_token_headers).status_code == 200
+    url = f"{URL}{theirs[0]['id']}"
+    assert client.get(url, headers=normal_user_token_headers).status_code == 200
+
+
+def test_delete_all_also_removes_lines(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    app.dependency_overrides[get_extractor] = lambda: FakeExtractor(ORDER)
+    order = upload(client, normal_user_token_headers, ("cmd.pdf", PDF_BYTES))[0]
+    lines = select(DocumentLine).where(DocumentLine.document_id == order["id"])
+    assert db.exec(lines).all()
+    client.delete(URL, headers=normal_user_token_headers)
+    db.expire_all()
+    assert db.exec(lines).all() == []
 
 
 def test_deleting_the_original_clears_only_its_duplicates(

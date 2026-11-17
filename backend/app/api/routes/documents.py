@@ -4,7 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
 from fastapi import File as FileParam
 from sqlalchemy.orm import defer, selectinload
-from sqlmodel import col, extract, func, select
+from sqlmodel import col, delete, extract, func, select
 
 from app.api.deps import CurrentUser, EngineDep, ExtractorDep, PdfReaderDep, SessionDep
 from app.models import (
@@ -239,6 +239,21 @@ def retry_document(
     session.refresh(document)
     background_tasks.add_task(process_document, document.id, engine, reader, extractor)
     return to_public(document)
+
+
+@router.delete("/")
+def delete_all_documents(session: SessionDep, current_user: CurrentUser) -> Message:
+    """
+    Delete every document of the current user, even for an admin.
+    """
+    count = session.exec(
+        select(func.count())
+        .select_from(Document)
+        .where(Document.owner_id == current_user.id)
+    ).one()
+    session.exec(delete(Document).where(col(Document.owner_id) == current_user.id))
+    session.commit()
+    return Message(message=f"Documents supprimés : {count}")
 
 
 @router.delete("/{id}")

@@ -10,6 +10,7 @@ import {
 } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { columns } from "@/components/Documents/columns"
+import DeleteAllDocuments from "@/components/Documents/DeleteAllDocuments"
 import UploadDocuments from "@/components/Documents/UploadDocuments"
 import PendingDocuments from "@/components/Pending/PendingDocuments"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -73,7 +74,16 @@ function DocumentsTableContent({ value }: { value: string }) {
     )
   }
 
-  return <DataTable columns={columns} data={documents.data} />
+  return (
+    <div className="flex flex-col gap-4">
+      {value === "all" && (
+        <div className="flex justify-end">
+          <DeleteAllDocuments count={documents.count} />
+        </div>
+      )}
+      <DataTable columns={columns} data={documents.data} />
+    </div>
+  )
 }
 
 function Documents() {

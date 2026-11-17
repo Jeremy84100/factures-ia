@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { documentsDeleteAllDocumentsData, documentsDeleteAllDocumentsResponses, documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -285,6 +285,20 @@ export class UtilsService {
 }
 
 export class DocumentsService {
+    /**
+     * Delete All Documents
+     *
+     * Delete every document of the current user, even for an admin.
+     */
+    public static deleteAllDocuments<ThrowOnError extends boolean = true>(options?: Options<documentsDeleteAllDocumentsData, ThrowOnError>) {
+        return (options?.client ?? client).delete<documentsDeleteAllDocumentsResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/documents/',
+            ...options
+        });
+    }
+    
     /**
      * Read Documents
      *
