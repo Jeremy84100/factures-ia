@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 
-import { InvoicesService } from "@/client"
+import { DocumentsService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import useAuth from "@/hooks/useAuth"
-import { formatAmount } from "@/lib/invoices"
+import { formatAmount } from "@/lib/documents"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -32,10 +32,13 @@ const YEAR = new Date().getFullYear()
 
 function useCount(status: "to_check" | "unreadable" | "failed" | "ok") {
   return useQuery({
-    queryKey: ["invoices", "count", status],
+    queryKey: ["documents", "count", status],
     queryFn: async () =>
-      (await InvoicesService.readInvoices({ query: { status, limit: 1 } })).data
-        .count,
+      (
+        await DocumentsService.readDocuments({
+          query: { kind: "invoice", status, limit: 1 },
+        })
+      ).data.count,
   })
 }
 
@@ -57,9 +60,9 @@ function Dashboard() {
   const unreadable = useCount("unreadable")
   const failed = useCount("failed")
   const totals = useQuery({
-    queryKey: ["invoices", "totals", YEAR],
+    queryKey: ["documents", "totals", YEAR],
     queryFn: async () =>
-      (await InvoicesService.readSupplierTotals({ query: { year: YEAR } }))
+      (await DocumentsService.readSupplierTotals({ query: { year: YEAR } }))
         .data,
   })
 
@@ -117,7 +120,7 @@ function Dashboard() {
                 Aucune facture validée cette année.
               </p>
               <Button asChild>
-                <Link to="/invoices">Déposer des factures</Link>
+                <Link to="/documents">Déposer des documents</Link>
               </Button>
             </div>
           )}

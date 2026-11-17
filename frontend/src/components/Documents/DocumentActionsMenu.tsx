@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { EllipsisVertical, FileText, RotateCw } from "lucide-react"
 import { useState } from "react"
 
-import { type InvoicePublic, InvoicesService } from "@/client"
+import { type DocumentPublic, DocumentsService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,36 +11,37 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import useCustomToast from "@/hooks/useCustomToast"
-import { isBusy } from "@/lib/invoices"
+import { isBusy } from "@/lib/documents"
 import { handleError } from "@/utils"
-import DeleteInvoice from "./DeleteInvoice"
-import EditInvoice from "./EditInvoice"
+import DeleteDocument from "./DeleteDocument"
+import EditDocument from "./EditDocument"
 
-interface InvoiceActionsMenuProps {
-  invoice: InvoicePublic
+export async function openPdf(id: string) {
+  const { data } = await DocumentsService.readDocumentFile({
+    path: { id },
+    responseType: "blob",
+  })
+  window.open(URL.createObjectURL(data as Blob), "_blank")
 }
 
-export const InvoiceActionsMenu = ({ invoice }: InvoiceActionsMenuProps) => {
+export const DocumentActionsMenu = ({
+  document,
+}: {
+  document: DocumentPublic
+}) => {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showErrorToast } = useCustomToast()
 
   const retry = useMutation({
     mutationFn: () =>
-      InvoicesService.retryInvoice({ path: { id: invoice.id } }),
+      DocumentsService.retryDocument({ path: { id: document.id } }),
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      queryClient.invalidateQueries({ queryKey: ["documents"] })
+      queryClient.invalidateQueries({ queryKey: ["purchases"] })
     },
   })
-
-  const openPdf = async () => {
-    const { data } = await InvoicesService.readInvoiceFile({
-      path: { id: invoice.id },
-      responseType: "blob",
-    })
-    window.open(URL.createObjectURL(data as Blob), "_blank")
-  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -50,19 +51,19 @@ export const InvoiceActionsMenu = ({ invoice }: InvoiceActionsMenuProps) => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={openPdf}>
+        <DropdownMenuItem onClick={() => openPdf(document.id)}>
           <FileText />
           Voir le PDF
         </DropdownMenuItem>
-        <EditInvoice invoice={invoice} onSuccess={() => setOpen(false)} />
+        <EditDocument document={document} onSuccess={() => setOpen(false)} />
         <DropdownMenuItem
-          disabled={isBusy(invoice)}
+          disabled={isBusy(document)}
           onClick={() => retry.mutate()}
         >
           <RotateCw />
           Relire avec l'IA
         </DropdownMenuItem>
-        <DeleteInvoice id={invoice.id} onSuccess={() => setOpen(false)} />
+        <DeleteDocument id={document.id} onSuccess={() => setOpen(false)} />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -1,17 +1,17 @@
-import type { InvoicePublic } from "@/client"
+import type { DocumentPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { STATUS } from "@/lib/invoices"
+import { STATUS } from "@/lib/documents"
 
-export function StatusBadge({ invoice }: { invoice: InvoicePublic }) {
-  const { label, variant } = STATUS[invoice.status]
+export function StatusBadge({ document }: { document: DocumentPublic }) {
+  const { label, variant } = STATUS[document.status]
   const badge = <Badge variant={variant}>{label}</Badge>
 
-  if (invoice.issues.length === 0) return badge
+  if (document.issues.length === 0) return badge
 
   return (
     <Tooltip>
@@ -20,7 +20,7 @@ export function StatusBadge({ invoice }: { invoice: InvoicePublic }) {
       </TooltipTrigger>
       <TooltipContent>
         <ul className="list-disc pl-4">
-          {invoice.issues.map((issue) => (
+          {document.issues.map((issue) => (
             <li key={issue}>{issue}</li>
           ))}
         </ul>

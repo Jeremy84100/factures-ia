@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { invoicesDeleteInvoiceData, invoicesDeleteInvoiceErrors, invoicesDeleteInvoiceResponses, invoicesReadInvoiceData, invoicesReadInvoiceErrors, invoicesReadInvoiceFileData, invoicesReadInvoiceFileErrors, invoicesReadInvoiceFileResponses, invoicesReadInvoiceResponses, invoicesReadInvoicesData, invoicesReadInvoicesErrors, invoicesReadInvoicesResponses, invoicesReadSupplierTotalsData, invoicesReadSupplierTotalsErrors, invoicesReadSupplierTotalsResponses, invoicesRetryInvoiceData, invoicesRetryInvoiceErrors, invoicesRetryInvoiceResponses, invoicesUpdateInvoiceData, invoicesUpdateInvoiceErrors, invoicesUpdateInvoiceResponses, invoicesUploadInvoicesData, invoicesUploadInvoicesErrors, invoicesUploadInvoicesResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -284,32 +284,33 @@ export class UtilsService {
     }
 }
 
-export class InvoicesService {
+export class DocumentsService {
     /**
-     * Read Invoices
+     * Read Documents
      *
-     * Retrieve invoices.
+     * Retrieve documents, optionally filtered by kind and status.
      */
-    public static readInvoices<ThrowOnError extends boolean = true>(options?: Options<invoicesReadInvoicesData, ThrowOnError>) {
-        return (options?.client ?? client).get<invoicesReadInvoicesResponses, invoicesReadInvoicesErrors, ThrowOnError>({
+    public static readDocuments<ThrowOnError extends boolean = true>(options?: Options<documentsReadDocumentsData, ThrowOnError>) {
+        return (options?.client ?? client).get<documentsReadDocumentsResponses, documentsReadDocumentsErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/',
+            url: '/api/v1/documents/',
             ...options
         });
     }
     
     /**
-     * Upload Invoices
+     * Upload Documents
      *
-     * Upload PDF invoices. Each one is read and checked in the background.
+     * Upload PDF documents of any kind. Each one is sorted, read and checked in
+     * the background.
      */
-    public static uploadInvoices<ThrowOnError extends boolean = true>(options: Options<invoicesUploadInvoicesData, ThrowOnError>) {
-        return (options.client ?? client).post<invoicesUploadInvoicesResponses, invoicesUploadInvoicesErrors, ThrowOnError>({
+    public static uploadDocuments<ThrowOnError extends boolean = true>(options: Options<documentsUploadDocumentsData, ThrowOnError>) {
+        return (options.client ?? client).post<documentsUploadDocumentsResponses, documentsUploadDocumentsErrors, ThrowOnError>({
             ...formDataBodySerializer,
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/',
+            url: '/api/v1/documents/',
             ...options,
             headers: {
                 'Content-Type': null,
@@ -323,53 +324,54 @@ export class InvoicesService {
      *
      * Total incl. tax per supplier, counting only validated invoices.
      */
-    public static readSupplierTotals<ThrowOnError extends boolean = true>(options?: Options<invoicesReadSupplierTotalsData, ThrowOnError>) {
-        return (options?.client ?? client).get<invoicesReadSupplierTotalsResponses, invoicesReadSupplierTotalsErrors, ThrowOnError>({
+    public static readSupplierTotals<ThrowOnError extends boolean = true>(options?: Options<documentsReadSupplierTotalsData, ThrowOnError>) {
+        return (options?.client ?? client).get<documentsReadSupplierTotalsResponses, documentsReadSupplierTotalsErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/totals',
+            url: '/api/v1/documents/totals',
             ...options
         });
     }
     
     /**
-     * Delete Invoice
+     * Delete Document
      *
-     * Delete an invoice.
+     * Delete a document.
      */
-    public static deleteInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesDeleteInvoiceData, ThrowOnError>) {
-        return (options.client ?? client).delete<invoicesDeleteInvoiceResponses, invoicesDeleteInvoiceErrors, ThrowOnError>({
+    public static deleteDocument<ThrowOnError extends boolean = true>(options: Options<documentsDeleteDocumentData, ThrowOnError>) {
+        return (options.client ?? client).delete<documentsDeleteDocumentResponses, documentsDeleteDocumentErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/{id}',
+            url: '/api/v1/documents/{id}',
             ...options
         });
     }
     
     /**
-     * Read Invoice
+     * Read Document
      *
-     * Get invoice by ID.
+     * Get document by ID.
      */
-    public static readInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesReadInvoiceData, ThrowOnError>) {
-        return (options.client ?? client).get<invoicesReadInvoiceResponses, invoicesReadInvoiceErrors, ThrowOnError>({
+    public static readDocument<ThrowOnError extends boolean = true>(options: Options<documentsReadDocumentData, ThrowOnError>) {
+        return (options.client ?? client).get<documentsReadDocumentResponses, documentsReadDocumentErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/{id}',
+            url: '/api/v1/documents/{id}',
             ...options
         });
     }
     
     /**
-     * Update Invoice
+     * Update Document
      *
-     * Correct invoice fields by hand. Checks run again afterwards.
+     * Correct a document by hand: kind, fields, order number or lines. Checks
+     * run again afterwards.
      */
-    public static updateInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesUpdateInvoiceData, ThrowOnError>) {
-        return (options.client ?? client).put<invoicesUpdateInvoiceResponses, invoicesUpdateInvoiceErrors, ThrowOnError>({
+    public static updateDocument<ThrowOnError extends boolean = true>(options: Options<documentsUpdateDocumentData, ThrowOnError>) {
+        return (options.client ?? client).put<documentsUpdateDocumentResponses, documentsUpdateDocumentErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/{id}',
+            url: '/api/v1/documents/{id}',
             ...options,
             headers: {
                 'Content-Type': 'application/json',
@@ -379,28 +381,59 @@ export class InvoicesService {
     }
     
     /**
-     * Read Invoice File
+     * Read Document File
      *
      * Download the original PDF.
      */
-    public static readInvoiceFile<ThrowOnError extends boolean = true>(options: Options<invoicesReadInvoiceFileData, ThrowOnError>) {
-        return (options.client ?? client).get<invoicesReadInvoiceFileResponses, invoicesReadInvoiceFileErrors, ThrowOnError>({
+    public static readDocumentFile<ThrowOnError extends boolean = true>(options: Options<documentsReadDocumentFileData, ThrowOnError>) {
+        return (options.client ?? client).get<documentsReadDocumentFileResponses, documentsReadDocumentFileErrors, ThrowOnError>({
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/{id}/file',
+            url: '/api/v1/documents/{id}/file',
             ...options
         });
     }
     
     /**
-     * Retry Invoice
+     * Retry Document
      *
-     * Read the invoice again with the AI.
+     * Read the document again with the AI.
      */
-    public static retryInvoice<ThrowOnError extends boolean = true>(options: Options<invoicesRetryInvoiceData, ThrowOnError>) {
-        return (options.client ?? client).post<invoicesRetryInvoiceResponses, invoicesRetryInvoiceErrors, ThrowOnError>({
+    public static retryDocument<ThrowOnError extends boolean = true>(options: Options<documentsRetryDocumentData, ThrowOnError>) {
+        return (options.client ?? client).post<documentsRetryDocumentResponses, documentsRetryDocumentErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
-            url: '/api/v1/invoices/{id}/retry',
+            url: '/api/v1/documents/{id}/retry',
+            ...options
+        });
+    }
+}
+
+export class ReconciliationsService {
+    /**
+     * Read Purchases
+     *
+     * Purchases rebuilt from orders, delivery notes and invoices, with the
+     * documents still waiting to be linked to an order.
+     */
+    public static readPurchases<ThrowOnError extends boolean = true>(options?: Options<reconciliationsReadPurchasesData, ThrowOnError>) {
+        return (options?.client ?? client).get<reconciliationsReadPurchasesResponses, reconciliationsReadPurchasesErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reconciliations/',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Purchase
+     *
+     * One purchase, compared line by line.
+     */
+    public static readPurchase<ThrowOnError extends boolean = true>(options: Options<reconciliationsReadPurchaseData, ThrowOnError>) {
+        return (options.client ?? client).get<reconciliationsReadPurchaseResponses, reconciliationsReadPurchaseErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reconciliations/{key}',
             ...options
         });
     }

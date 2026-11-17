@@ -3,7 +3,7 @@ import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
-import { InvoicesService } from "@/client"
+import { DocumentsService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,27 +19,28 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
-interface DeleteInvoiceProps {
+interface DeleteDocumentProps {
   id: string
   onSuccess: () => void
 }
 
-const DeleteInvoice = ({ id, onSuccess }: DeleteInvoiceProps) => {
+const DeleteDocument = ({ id, onSuccess }: DeleteDocumentProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { handleSubmit } = useForm()
 
   const mutation = useMutation({
-    mutationFn: () => InvoicesService.deleteInvoice({ path: { id } }),
+    mutationFn: () => DocumentsService.deleteDocument({ path: { id } }),
     onSuccess: () => {
-      showSuccessToast("Facture supprimée")
+      showSuccessToast("Document supprimé")
       setIsOpen(false)
       onSuccess()
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      queryClient.invalidateQueries({ queryKey: ["documents"] })
+      queryClient.invalidateQueries({ queryKey: ["purchases"] })
     },
   })
 
@@ -56,9 +57,9 @@ const DeleteInvoice = ({ id, onSuccess }: DeleteInvoiceProps) => {
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit(() => mutation.mutate())}>
           <DialogHeader>
-            <DialogTitle>Supprimer la facture</DialogTitle>
+            <DialogTitle>Supprimer le document</DialogTitle>
             <DialogDescription>
-              La facture et son PDF seront supprimés définitivement.
+              Le document et son PDF seront supprimés définitivement.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
@@ -81,4 +82,4 @@ const DeleteInvoice = ({ id, onSuccess }: DeleteInvoiceProps) => {
   )
 }
 
-export default DeleteInvoice
+export default DeleteDocument

@@ -16,7 +16,8 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
-import { Route as LayoutInvoicesRouteImport } from './routes/_layout/invoices'
+import { Route as LayoutDocumentsRouteImport } from './routes/_layout/documents'
+import { Route as LayoutReconciliationsRouteImport } from './routes/_layout/reconciliations'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 
 const LayoutRoute = LayoutRouteImport.update({
@@ -53,9 +54,14 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutInvoicesRoute = LayoutInvoicesRouteImport.update({
-  id: '/invoices',
-  path: '/invoices',
+const LayoutDocumentsRoute = LayoutDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutReconciliationsRoute = LayoutReconciliationsRouteImport.update({
+  id: '/reconciliations',
+  path: '/reconciliations',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
@@ -71,7 +77,8 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
-  '/invoices': typeof LayoutInvoicesRoute
+  '/documents': typeof LayoutDocumentsRoute
+  '/reconciliations': typeof LayoutReconciliationsRoute
   '/settings': typeof LayoutSettingsRoute
 }
 export interface FileRoutesByTo {
@@ -80,7 +87,8 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
-  '/invoices': typeof LayoutInvoicesRoute
+  '/documents': typeof LayoutDocumentsRoute
+  '/reconciliations': typeof LayoutReconciliationsRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
 }
@@ -92,7 +100,8 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
-  '/_layout/invoices': typeof LayoutInvoicesRoute
+  '/_layout/documents': typeof LayoutDocumentsRoute
+  '/_layout/reconciliations': typeof LayoutReconciliationsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
 }
@@ -105,7 +114,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
-    | '/invoices'
+    | '/documents'
+    | '/reconciliations'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -114,7 +124,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
-    | '/invoices'
+    | '/documents'
+    | '/reconciliations'
     | '/settings'
     | '/'
   id:
@@ -125,7 +136,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
-    | '/_layout/invoices'
+    | '/_layout/documents'
+    | '/_layout/reconciliations'
     | '/_layout/settings'
     | '/_layout/'
   fileRoutesById: FileRoutesById
@@ -189,11 +201,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/invoices': {
-      id: '/_layout/invoices'
-      path: '/invoices'
-      fullPath: '/invoices'
-      preLoaderRoute: typeof LayoutInvoicesRouteImport
+    '/_layout/documents': {
+      id: '/_layout/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof LayoutDocumentsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/reconciliations': {
+      id: '/_layout/reconciliations'
+      path: '/reconciliations'
+      fullPath: '/reconciliations'
+      preLoaderRoute: typeof LayoutReconciliationsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/settings': {
@@ -208,14 +227,16 @@ declare module '@tanstack/react-router' {
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
-  LayoutInvoicesRoute: typeof LayoutInvoicesRoute
+  LayoutDocumentsRoute: typeof LayoutDocumentsRoute
+  LayoutReconciliationsRoute: typeof LayoutReconciliationsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
-  LayoutInvoicesRoute: LayoutInvoicesRoute,
+  LayoutDocumentsRoute: LayoutDocumentsRoute,
+  LayoutReconciliationsRoute: LayoutReconciliationsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
 }

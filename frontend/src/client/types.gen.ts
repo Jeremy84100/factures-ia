@@ -5,9 +5,9 @@ export type ClientOptions = {
 };
 
 /**
- * Body_invoices-upload_invoices
+ * Body_documents-upload_documents
  */
-export type Body_invoices_upload_invoices = {
+export type Body_documents_upload_documents = {
     /**
      * Files
      */
@@ -45,31 +45,30 @@ export type Body_login_login_access_token = {
 };
 
 /**
- * HTTPValidationError
+ * DocumentKind
  */
-export type HTTPValidationError = {
-    /**
-     * Detail
-     */
-    detail?: Array<ValidationError>;
-};
+export type DocumentKind = 'unknown' | 'invoice' | 'order' | 'delivery';
 
 /**
- * InvoicePublic
+ * DocumentPublic
  */
-export type InvoicePublic = {
+export type DocumentPublic = {
     /**
      * Supplier
      */
     supplier?: string | null;
     /**
-     * Invoice Number
+     * Number
      */
-    invoice_number?: string | null;
+    number?: string | null;
     /**
-     * Invoice Date
+     * Document Date
      */
-    invoice_date?: string | null;
+    document_date?: string | null;
+    /**
+     * Order Reference
+     */
+    order_reference?: string | null;
     /**
      * Amount Excl Tax
      */
@@ -102,15 +101,20 @@ export type InvoicePublic = {
      * Owner Id
      */
     owner_id: string;
+    kind: DocumentKind;
     /**
      * Filename
      */
     filename: string;
-    status: InvoiceStatus;
+    status: DocumentStatus;
     /**
      * Issues
      */
     issues: Array<string>;
+    /**
+     * Lines
+     */
+    lines?: Array<LineFields_Output>;
     /**
      * Created At
      */
@@ -122,26 +126,54 @@ export type InvoicePublic = {
 };
 
 /**
- * InvoiceStatus
+ * DocumentRef
  */
-export type InvoiceStatus = 'pending' | 'processing' | 'ok' | 'to_check' | 'unreadable' | 'failed';
+export type DocumentRef = {
+    /**
+     * Id
+     */
+    id: string;
+    kind: DocumentKind;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Number
+     */
+    number?: string | null;
+    /**
+     * Document Date
+     */
+    document_date?: string | null;
+    status: DocumentStatus;
+};
 
 /**
- * InvoiceUpdate
+ * DocumentStatus
  */
-export type InvoiceUpdate = {
+export type DocumentStatus = 'pending' | 'processing' | 'ok' | 'to_check' | 'unreadable' | 'failed';
+
+/**
+ * DocumentUpdate
+ */
+export type DocumentUpdate = {
     /**
      * Supplier
      */
     supplier?: string | null;
     /**
-     * Invoice Number
+     * Number
      */
-    invoice_number?: string | null;
+    number?: string | null;
     /**
-     * Invoice Date
+     * Document Date
      */
-    invoice_date?: string | null;
+    document_date?: string | null;
+    /**
+     * Order Reference
+     */
+    order_reference?: string | null;
     /**
      * Amount Excl Tax
      */
@@ -166,20 +198,137 @@ export type InvoiceUpdate = {
      * Vat Exemption
      */
     vat_exemption?: string | null;
+    kind?: DocumentKind | null;
+    /**
+     * Lines
+     */
+    lines?: Array<LineFields_Input> | null;
 };
 
 /**
- * InvoicesPublic
+ * DocumentsPublic
  */
-export type InvoicesPublic = {
+export type DocumentsPublic = {
     /**
      * Data
      */
-    data: Array<InvoicePublic>;
+    data: Array<DocumentPublic>;
     /**
      * Count
      */
     count: number;
+};
+
+/**
+ * HTTPValidationError
+ */
+export type HTTPValidationError = {
+    /**
+     * Detail
+     */
+    detail?: Array<ValidationError>;
+};
+
+/**
+ * LineFields
+ */
+export type LineFields_Input = {
+    /**
+     * Reference
+     */
+    reference?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Quantity
+     */
+    quantity?: number | string | null;
+    /**
+     * Unit
+     */
+    unit?: string | null;
+    /**
+     * Unit Price
+     */
+    unit_price?: number | string | null;
+    /**
+     * Amount Excl Tax
+     */
+    amount_excl_tax?: number | string | null;
+};
+
+/**
+ * LineFields
+ */
+export type LineFields_Output = {
+    /**
+     * Reference
+     */
+    reference?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Quantity
+     */
+    quantity?: string | null;
+    /**
+     * Unit
+     */
+    unit?: string | null;
+    /**
+     * Unit Price
+     */
+    unit_price?: string | null;
+    /**
+     * Amount Excl Tax
+     */
+    amount_excl_tax?: string | null;
+};
+
+/**
+ * LineMatch
+ */
+export type LineMatch = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Reference
+     */
+    reference?: string | null;
+    /**
+     * Ordered
+     */
+    ordered?: string | null;
+    /**
+     * Delivered
+     */
+    delivered?: string;
+    /**
+     * Invoiced
+     */
+    invoiced?: string;
+    /**
+     * Order Price
+     */
+    order_price?: string | null;
+    /**
+     * Invoice Price
+     */
+    invoice_price?: string | null;
+    /**
+     * Issues
+     */
+    issues?: Array<string>;
+    /**
+     * Notes
+     */
+    notes?: Array<string>;
 };
 
 /**
@@ -226,6 +375,80 @@ export type PrivateUserCreate = {
      * Is Verified
      */
     is_verified?: boolean;
+};
+
+/**
+ * Purchase
+ */
+export type Purchase = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Order Reference
+     */
+    order_reference: string;
+    /**
+     * Supplier
+     */
+    supplier?: string | null;
+    status: PurchaseStatus;
+    /**
+     * Orders
+     */
+    orders?: Array<DocumentRef>;
+    /**
+     * Deliveries
+     */
+    deliveries?: Array<DocumentRef>;
+    /**
+     * Invoices
+     */
+    invoices?: Array<DocumentRef>;
+    /**
+     * Lines
+     */
+    lines?: Array<LineMatch>;
+    /**
+     * Issues
+     */
+    issues?: Array<string>;
+    /**
+     * Notes
+     */
+    notes?: Array<string>;
+    /**
+     * Invoiced Excl Tax
+     */
+    invoiced_excl_tax?: string | null;
+    /**
+     * Gap Excl Tax
+     */
+    gap_excl_tax?: string | null;
+};
+
+/**
+ * PurchaseStatus
+ */
+export type PurchaseStatus = 'to_pay' | 'dispute' | 'waiting' | 'no_order';
+
+/**
+ * Purchases
+ */
+export type Purchases = {
+    /**
+     * Data
+     */
+    data: Array<Purchase>;
+    /**
+     * Unlinked
+     */
+    unlinked: Array<DocumentRef>;
+    /**
+     * Count
+     */
+    count: number;
 };
 
 /**
@@ -870,14 +1093,18 @@ export type utilsHealthCheckResponses = {
 
 export type utilsHealthCheckResponse = utilsHealthCheckResponses[keyof utilsHealthCheckResponses];
 
-export type invoicesReadInvoicesData = {
+export type documentsReadDocumentsData = {
     body?: never;
     path?: never;
     query?: {
         /**
+         * Kind
+         */
+        kind?: DocumentKind | null;
+        /**
          * Status
          */
-        status?: InvoiceStatus | null;
+        status?: DocumentStatus | null;
         /**
          * Skip
          */
@@ -887,53 +1114,53 @@ export type invoicesReadInvoicesData = {
          */
         limit?: number;
     };
-    url: '/api/v1/invoices/';
+    url: '/api/v1/documents/';
 };
 
-export type invoicesReadInvoicesErrors = {
+export type documentsReadDocumentsErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesReadInvoicesError = invoicesReadInvoicesErrors[keyof invoicesReadInvoicesErrors];
+export type documentsReadDocumentsError = documentsReadDocumentsErrors[keyof documentsReadDocumentsErrors];
 
-export type invoicesReadInvoicesResponses = {
+export type documentsReadDocumentsResponses = {
     /**
      * Successful Response
      */
-    200: InvoicesPublic;
+    200: DocumentsPublic;
 };
 
-export type invoicesReadInvoicesResponse = invoicesReadInvoicesResponses[keyof invoicesReadInvoicesResponses];
+export type documentsReadDocumentsResponse = documentsReadDocumentsResponses[keyof documentsReadDocumentsResponses];
 
-export type invoicesUploadInvoicesData = {
-    body: Body_invoices_upload_invoices;
+export type documentsUploadDocumentsData = {
+    body: Body_documents_upload_documents;
     path?: never;
     query?: never;
-    url: '/api/v1/invoices/';
+    url: '/api/v1/documents/';
 };
 
-export type invoicesUploadInvoicesErrors = {
+export type documentsUploadDocumentsErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesUploadInvoicesError = invoicesUploadInvoicesErrors[keyof invoicesUploadInvoicesErrors];
+export type documentsUploadDocumentsError = documentsUploadDocumentsErrors[keyof documentsUploadDocumentsErrors];
 
-export type invoicesUploadInvoicesResponses = {
+export type documentsUploadDocumentsResponses = {
     /**
      * Successful Response
      */
-    200: InvoicesPublic;
+    200: DocumentsPublic;
 };
 
-export type invoicesUploadInvoicesResponse = invoicesUploadInvoicesResponses[keyof invoicesUploadInvoicesResponses];
+export type documentsUploadDocumentsResponse = documentsUploadDocumentsResponses[keyof documentsUploadDocumentsResponses];
 
-export type invoicesReadSupplierTotalsData = {
+export type documentsReadSupplierTotalsData = {
     body?: never;
     path?: never;
     query?: {
@@ -942,28 +1169,28 @@ export type invoicesReadSupplierTotalsData = {
          */
         year?: number | null;
     };
-    url: '/api/v1/invoices/totals';
+    url: '/api/v1/documents/totals';
 };
 
-export type invoicesReadSupplierTotalsErrors = {
+export type documentsReadSupplierTotalsErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesReadSupplierTotalsError = invoicesReadSupplierTotalsErrors[keyof invoicesReadSupplierTotalsErrors];
+export type documentsReadSupplierTotalsError = documentsReadSupplierTotalsErrors[keyof documentsReadSupplierTotalsErrors];
 
-export type invoicesReadSupplierTotalsResponses = {
+export type documentsReadSupplierTotalsResponses = {
     /**
      * Successful Response
      */
     200: SupplierTotals;
 };
 
-export type invoicesReadSupplierTotalsResponse = invoicesReadSupplierTotalsResponses[keyof invoicesReadSupplierTotalsResponses];
+export type documentsReadSupplierTotalsResponse = documentsReadSupplierTotalsResponses[keyof documentsReadSupplierTotalsResponses];
 
-export type invoicesDeleteInvoiceData = {
+export type documentsDeleteDocumentData = {
     body?: never;
     path: {
         /**
@@ -972,28 +1199,28 @@ export type invoicesDeleteInvoiceData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{id}';
+    url: '/api/v1/documents/{id}';
 };
 
-export type invoicesDeleteInvoiceErrors = {
+export type documentsDeleteDocumentErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesDeleteInvoiceError = invoicesDeleteInvoiceErrors[keyof invoicesDeleteInvoiceErrors];
+export type documentsDeleteDocumentError = documentsDeleteDocumentErrors[keyof documentsDeleteDocumentErrors];
 
-export type invoicesDeleteInvoiceResponses = {
+export type documentsDeleteDocumentResponses = {
     /**
      * Successful Response
      */
     200: Message;
 };
 
-export type invoicesDeleteInvoiceResponse = invoicesDeleteInvoiceResponses[keyof invoicesDeleteInvoiceResponses];
+export type documentsDeleteDocumentResponse = documentsDeleteDocumentResponses[keyof documentsDeleteDocumentResponses];
 
-export type invoicesReadInvoiceData = {
+export type documentsReadDocumentData = {
     body?: never;
     path: {
         /**
@@ -1002,29 +1229,29 @@ export type invoicesReadInvoiceData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{id}';
+    url: '/api/v1/documents/{id}';
 };
 
-export type invoicesReadInvoiceErrors = {
+export type documentsReadDocumentErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesReadInvoiceError = invoicesReadInvoiceErrors[keyof invoicesReadInvoiceErrors];
+export type documentsReadDocumentError = documentsReadDocumentErrors[keyof documentsReadDocumentErrors];
 
-export type invoicesReadInvoiceResponses = {
+export type documentsReadDocumentResponses = {
     /**
      * Successful Response
      */
-    200: InvoicePublic;
+    200: DocumentPublic;
 };
 
-export type invoicesReadInvoiceResponse = invoicesReadInvoiceResponses[keyof invoicesReadInvoiceResponses];
+export type documentsReadDocumentResponse = documentsReadDocumentResponses[keyof documentsReadDocumentResponses];
 
-export type invoicesUpdateInvoiceData = {
-    body: InvoiceUpdate;
+export type documentsUpdateDocumentData = {
+    body: DocumentUpdate;
     path: {
         /**
          * Id
@@ -1032,28 +1259,28 @@ export type invoicesUpdateInvoiceData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{id}';
+    url: '/api/v1/documents/{id}';
 };
 
-export type invoicesUpdateInvoiceErrors = {
+export type documentsUpdateDocumentErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesUpdateInvoiceError = invoicesUpdateInvoiceErrors[keyof invoicesUpdateInvoiceErrors];
+export type documentsUpdateDocumentError = documentsUpdateDocumentErrors[keyof documentsUpdateDocumentErrors];
 
-export type invoicesUpdateInvoiceResponses = {
+export type documentsUpdateDocumentResponses = {
     /**
      * Successful Response
      */
-    200: InvoicePublic;
+    200: DocumentPublic;
 };
 
-export type invoicesUpdateInvoiceResponse = invoicesUpdateInvoiceResponses[keyof invoicesUpdateInvoiceResponses];
+export type documentsUpdateDocumentResponse = documentsUpdateDocumentResponses[keyof documentsUpdateDocumentResponses];
 
-export type invoicesReadInvoiceFileData = {
+export type documentsReadDocumentFileData = {
     body?: never;
     path: {
         /**
@@ -1062,26 +1289,26 @@ export type invoicesReadInvoiceFileData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{id}/file';
+    url: '/api/v1/documents/{id}/file';
 };
 
-export type invoicesReadInvoiceFileErrors = {
+export type documentsReadDocumentFileErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesReadInvoiceFileError = invoicesReadInvoiceFileErrors[keyof invoicesReadInvoiceFileErrors];
+export type documentsReadDocumentFileError = documentsReadDocumentFileErrors[keyof documentsReadDocumentFileErrors];
 
-export type invoicesReadInvoiceFileResponses = {
+export type documentsReadDocumentFileResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type invoicesRetryInvoiceData = {
+export type documentsRetryDocumentData = {
     body?: never;
     path: {
         /**
@@ -1090,26 +1317,86 @@ export type invoicesRetryInvoiceData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/invoices/{id}/retry';
+    url: '/api/v1/documents/{id}/retry';
 };
 
-export type invoicesRetryInvoiceErrors = {
+export type documentsRetryDocumentErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type invoicesRetryInvoiceError = invoicesRetryInvoiceErrors[keyof invoicesRetryInvoiceErrors];
+export type documentsRetryDocumentError = documentsRetryDocumentErrors[keyof documentsRetryDocumentErrors];
 
-export type invoicesRetryInvoiceResponses = {
+export type documentsRetryDocumentResponses = {
     /**
      * Successful Response
      */
-    200: InvoicePublic;
+    200: DocumentPublic;
 };
 
-export type invoicesRetryInvoiceResponse = invoicesRetryInvoiceResponses[keyof invoicesRetryInvoiceResponses];
+export type documentsRetryDocumentResponse = documentsRetryDocumentResponses[keyof documentsRetryDocumentResponses];
+
+export type reconciliationsReadPurchasesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Status
+         */
+        status?: PurchaseStatus | null;
+    };
+    url: '/api/v1/reconciliations/';
+};
+
+export type reconciliationsReadPurchasesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsReadPurchasesError = reconciliationsReadPurchasesErrors[keyof reconciliationsReadPurchasesErrors];
+
+export type reconciliationsReadPurchasesResponses = {
+    /**
+     * Successful Response
+     */
+    200: Purchases;
+};
+
+export type reconciliationsReadPurchasesResponse = reconciliationsReadPurchasesResponses[keyof reconciliationsReadPurchasesResponses];
+
+export type reconciliationsReadPurchaseData = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/reconciliations/{key}';
+};
+
+export type reconciliationsReadPurchaseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsReadPurchaseError = reconciliationsReadPurchaseErrors[keyof reconciliationsReadPurchaseErrors];
+
+export type reconciliationsReadPurchaseResponses = {
+    /**
+     * Successful Response
+     */
+    200: Purchase;
+};
+
+export type reconciliationsReadPurchaseResponse = reconciliationsReadPurchaseResponses[keyof reconciliationsReadPurchaseResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

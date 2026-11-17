@@ -1,4 +1,4 @@
-import { FileText, Home, Users } from "lucide-react"
+import { FileText, GitCompareArrows, Home, Users } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -14,7 +14,8 @@ import { User } from "./User"
 
 const baseItems: Item[] = [
   { icon: Home, title: "Tableau de bord", path: "/" },
-  { icon: FileText, title: "Factures", path: "/invoices" },
+  { icon: FileText, title: "Documents", path: "/documents" },
+  { icon: GitCompareArrows, title: "Rapprochements", path: "/reconciliations" },
 ]
 
 export function AppSidebar() {

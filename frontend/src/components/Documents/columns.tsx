@@ -1,32 +1,36 @@
 import type { ColumnDef } from "@tanstack/react-table"
 
-import type { InvoicePublic } from "@/client"
+import type { DocumentPublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
 import { Badge } from "@/components/ui/badge"
-import { formatAmount, formatDate } from "@/lib/invoices"
-import { InvoiceActionsMenu } from "./InvoiceActionsMenu"
+import { formatAmount, formatDate, KIND } from "@/lib/documents"
+import { DocumentActionsMenu } from "./DocumentActionsMenu"
 import { StatusBadge } from "./StatusBadge"
 
-const money = (invoice: InvoicePublic, value: string | null | undefined) =>
-  formatAmount(value, invoice.currency ?? "EUR")
+const money = (document: DocumentPublic, value: string | null | undefined) =>
+  formatAmount(value, document.currency ?? "EUR")
 
-export const columns: ColumnDef<DataTableFeatures, InvoicePublic>[] = [
+export const columns: ColumnDef<DataTableFeatures, DocumentPublic>[] = [
   {
     accessorKey: "status",
     header: "Statut",
-    cell: ({ row }) => <StatusBadge invoice={row.original} />,
+    cell: ({ row }) => <StatusBadge document={row.original} />,
+  },
+  {
+    accessorKey: "kind",
+    header: "Type",
+    cell: ({ row }) => (
+      <Badge variant="outline">
+        {row.original.is_credit_note ? "Avoir" : KIND[row.original.kind]}
+      </Badge>
+    ),
   },
   {
     accessorKey: "supplier",
     header: "Fournisseur",
     cell: ({ row }) => (
       <div className="flex flex-col">
-        <span className="flex items-center gap-2 font-medium">
-          {row.original.supplier ?? "—"}
-          {row.original.is_credit_note && (
-            <Badge variant="outline">Avoir</Badge>
-          )}
-        </span>
+        <span className="font-medium">{row.original.supplier ?? "—"}</span>
         <span className="max-w-48 truncate text-xs text-muted-foreground">
           {row.original.filename}
         </span>
@@ -34,18 +38,23 @@ export const columns: ColumnDef<DataTableFeatures, InvoicePublic>[] = [
     ),
   },
   {
-    accessorKey: "invoice_number",
+    accessorKey: "number",
     header: "Numéro",
     cell: ({ row }) => (
-      <span className="font-mono text-xs">
-        {row.original.invoice_number ?? "—"}
-      </span>
+      <div className="flex flex-col">
+        <span className="font-mono text-xs">{row.original.number ?? "—"}</span>
+        {row.original.order_reference && (
+          <span className="font-mono text-xs text-muted-foreground">
+            Cde {row.original.order_reference}
+          </span>
+        )}
+      </div>
     ),
   },
   {
-    accessorKey: "invoice_date",
+    accessorKey: "document_date",
     header: "Date",
-    cell: ({ row }) => formatDate(row.original.invoice_date),
+    cell: ({ row }) => formatDate(row.original.document_date),
   },
   {
     accessorKey: "amount_excl_tax",
@@ -70,7 +79,7 @@ export const columns: ColumnDef<DataTableFeatures, InvoicePublic>[] = [
     header: () => <span className="sr-only">Actions</span>,
     cell: ({ row }) => (
       <div className="flex justify-end">
-        <InvoiceActionsMenu invoice={row.original} />
+        <DocumentActionsMenu document={row.original} />
       </div>
     ),
   },

@@ -1,0 +1,383 @@
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Pencil, Plus, Trash2 } from "lucide-react"
+import { useState } from "react"
+import { useFieldArray, useForm } from "react-hook-form"
+import { z } from "zod"
+
+import {
+  type DocumentKind,
+  type DocumentPublic,
+  DocumentsService,
+} from "@/client"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import useCustomToast from "@/hooks/useCustomToast"
+import { isBusy } from "@/lib/documents"
+import { handleError } from "@/utils"
+
+const decimal = (places: number) =>
+  z.string().regex(new RegExp(`^-?\\d*([.,]\\d{0,${places}})?$`), {
+    message: "Nombre invalide",
+  })
+
+const amount = decimal(2)
+
+const lineSchema = z.object({
+  reference: z.string().max(100),
+  description: z.string().max(255),
+  quantity: decimal(3),
+  unit: z.string().max(20),
+  unit_price: decimal(4),
+  amount_excl_tax: amount,
+})
+
+const formSchema = z.object({
+  kind: z.enum(["unknown", "invoice", "order", "delivery"]),
+  supplier: z.string(),
+  number: z.string(),
+  document_date: z.string(),
+  order_reference: z.string().max(100),
+  amount_excl_tax: amount,
+  vat_amount: amount,
+  amount_incl_tax: amount,
+  currency: z.string().max(3),
+  vat_exemption: z.string().max(255),
+  is_credit_note: z.boolean(),
+  lines: z.array(lineSchema),
+})
+
+type FormData = z.infer<typeof formSchema>
+type LineData = z.infer<typeof lineSchema>
+type TextField = Exclude<keyof FormData, "kind" | "is_credit_note" | "lines">
+
+const KIND_OPTIONS: { value: DocumentKind; label: string }[] = [
+  { value: "invoice", label: "Facture ou avoir" },
+  { value: "order", label: "Bon de commande" },
+  { value: "delivery", label: "Bon de livraison" },
+  { value: "unknown", label: "Autre document" },
+]
+
+const WIDE: TextField[] = ["supplier", "vat_exemption"]
+
+const FIELDS: {
+  name: TextField
+  label: string
+  type?: string
+  kinds?: DocumentKind[]
+}[] = [
+  { name: "supplier", label: "Fournisseur" },
+  { name: "number", label: "Numéro du document" },
+  { name: "document_date", label: "Date", type: "date" },
+  {
+    name: "order_reference",
+    label: "N° de la commande",
+    kinds: ["invoice", "delivery"],
+  },
+  { name: "amount_excl_tax", label: "Total HT", kinds: ["invoice", "order"] },
+  { name: "vat_amount", label: "TVA", kinds: ["invoice", "order"] },
+  { name: "amount_incl_tax", label: "Total TTC", kinds: ["invoice", "order"] },
+  { name: "currency", label: "Devise", kinds: ["invoice", "order"] },
+  {
+    name: "vat_exemption",
+    label: "Mention d'exonération de TVA",
+    kinds: ["invoice"],
+  },
+]
+
+const LINE_FIELDS: {
+  name: keyof LineData
+  label: string
+  className: string
+  numeric?: boolean
+}[] = [
+  { name: "reference", label: "Réf.", className: "w-24" },
+  { name: "description", label: "Désignation", className: "min-w-40 flex-1" },
+  { name: "quantity", label: "Qté", className: "w-20", numeric: true },
+  { name: "unit", label: "Unité", className: "w-16" },
+  { name: "unit_price", label: "Prix HT", className: "w-24", numeric: true },
+  {
+    name: "amount_excl_tax",
+    label: "Montant",
+    className: "w-24",
+    numeric: true,
+  },
+]
+
+const EMPTY_LINE: LineData = {
+  reference: "",
+  description: "",
+  quantity: "",
+  unit: "",
+  unit_price: "",
+  amount_excl_tax: "",
+}
+
+const toText = (value: string | number | null | undefined) =>
+  value === null || value === undefined ? "" : String(value)
+
+const toValue = (value: string) => {
+  const trimmed = value.trim().replace(",", ".")
+  return trimmed === "" ? null : trimmed
+}
+
+const toValues = <T extends Record<string, string>>(values: T) =>
+  Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, toValue(value)]),
+  )
+
+interface EditDocumentProps {
+  document: DocumentPublic
+  onSuccess: () => void
+}
+
+const EditDocument = ({ document, onSuccess }: EditDocumentProps) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: "onBlur",
+    criteriaMode: "all",
+    defaultValues: {
+      ...Object.fromEntries(
+        FIELDS.map(({ name }) => [name, toText(document[name])]),
+      ),
+      kind: document.kind,
+      is_credit_note: document.is_credit_note ?? false,
+      lines: (document.lines ?? []).map((line) => ({
+        reference: toText(line.reference),
+        description: toText(line.description),
+        quantity: toText(line.quantity),
+        unit: toText(line.unit),
+        unit_price: toText(line.unit_price),
+        amount_excl_tax: toText(line.amount_excl_tax),
+      })),
+    } as FormData,
+  })
+  const lines = useFieldArray({ control: form.control, name: "lines" })
+  const kind = form.watch("kind")
+
+  const mutation = useMutation({
+    mutationFn: ({ kind, is_credit_note, lines, ...text }: FormData) =>
+      DocumentsService.updateDocument({
+        path: { id: document.id },
+        body: {
+          ...toValues(text),
+          kind,
+          is_credit_note,
+          lines: lines.map(toValues),
+        },
+      }),
+    onSuccess: ({ data }) => {
+      showSuccessToast(
+        data.status === "ok"
+          ? "Document corrigé et validé"
+          : "Document corrigé, il reste des points à vérifier",
+      )
+      setIsOpen(false)
+      onSuccess()
+    },
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] })
+      queryClient.invalidateQueries({ queryKey: ["purchases"] })
+    },
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuItem
+        disabled={isBusy(document)}
+        onSelect={(e) => e.preventDefault()}
+        onClick={() => setIsOpen(true)}
+      >
+        <Pencil />
+        Corriger
+      </DropdownMenuItem>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+            <DialogHeader>
+              <DialogTitle>Corriger le document</DialogTitle>
+              <DialogDescription>{document.filename}</DialogDescription>
+            </DialogHeader>
+            {document.issues.length > 0 && (
+              <ul className="mt-4 list-disc rounded-md bg-muted p-3 pl-7 text-sm">
+                {document.issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            )}
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <FormField
+                control={form.control}
+                name="kind"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Type de document</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {KIND_OPTIONS.map(({ value, label }) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              {FIELDS.filter(({ kinds }) => !kinds || kinds.includes(kind)).map(
+                ({ name, label, type }) => (
+                  <FormField
+                    key={name}
+                    control={form.control}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem
+                        className={WIDE.includes(name) ? "col-span-2" : ""}
+                      >
+                        <FormLabel>{label}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type={type ?? "text"}
+                            inputMode={
+                              name.includes("amount") ? "decimal" : undefined
+                            }
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ),
+              )}
+              {kind === "invoice" && (
+                <FormField
+                  control={form.control}
+                  name="is_credit_note"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2 flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) =>
+                            field.onChange(checked === true)
+                          }
+                        />
+                      </FormControl>
+                      <FormLabel>
+                        C'est un avoir (les montants seront comptés en négatif)
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 pb-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">Lignes d'articles</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => lines.append(EMPTY_LINE)}
+                >
+                  <Plus />
+                  Ajouter une ligne
+                </Button>
+              </div>
+              {lines.fields.length === 0 && (
+                <p className="text-sm text-muted-foreground">Aucune ligne.</p>
+              )}
+              {lines.fields.map((line, index) => (
+                <div key={line.id} className="flex items-end gap-2">
+                  {LINE_FIELDS.map(({ name, label, className, numeric }) => (
+                    <FormField
+                      key={name}
+                      control={form.control}
+                      name={`lines.${index}.${name}`}
+                      render={({ field }) => (
+                        <FormItem className={className}>
+                          {index === 0 && (
+                            <FormLabel className="text-xs">{label}</FormLabel>
+                          )}
+                          <FormControl>
+                            <Input
+                              aria-label={`${label}, ligne ${index + 1}`}
+                              inputMode={numeric ? "decimal" : undefined}
+                              className={numeric ? "text-right" : ""}
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Supprimer la ligne ${index + 1}`}
+                    onClick={() => lines.remove(index)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline" disabled={mutation.isPending}>
+                  Annuler
+                </Button>
+              </DialogClose>
+              <LoadingButton type="submit" loading={mutation.isPending}>
+                Enregistrer
+              </LoadingButton>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export default EditDocument

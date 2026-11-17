@@ -2,12 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Upload } from "lucide-react"
 import { useRef } from "react"
 
-import { InvoicesService } from "@/client"
+import { DocumentsService } from "@/client"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
 
-const UploadInvoices = () => {
+const UploadDocuments = () => {
   const input = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -15,22 +15,22 @@ const UploadInvoices = () => {
   const mutation = useMutation({
     mutationFn: async (files: File[]) => {
       for (const file of files) {
-        await InvoicesService.uploadInvoices({ body: { files: [file] } })
-        queryClient.invalidateQueries({ queryKey: ["invoices"] })
+        await DocumentsService.uploadDocuments({ body: { files: [file] } })
+        queryClient.invalidateQueries({ queryKey: ["documents"] })
       }
       return files.length
     },
     onSuccess: (count) => {
       showSuccessToast(
         count > 1
-          ? `${count} factures envoyées, lecture en cours`
-          : "Facture envoyée, lecture en cours",
+          ? `${count} documents envoyés, tri et lecture en cours`
+          : "Document envoyé, tri et lecture en cours",
       )
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       if (input.current) input.current.value = ""
-      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      queryClient.invalidateQueries({ queryKey: ["documents"] })
     },
   })
 
@@ -42,7 +42,7 @@ const UploadInvoices = () => {
         accept="application/pdf"
         multiple
         hidden
-        data-testid="invoice-input"
+        data-testid="document-input"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? [])
           if (files.length > 0) mutation.mutate(files)
@@ -54,10 +54,10 @@ const UploadInvoices = () => {
         onClick={() => input.current?.click()}
       >
         <Upload className="mr-2" />
-        Déposer des factures
+        Déposer des documents
       </LoadingButton>
     </>
   )
 }
 
-export default UploadInvoices
+export default UploadDocuments

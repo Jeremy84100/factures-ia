@@ -8,9 +8,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-const HEADERS = ["Statut", "Fournisseur", "Numéro", "Date", "HT", "TTC"]
+const HEADERS = ["Statut", "Type", "Fournisseur", "Numéro", "Date", "HT", "TTC"]
 
-const PendingInvoices = () => (
+const PendingDocuments = () => (
   <Table>
     <TableHeader>
       <TableRow>
@@ -41,4 +41,4 @@ const PendingInvoices = () => (
   </Table>
 )
 
-export default PendingInvoices
+export default PendingDocuments
