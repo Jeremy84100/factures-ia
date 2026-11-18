@@ -122,6 +122,8 @@ class DocumentFields(SQLModel):
     delivery_method: str | None = Field(default=None, max_length=100)
     delivery_mode: DeliveryMode | None = Field(default=None, sa_type=String(20))
     expected_delivery_date: date | None = None
+    due_date: date | None = None
+    payment_terms: str | None = Field(default=None, max_length=100)
 
 
 class DocumentUpdate(DocumentFields):
@@ -140,6 +142,8 @@ class Document(DocumentFields, table=True):
         default=DocumentStatus.pending, sa_type=String(20), index=True
     )
     issues: list[str] = Field(default_factory=list, sa_type=JSON)
+    # Read from the e-invoice data inside the PDF (Factur-X), not by the AI.
+    from_einvoice: bool = False
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     started_at: datetime | None = None
     processed_at: datetime | None = None
@@ -174,6 +178,7 @@ class DocumentPublic(DocumentFields):
     filename: str
     status: DocumentStatus
     issues: list[str]
+    from_einvoice: bool = False
     lines: list[LineFields] = []
     created_at: datetime | None = None
     processed_at: datetime | None = None
@@ -198,11 +203,25 @@ class Settlement(SQLModel, table=True):
     settled_at: datetime = Field(default_factory=get_datetime_utc)
 
 
+# A purchase the user has paid: the invoices it had then. An invoice that
+# comes later is still to pay.
+class Payment(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("owner_id", "purchase_key"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    purchase_key: str = Field(max_length=100)
+    invoice_ids: list[str] = Field(default_factory=list, sa_type=JSON)
+    paid_at: datetime = Field(default_factory=get_datetime_utc)
+
+
 class PurchaseStatus(StrEnum):
     to_pay = "to_pay"
     dispute = "dispute"
     waiting = "waiting"
-    no_order = "no_order"
+    paid = "paid"
 
 
 class DocumentRef(SQLModel):
@@ -212,6 +231,17 @@ class DocumentRef(SQLModel):
     number: str | None = None
     document_date: date | None = None
     status: DocumentStatus
+
+
+class LinkSuggestion(SQLModel):
+    key: str
+    order_reference: str
+
+
+# A document no purchase could take, with the purchases it may belong to.
+class UnlinkedDocument(DocumentRef):
+    supplier: str | None = None
+    suggestions: list[LinkSuggestion] = []
 
 
 class LineMatch(SQLModel):
@@ -239,14 +269,24 @@ class Purchase(SQLModel):
     issues: list[str] = []
     notes: list[str] = []
     late: bool = False
+    expected_delivery_date: date | None = None
+    invoice_only: bool = False
     invoiced_excl_tax: Decimal | None = None
+    invoiced_incl_tax: Decimal | None = None
+    # Incl. tax, invoices not paid yet.
+    to_pay_incl_tax: Decimal | None = None
     gap_excl_tax: Decimal | None = None
+    gap_incl_tax: Decimal | None = None
+    due_date: date | None = None
+    # No due date written on the invoice: the legal 30 days are assumed.
+    due_date_assumed: bool = False
     settled_at: datetime | None = None
+    paid_at: datetime | None = None
 
 
 class Purchases(SQLModel):
     data: list[Purchase]
-    unlinked: list[DocumentRef]
+    unlinked: list[UnlinkedDocument]
     count: int
 
 

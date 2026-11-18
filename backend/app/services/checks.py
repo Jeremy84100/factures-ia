@@ -15,6 +15,7 @@ NOT_A_PURCHASE_DOCUMENT = "Ni facture, ni bon de commande, ni bon de livraison"
 NO_LINES = "Aucune ligne d'article trouvée"
 NO_ORDER_REFERENCE = "Numéro de commande introuvable : à relier à une commande"
 PROMISED_BEFORE_ORDER = "Date de livraison promise avant la date du document"
+DUE_BEFORE_INVOICE = "Échéance avant la date de la facture"
 
 
 def number_issue(document: Document, other: Document) -> str:
@@ -169,6 +170,10 @@ def check_document(
     promised = document.expected_delivery_date
     if promised and document.document_date and promised < document.document_date:
         issues.append(PROMISED_BEFORE_ORDER)
+
+    due = document.due_date
+    if due and document.document_date and due < document.document_date:
+        issues.append(DUE_BEFORE_INVOICE)
 
     if duplicate_of is not None:
         issues.append(number_issue(document, duplicate_of))

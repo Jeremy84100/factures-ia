@@ -21,11 +21,11 @@ def documents_of(db: Session, user: User) -> list[Document]:
     return list(db.exec(select(Document).where(Document.owner_id == user.id)).all())
 
 
-def test_demo_user_gets_the_30_documents_already_read(db: Session) -> None:
+def test_demo_user_gets_the_31_documents_already_read(db: Session) -> None:
     user = create_demo_user(db, TODAY)
     assert is_demo(user)
     documents = documents_of(db, user)
-    assert len(documents) == 30
+    assert len(documents) == 31
     assert {d.status for d in documents} == {DocumentStatus.ok, DocumentStatus.to_check}
     assert all(d.file.startswith(b"%PDF") for d in documents)
 
@@ -33,13 +33,14 @@ def test_demo_user_gets_the_30_documents_already_read(db: Session) -> None:
 def test_demo_purchases_have_the_expected_verdicts(db: Session) -> None:
     user = create_demo_user(db, TODAY)
     result = build_purchases(documents_of(db, user), TODAY)
-    verdicts = {p.key: p.status.value for p in result.data}
+    verdicts = {reference_key(p.order_reference): p.status.value for p in result.data}
     expected = demo.json.loads((demo.DEMO_DIR / "expected.json").read_text("utf-8"))
     assert verdicts == {
         reference_key(p["order_reference"]): p["status"] for p in expected["purchases"]
     }
-    late = {p.order_reference for p in result.data if p.late}
-    assert late == {"CMD-26-107", "CMD-26-109", "CMD-26-110"}
+    # Delivered late is history, not a delivery to chase. The one never
+    # received has its delivery note right there, only not linked yet.
+    assert [p.order_reference for p in result.data if p.late] == []
 
 
 def test_each_visitor_gets_their_own_account(db: Session) -> None:

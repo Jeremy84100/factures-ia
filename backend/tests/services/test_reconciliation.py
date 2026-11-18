@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from app.models import (
@@ -9,6 +9,7 @@ from app.models import (
     DocumentLine,
     DocumentRef,
     DocumentStatus,
+    Payment,
     Purchase,
     PurchaseStatus,
 )
@@ -222,9 +223,12 @@ def test_invoice_above_order_without_delivery_is_a_dispute() -> None:
 
 
 def test_delivery_and_invoice_without_order() -> None:
+    # Many small firms order by phone: no written order is not a fault.
     purchase = reconcile("CMD2041", [delivery(), invoice()])
-    assert purchase.status == PurchaseStatus.no_order
-    assert purchase.notes == ["Commande pas encore déposée"]
+    assert purchase.status == PurchaseStatus.to_pay
+    assert purchase.notes == [
+        "Pas de bon de commande : facture comparée à la livraison"
+    ]
 
 
 def test_delivery_and_invoice_without_order_still_compared() -> None:
@@ -335,9 +339,42 @@ def test_line_discount_uses_the_net_price() -> None:
     assert purchase.status == PurchaseStatus.to_pay
 
 
-def test_invoice_alone_is_not_a_purchase() -> None:
+def test_invoice_alone_citing_an_order_is_checked_alone() -> None:
     result = build_purchases([invoice(order_reference="PO-778")])
-    assert result.count == 0
+    (purchase,) = result.data
+    assert purchase.invoice_only
+    assert purchase.status == PurchaseStatus.to_pay
+    assert purchase.notes == [
+        "Elle cite la commande PO-778 : déposez la commande ou le bon de"
+        " livraison pour les comparer"
+    ]
+
+
+def test_invoice_without_order_is_a_purchase_of_its_own() -> None:
+    bill = invoice(order_reference=None, supplier="EDF Pro", number="EDF-11")
+    (purchase,) = build_purchases([bill]).data
+    assert purchase.key == f"FACTURE-{bill.id.hex}"
+    assert purchase.order_reference == "EDF-11"
+    assert purchase.status == PurchaseStatus.to_pay
+    assert purchase.notes == [
+        "Facture seule : rien à comparer, elle est vérifiée seule"
+    ]
+
+
+def test_credit_note_alone_is_to_deduct() -> None:
+    credit = invoice(
+        order_reference=None,
+        supplier="EDF Pro",
+        is_credit_note=True,
+        amount_excl_tax=Decimal("-10.00"),
+        amount_incl_tax=Decimal("-12.00"),
+    )
+    (purchase,) = build_purchases([credit]).data
+    assert purchase.to_pay_incl_tax == Decimal("-12.00")
+    assert purchase.due_date is None
+    assert purchase.notes == [
+        "Avoir à déduire de votre prochain paiement à ce fournisseur"
+    ]
 
 
 TODAY = date(2026, 11, 17)
@@ -522,3 +559,94 @@ def test_supplier_email_without_invoice_asks_how_to_fix() -> None:
     assert "- Câble : livré 60, commandé 50" in email.body
     assert "avoir" not in email.body
     assert email.body.endswith("Cordialement,\nMarie Durand")
+
+
+def payment(*invoices: Document, day: date = date(2026, 11, 3)) -> Payment:
+    return Payment(
+        owner_id=OWNER,
+        purchase_key="CMD2041",
+        invoice_ids=[str(i.id) for i in invoices],
+        paid_at=datetime(day.year, day.month, day.day, 10, tzinfo=UTC),
+    )
+
+
+def test_amounts_incl_tax() -> None:
+    bill = invoice(amount_incl_tax=Decimal("113.40"))
+    purchase = reconcile("CMD2041", [order(), delivery(), bill])
+    assert purchase.invoiced_excl_tax == Decimal("101.50")
+    assert purchase.invoiced_incl_tax == Decimal("113.40")
+    assert purchase.to_pay_incl_tax == Decimal("113.40")
+
+
+def test_overbilled_incl_tax_uses_the_invoice_rate() -> None:
+    bill = invoice(cable(), gaine(), amount_incl_tax=Decimal("121.80"))
+    purchase = reconcile(
+        "CMD2041", [order(), delivery(cable("45", None), gaine(price=None)), bill]
+    )
+    assert purchase.gap_excl_tax == Decimal("5.95")
+    assert purchase.gap_incl_tax == Decimal("7.14")
+
+
+def test_paid_purchase() -> None:
+    bill = invoice()
+    purchase = reconcile("CMD2041", [order(), delivery(), bill], payment=payment(bill))
+    assert purchase.status == PurchaseStatus.paid
+    assert purchase.paid_at is not None
+    assert purchase.to_pay_incl_tax == Decimal(0)
+
+
+def test_an_invoice_after_payment_is_still_to_pay() -> None:
+    first = invoice(cable("25"), gaine("50"), amount_incl_tax=Decimal("60.90"))
+    second = invoice(
+        cable("25"),
+        gaine("50"),
+        number="FA-2",
+        amount_incl_tax=Decimal("60.90"),
+        filename="fa2.pdf",
+    )
+    purchase = reconcile(
+        "CMD2041", [order(), delivery(), first, second], payment=payment(first)
+    )
+    assert purchase.status == PurchaseStatus.to_pay
+    assert purchase.to_pay_incl_tax == Decimal("60.90")
+    assert purchase.notes[-1].endswith("déjà payée le 03/11/2026")
+
+
+def test_gap_found_after_payment_is_a_dispute() -> None:
+    bill = invoice()
+    purchase = reconcile(
+        "CMD2041",
+        [order(), delivery(cable("45", None), gaine(price=None)), bill],
+        payment=payment(bill),
+    )
+    assert purchase.status == PurchaseStatus.dispute
+    assert purchase.notes[0] == "Déjà payé le 03/11/2026 : demandez un avoir"
+
+
+def test_a_doubt_keeps_the_purchase_waiting() -> None:
+    bill = invoice(
+        status=DocumentStatus.to_check, issues=["HT + TVA = 120 mais TTC = 121"]
+    )
+    purchase = reconcile("CMD2041", [order(), delivery(), bill])
+    assert purchase.status == PurchaseStatus.waiting
+    assert purchase.notes[0] == (
+        "Facture FA-501 à vérifier : HT + TVA = 120 mais TTC = 121"
+    )
+
+
+def test_due_date_written_or_legal() -> None:
+    written = invoice(due_date=date(2026, 12, 1))
+    assert reconcile("CMD2041", [order(), delivery(), written]).due_date == date(
+        2026, 12, 1
+    )
+    nothing = invoice()
+    purchase = reconcile("CMD2041", [order(), delivery(), nothing])
+    assert purchase.due_date == date(2026, 11, 5)
+    assert purchase.due_date_assumed
+
+
+def test_unlinked_invoice_suggests_the_purchase_waiting_for_it() -> None:
+    lost = invoice(order_reference=None, number="FA-9")
+    result = build_purchases([order(), delivery(), lost])
+    (unlinked,) = result.unlinked
+    assert [s.order_reference for s in unlinked.suggestions] == ["CMD-2041"]

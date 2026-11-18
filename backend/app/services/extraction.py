@@ -92,6 +92,14 @@ class ExtractedDocument(BaseModel):
         default=None,
         description="Sur un bon de commande : date de livraison souhaitée, promise ou prévue, au format AAAA-MM-JJ. Jamais la date du document. null si absente.",
     )
+    due_date: str | None = Field(
+        default=None,
+        description="Sur une facture : date d'échéance ou date limite de paiement écrite sur le document, au format AAAA-MM-JJ. Ne la calcule jamais : null si aucune date d'échéance n'est écrite.",
+    )
+    payment_terms: str | None = Field(
+        default=None,
+        description="Sur une facture : conditions ou délai de paiement recopiés tels quels (« 30 jours », « 45 jours fin de mois », « à réception », « comptant »). null si le document n'en parle pas.",
+    )
     lines: list[ExtractedLine] = Field(
         default_factory=list, description="Lignes d'articles du document"
     )

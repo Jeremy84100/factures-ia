@@ -23,6 +23,7 @@ from app.models import (
     get_datetime_utc,
 )
 from app.services.images import ImageError, image_to_pdf, is_image
+from app.services.payment_terms import due_from_terms
 from app.services.processing import (
     expire_stale,
     process_document,
@@ -217,6 +218,10 @@ def update_document(
     document.sqlmodel_update(changes)
     if document_in.lines is not None:
         document.lines = to_lines(document_in.lines)
+    if document.due_date is None:
+        document.due_date = due_from_terms(
+            document.payment_terms, document.document_date
+        )
     sign_credit_note(document)
     run_checks(session, document)
     session.add(document)

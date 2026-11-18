@@ -11,6 +11,7 @@ from app.models import (
     DocumentKind,
     DocumentLine,
     DocumentStatus,
+    PurchaseStatus,
 )
 from app.services.checks import check_document
 from app.services.reconciliation import build_purchases, reference_key
@@ -59,6 +60,8 @@ def as_read_perfectly(case: dict[str, Any]) -> Document:
         if case["expected_delivery_date"]
         else None,
         amount_excl_tax=to_decimal(case["amount_excl_tax"]),
+        payment_terms=case["payment_terms"],
+        due_date=date.fromisoformat(case["due_date"]) if case["due_date"] else None,
         currency="EUR",
         lines=lines,
     )
@@ -75,7 +78,7 @@ def test_demo_purchases_get_the_expected_verdict() -> None:
     assert {d.status for d in documents} <= {DocumentStatus.ok, DocumentStatus.to_check}
 
     result = build_purchases(documents, TODAY)
-    verdicts = {p.key: p.status.value for p in result.data}
+    verdicts = {reference_key(p.order_reference): p.status.value for p in result.data}
     expected = {
         reference_key(p["order_reference"]): p["status"] for p in EXPECTED["purchases"]
     }
@@ -99,3 +102,34 @@ def test_demo_delivery_problems_are_explained() -> None:
         " « livraison express » commandé"
     ]
     assert [line.issues for line in express.lines] == [[], [], []]
+
+
+def test_demo_payment_dates() -> None:
+    documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    purchases = {p.order_reference: p for p in build_purchases(documents, TODAY).data}
+
+    # 45 days after the 04/10 invoice.
+    assert purchases["CMD-26-101"].due_date == date(2026, 11, 18)
+    assert not purchases["CMD-26-101"].due_date_assumed
+    # Nothing written on the invoice: the legal 30 days.
+    assert purchases["CMD-26-108"].due_date == date(2026, 11, 14)
+    assert purchases["CMD-26-108"].due_date_assumed
+    # A subscription: one invoice, nothing to compare, still to pay.
+    alone = purchases["TPP-2611-0458"]
+    assert alone.status == PurchaseStatus.to_pay
+    assert alone.invoice_only
+    assert alone.to_pay_incl_tax == Decimal("143.84")
+    assert alone.due_date == date(2026, 11, 20)
+
+
+def test_demo_unlinked_delivery_is_not_called_late() -> None:
+    documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    result = build_purchases(documents, TODAY)
+    paint = next(p for p in result.data if p.order_reference == "CMD-26-107")
+    assert not paint.late
+    assert paint.notes == [
+        "Le bon de livraison BL-PM-6620 de ce fournisseur n'est pas rangé :"
+        " c'est peut-être cette livraison"
+    ]
+    (unlinked,) = result.unlinked
+    assert [s.order_reference for s in unlinked.suggestions] == ["CMD-26-107"]

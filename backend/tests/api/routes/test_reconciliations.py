@@ -198,3 +198,73 @@ def test_settlements_of_other_users_stay_private(
     r = client.post(f"{URL}API11/settle", headers=superuser_token_headers)
     assert r.status_code == 404
     assert find(client, normal_user_token_headers, "API11")["status"] == "dispute"
+
+
+def test_paid_purchase_leaves_the_purchases_to_pay(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    deposit(client, normal_user_token_headers, *purchase_documents("API-12"))
+    purchase = find(client, normal_user_token_headers, "API12")
+    assert purchase["to_pay_incl_tax"] == "121.80"
+    assert purchase["due_date"] == "2026-11-05"
+    assert purchase["due_date_assumed"] is True
+
+    r = client.post(f"{URL}API12/pay", headers=normal_user_token_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "paid"
+    assert r.json()["paid_at"]
+    assert r.json()["to_pay_incl_tax"] == "0"
+
+    r = client.delete(f"{URL}API12/pay", headers=normal_user_token_headers)
+    assert r.json()["status"] == "to_pay"
+    assert r.json()["paid_at"] is None
+
+
+def test_a_dispute_cannot_be_marked_paid(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    deposit_dispute(client, normal_user_token_headers, "API-13")
+    r = client.post(f"{URL}API13/pay", headers=normal_user_token_headers)
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Cet achat n'est pas encore bon à payer"
+
+
+def test_payments_of_other_users_stay_private(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    superuser_token_headers: dict[str, str],
+) -> None:
+    deposit(client, normal_user_token_headers, *purchase_documents("API-14"))
+    r = client.post(f"{URL}API14/pay", headers=superuser_token_headers)
+    assert r.status_code == 404
+    assert find(client, normal_user_token_headers, "API14")["status"] == "to_pay"
+
+
+def test_due_date_read_from_the_terms(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    order, delivery, invoice = purchase_documents("API-15")
+    terms = invoice.model_copy(update={"payment_terms": "45 jours fin de mois"})
+    deposit(client, normal_user_token_headers, order, delivery, terms)
+    purchase = find(client, normal_user_token_headers, "API15")
+    # 06/10 + 45 days = 20/11, then the end of that month.
+    assert purchase["due_date"] == "2026-11-30"
+    assert purchase["due_date_assumed"] is False
+
+
+def test_reminder_for_a_late_delivery(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    order, _, _ = purchase_documents("API-16")
+    # Another supplier: an unlinked Rexel delivery note from another test
+    # would rightly be offered as the missing delivery.
+    promised = order.model_copy(
+        update={"expected_delivery_date": "2026-10-04", "supplier": "Point P"}
+    )
+    deposit(client, normal_user_token_headers, promised)
+    assert find(client, normal_user_token_headers, "API16")["late"] is True
+    r = client.get(f"{URL}API16/email", headers=normal_user_token_headers)
+    assert r.status_code == 200, r.text
+    email = r.json()
+    assert email["subject"] == "Commande API-16 : livraison pas encore reçue"
+    assert "dont la livraison était prévue le 04/10/2026" in email["body"]

@@ -7,6 +7,7 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Document,
+    Payment,
     Purchase,
     Purchases,
     PurchaseStatus,
@@ -26,6 +27,11 @@ def settlements_of(session: SessionDep, user: CurrentUser) -> dict[str, Settleme
     return {row.purchase_key: row for row in rows}
 
 
+def payments_of(session: SessionDep, user: CurrentUser) -> dict[str, Payment]:
+    rows = session.exec(select(Payment).where(Payment.owner_id == user.id))
+    return {row.purchase_key: row for row in rows}
+
+
 def load_purchases(session: SessionDep, user: CurrentUser) -> Purchases:
     documents = session.exec(
         select(Document)
@@ -36,7 +42,11 @@ def load_purchases(session: SessionDep, user: CurrentUser) -> Purchases:
         .options(defer(Document.file), selectinload(Document.lines))  # type: ignore[arg-type]
         .order_by(col(Document.created_at))
     ).all()
-    return build_purchases(documents, settlements=settlements_of(session, user))
+    return build_purchases(
+        documents,
+        settlements=settlements_of(session, user),
+        payments=payments_of(session, user),
+    )
 
 
 def find_purchase(session: SessionDep, user: CurrentUser, key: str) -> Purchase:
@@ -79,7 +89,7 @@ def read_supplier_email(
     A letter to the supplier listing what does not match, ready to send.
     """
     purchase = find_purchase(session, current_user, key)
-    if not all_issues(purchase):
+    if not all_issues(purchase) and not purchase.late:
         raise HTTPException(status_code=400, detail="Aucun écart à signaler")
     sender = None if is_demo(current_user) else current_user.full_name
     return write_email(purchase, sender)
@@ -111,5 +121,38 @@ def reopen_purchase(session: SessionDep, current_user: CurrentUser, key: str) ->
     settlement = settlements_of(session, current_user).get(key)
     if settlement:
         session.delete(settlement)
+        session.commit()
+    return find_purchase(session, current_user, key)
+
+
+@router.post("/{key}/pay", response_model=Purchase)
+def pay_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> Any:
+    """
+    Mark the invoices of a purchase as paid. An invoice added later is still
+    to pay.
+    """
+    purchase = find_purchase(session, current_user, key)
+    if purchase.status != PurchaseStatus.to_pay:
+        raise HTTPException(
+            status_code=400, detail="Cet achat n'est pas encore bon à payer"
+        )
+    payment = payments_of(session, current_user).get(key) or Payment(
+        owner_id=current_user.id, purchase_key=key
+    )
+    payment.invoice_ids = [str(invoice.id) for invoice in purchase.invoices]
+    payment.paid_at = get_datetime_utc()
+    session.add(payment)
+    session.commit()
+    return find_purchase(session, current_user, key)
+
+
+@router.delete("/{key}/pay", response_model=Purchase)
+def unpay_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> Any:
+    """
+    Undo « Payé »: the invoices are to pay again.
+    """
+    payment = payments_of(session, current_user).get(key)
+    if payment:
+        session.delete(payment)
         session.commit()
     return find_purchase(session, current_user, key)

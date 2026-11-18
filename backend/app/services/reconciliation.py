@@ -15,11 +15,16 @@ from app.models import (
     DocumentRef,
     DocumentStatus,
     LineMatch,
+    LinkSuggestion,
+    Payment,
     Purchase,
     Purchases,
     PurchaseStatus,
     Settlement,
+    UnlinkedDocument,
 )
+from app.services.checks import NO_ORDER_REFERENCE
+from app.services.payment_terms import legal_due_date
 
 QTY_TOLERANCE_PCT = Decimal(0)
 PRICE_TOLERANCE = Decimal("0.01")
@@ -39,9 +44,22 @@ MODE_LABELS = {
 STATUS_ORDER = {
     PurchaseStatus.dispute: 0,
     PurchaseStatus.waiting: 1,
-    PurchaseStatus.no_order: 2,
-    PurchaseStatus.to_pay: 3,
+    PurchaseStatus.to_pay: 2,
+    PurchaseStatus.paid: 3,
 }
+KIND_NAMES = {
+    DocumentKind.order: "Commande",
+    DocumentKind.delivery: "Livraison",
+    DocumentKind.invoice: "Facture",
+    DocumentKind.unknown: "Document",
+}
+# The Purchase field that stays empty while this kind of document is missing.
+MISSING = {DocumentKind.delivery: "deliveries", DocumentKind.invoice: "invoices"}
+OVERDUE = "Livraison promise le"
+UNLINKED_DELIVERY = (
+    "Le bon de livraison {} de ce fournisseur n'est pas rangé : c'est peut-être"
+    " cette livraison"
+)
 
 
 def fold(text: str) -> str:
@@ -413,12 +431,65 @@ def settles(settlement: Settlement | None, issues: list[str]) -> bool:
     return settlement is not None and sorted(settlement.issues) == sorted(issues)
 
 
+def incl_total(invoices: Sequence[Document]) -> Decimal | None:
+    totals = [invoice.amount_incl_tax for invoice in invoices]
+    if not totals or None in totals:
+        return None
+    return sum((total for total in totals if total is not None), ZERO)
+
+
+def with_tax(
+    amount: Decimal | None, excl: Decimal | None, incl: Decimal | None
+) -> Decimal | None:
+    """An amount excl. tax turned into incl. tax at the invoices' own rate."""
+    if amount is None or not excl or incl is None:
+        return None
+    return (amount * incl / excl).quantize(CENT)
+
+
+def doubts(documents: Sequence[Document]) -> list[str]:
+    """What the AI was unsure about: the purchase waits until it is checked."""
+    return [
+        f"{KIND_NAMES[d.kind]} {name(d)} à vérifier : {issue}"
+        for d in documents
+        if d.status == DocumentStatus.to_check
+        for issue in d.issues
+        if issue != NO_ORDER_REFERENCE
+    ]
+
+
+def due_of(invoices: Sequence[Document]) -> tuple[date | None, bool]:
+    """The earliest due date, and whether it is the legal 30 days by default."""
+    dues = [
+        (invoice.due_date, False)
+        if invoice.due_date
+        else (legal_due_date(invoice.document_date), True)
+        for invoice in invoices
+        if not invoice.is_credit_note and invoice.document_date
+    ]
+    return min(dues, default=(None, False))
+
+
+def invoice_only_note(invoices: Sequence[Document]) -> str:
+    cited = next((i.order_reference for i in invoices if i.order_reference), None)
+    if all(i.is_credit_note for i in invoices):
+        return "Avoir à déduire de votre prochain paiement à ce fournisseur"
+    if cited:
+        return (
+            f"Elle cite la commande {cited} : déposez la commande ou le bon"
+            " de livraison pour les comparer"
+        )
+    return "Facture seule : rien à comparer, elle est vérifiée seule"
+
+
 def reconcile(
     key: str,
     documents: Sequence[Document],
     today: date | None = None,
     settlement: Settlement | None = None,
+    payment: Payment | None = None,
 ) -> Purchase:
+    today = today or date.today()
     orders = [d for d in documents if d.kind == DocumentKind.order]
     deliveries = [d for d in documents if d.kind == DocumentKind.delivery]
     invoices = [d for d in documents if d.kind == DocumentKind.invoice]
@@ -427,51 +498,71 @@ def reconcile(
         bool(deliveries),
         bool(invoices),
     )
+    invoice_only = has_invoice and not has_order and not has_delivery
 
     items = build_items(orders, deliveries, invoices)
     matches: list[LineMatch] = []
     line_issues = 0
-    notes: list[str] = []
     for item in items:
+        if invoice_only:
+            matches.append(item.to_match([], []))
+            continue
         issues, item_notes = check_item(item, has_order, has_delivery, has_invoice)
         line_issues += len(issues)
         matches.append(item.to_match(issues, item_notes))
 
+    unsure = doubts(documents)
+    notes = list(unsure)
     issues = check_documents(documents) + check_delivery_mode(orders, deliveries)
-    late = late_deliveries(orders, deliveries)
-    notes += late
+    notes += late_deliveries(orders, deliveries)
     total = invoiced_total(invoices)
-    due = amount_due(items, has_order, has_delivery) if has_invoice else None
-    gap = None if total is None or due is None else total - due
-    if gap is not None and gap > AMOUNT_TOLERANCE and not line_issues:
-        issues.append(
-            f"Total facturé {euros(total or ZERO)} HT au lieu de {euros(due or ZERO)}"
-        )
+    gap = None
+    if not invoice_only and has_invoice:
+        due = amount_due(items, has_order, has_delivery)
+        gap = None if total is None or due is None else total - due
+        if gap is not None and gap > AMOUNT_TOLERANCE and not line_issues:
+            issues.append(
+                f"Total facturé {euros(total or ZERO)} HT au lieu de"
+                f" {euros(due or ZERO)}"
+            )
 
-    if not has_order:
-        notes.append("Commande pas encore déposée")
-    if has_order and not has_delivery:
-        overdue = missing_delivery(orders, today or date.today())
-        notes.append(overdue or "Livraison pas encore reçue")
-        if overdue:
-            late.append(overdue)
-    if has_order and not has_invoice:
-        notes.append("Facture pas encore reçue")
-
-    if not has_delivery or not has_invoice:
-        status = PurchaseStatus.waiting
-    elif not has_order:
-        status = PurchaseStatus.no_order
+    overdue = None
+    if invoice_only:
+        notes.append(invoice_only_note(invoices))
     else:
-        status = PurchaseStatus.to_pay
+        if has_order and not has_delivery:
+            overdue = missing_delivery(orders, today)
+            notes.append(overdue or "Livraison pas encore reçue")
+        if not has_invoice:
+            notes.append("Facture pas encore reçue")
+        if not has_order and has_delivery and has_invoice:
+            notes.append("Pas de bon de commande : facture comparée à la livraison")
+
+    complete = invoice_only or (has_delivery and has_invoice)
+    status = (
+        PurchaseStatus.to_pay if complete and not unsure else PurchaseStatus.waiting
+    )
+
+    paid_ids = set(payment.invoice_ids) if payment else set()
+    unpaid = [i for i in invoices if str(i.id) not in paid_ids]
+    paid = [i for i in invoices if str(i.id) in paid_ids]
+    if paid and unpaid and payment:
+        notes += [
+            f"Facture {name(i)} déjà payée le {day(payment.paid_at.date())}"
+            for i in paid
+        ]
+    due_date, assumed = due_of(unpaid)
+    incl = incl_total(invoices)
 
     reference_doc = (orders or deliveries or invoices)[0]
+    reference = (
+        reference_doc.number
+        if orders or (invoice_only and not reference_doc.order_reference)
+        else reference_doc.order_reference
+    )
     purchase = Purchase(
         key=key,
-        order_reference=(
-            reference_doc.number if orders else reference_doc.order_reference
-        )
-        or key,
+        order_reference=reference or key,
         supplier=next((d.supplier for d in [*orders, *documents] if d.supplier), None),
         status=status,
         orders=[to_ref(d) for d in orders],
@@ -480,15 +571,30 @@ def reconcile(
         lines=matches,
         issues=issues,
         notes=notes,
-        late=bool(late),
+        late=overdue is not None,
+        expected_delivery_date=promised_date(orders),
+        invoice_only=invoice_only,
         invoiced_excl_tax=total,
+        invoiced_incl_tax=incl,
+        to_pay_incl_tax=incl_total(unpaid) if unpaid else ZERO,
         gap_excl_tax=gap,
+        gap_incl_tax=with_tax(gap, total, incl),
+        due_date=due_date,
+        due_date_assumed=assumed,
     )
     disputed = all_issues(purchase)
     if disputed and settles(settlement, disputed):
         purchase.settled_at = settlement.settled_at if settlement else None
     elif disputed:
         purchase.status = PurchaseStatus.dispute
+    if invoices and not unpaid and payment:
+        purchase.paid_at = payment.paid_at
+        if purchase.status == PurchaseStatus.dispute:
+            purchase.notes.insert(
+                0, f"Déjà payé le {day(payment.paid_at.date())} : demandez un avoir"
+            )
+        else:
+            purchase.status = PurchaseStatus.paid
     return purchase
 
 
@@ -498,10 +604,36 @@ def purchase_key(document: Document) -> str:
     return reference_key(document.order_reference)
 
 
+def invoice_key(document: Document) -> str:
+    """A purchase made of one invoice that cites no order: keyed by its id."""
+    return f"FACTURE-{document.id.hex}"
+
+
+def suggestions_for(
+    document: Document, purchases: Sequence[Purchase]
+) -> list[LinkSuggestion]:
+    """Purchases of the same supplier that still miss this kind of document."""
+    if not document.supplier or document.kind not in MISSING:
+        return []
+    candidates = [
+        p
+        for p in purchases
+        if p.orders
+        and p.supplier
+        and same_supplier(document.supplier, p.supplier)
+        and not getattr(p, MISSING[document.kind])
+    ]
+    return [
+        LinkSuggestion(key=p.key, order_reference=p.order_reference)
+        for p in candidates[:3]
+    ]
+
+
 def build_purchases(
     documents: Iterable[Document],
     today: date | None = None,
     settlements: Mapping[str, Settlement] | None = None,
+    payments: Mapping[str, Payment] | None = None,
 ) -> Purchases:
     usable = [d for d in documents if d.kind in PURCHASE_KINDS and d.status in USABLE]
     order_suppliers = [
@@ -519,15 +651,56 @@ def build_purchases(
             and any(same_supplier(document.supplier, s) for s in order_suppliers)
         ):
             unlinked.append(document)
+        elif document.kind == DocumentKind.invoice:
+            groups[invoice_key(document)] = [document]
 
     purchases = [
-        reconcile(key, docs, today, (settlements or {}).get(key))
+        reconcile(
+            key,
+            docs,
+            today,
+            (settlements or {}).get(key),
+            (payments or {}).get(key),
+        )
         for key, docs in groups.items()
-        if any(d.kind != DocumentKind.invoice for d in docs)
     ]
-    purchases.sort(key=lambda p: (STATUS_ORDER[p.status], p.order_reference))
-    return Purchases(
-        data=purchases,
-        unlinked=[to_ref(d) for d in unlinked],
-        count=len(purchases),
+
+    unlinked_refs = []
+    for document in unlinked:
+        suggestions = suggestions_for(document, purchases)
+        unlinked_refs.append(
+            UnlinkedDocument(
+                **to_ref(document).model_dump(),
+                supplier=document.supplier,
+                suggestions=suggestions,
+            )
+        )
+        if document.kind == DocumentKind.delivery:
+            for suggestion in suggestions:
+                explain_unlinked_delivery(document, purchases, suggestion.key)
+
+    purchases.sort(key=sort_key)
+    return Purchases(data=purchases, unlinked=unlinked_refs, count=len(purchases))
+
+
+def explain_unlinked_delivery(
+    delivery: Document, purchases: Sequence[Purchase], key: str
+) -> None:
+    """« Still not delivered » is wrong when the delivery note is right here,
+    only not linked to its order yet."""
+    purchase = next(p for p in purchases if p.key == key)
+    if not purchase.late:
+        return
+    purchase.late = False
+    purchase.notes = [
+        UNLINKED_DELIVERY.format(name(delivery)) if note.startswith(OVERDUE) else note
+        for note in purchase.notes
+    ]
+
+
+def sort_key(purchase: Purchase) -> tuple[int, date, str]:
+    return (
+        STATUS_ORDER[purchase.status],
+        purchase.due_date or date.max,
+        purchase.order_reference,
     )

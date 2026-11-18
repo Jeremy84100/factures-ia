@@ -1,6 +1,6 @@
-"""Demo accounts: one per visitor, filled with the 30 demo documents already read.
+"""Demo accounts: one per visitor, filled with the demo documents already read.
 
-Reading 30 PDFs with Docling and Gemini takes minutes, too long for a demo.
+Reading 31 PDFs with Docling and Gemini takes minutes, too long for a demo.
 The documents are loaded as Gemini reads them (30/30 measured by
 scripts/evaluate_purchases.py), then checked by the real rules, so every
 verdict on screen comes from the same code as for real uploads.
@@ -69,6 +69,7 @@ def demo_document(case: dict[str, Any], owner_id: uuid.UUID, today: date) -> Doc
             )
         )
     promised = case.get("expected_delivery_date")
+    due = case.get("due_date")
     now = get_datetime_utc()
     document = Document(
         kind=DocumentKind(case["kind"]),
@@ -84,6 +85,8 @@ def demo_document(case: dict[str, Any], owner_id: uuid.UUID, today: date) -> Doc
         if case.get("delivery_mode")
         else None,
         expected_delivery_date=date.fromisoformat(promised) if promised else None,
+        payment_terms=case.get("payment_terms"),
+        due_date=date.fromisoformat(due) if due else None,
         amount_excl_tax=to_decimal(case["amount_excl_tax"]),
         currency="EUR",
         lines=lines,

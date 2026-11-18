@@ -1,9 +1,12 @@
 import json
 import unicodedata
 from dataclasses import dataclass, field, replace
+from datetime import date
 from pathlib import Path
 
 from fpdf import FPDF
+
+from app.services.payment_terms import due_from_terms
 
 OUTPUT = Path(__file__).parent.parent / "app" / "demo" / "purchases"
 BUYER = "BTP Exemple SARL, 5 chemin des Rotondes, 84000 Avignon"
@@ -29,6 +32,8 @@ class Doc:
     delivery_method: str | None = None
     delivery_mode: str | None = None
     promised_day: str | None = None
+    payment_terms: str | None = None
+    due_day: str | None = None
 
 
 @dataclass
@@ -87,6 +92,8 @@ EXPRESS = Line("PORT-EXP", "Frais de livraison express 24 h", 1, "forfait", 45.0
 DISQUE = Line(
     "DIS-125-INOX", "Disque à tronçonner inox 125 mm lot de 10", 6, "lot", 17.50
 )
+FIBRE = Line("FIB-PRO", "Abonnement fibre pro novembre 2026", 1, "mois", 59.90)
+MOBILE = Line("MOB-50", "Forfait mobile 50 Go", 3, "ligne", 19.99)
 
 
 def delivered(*lines: Line) -> list[Line]:
@@ -261,7 +268,7 @@ CASES = [
         "Livraison et facture sans bon de commande",
         "Outillage Delta",
         "CMD-26-108",
-        "no_order",
+        "to_pay",
         [
             Doc(
                 "delivery", "BL-OD-1029", "2026-10-14", [MEULEUSE, DISQUE], "CMD-26-108"
@@ -324,7 +331,35 @@ CASES += [
             ),
         ],
     ),
+    Case(
+        "Facture seule, sans commande ni livraison",
+        "Télécom Pro Provence",
+        "TPP-2611-0458",
+        "to_pay",
+        [
+            Doc(
+                "invoice",
+                "TPP-2611-0458",
+                "2026-11-02",
+                [FIBRE, MOBILE],
+            ),
+        ],
+    ),
 ]
+
+# How each invoice is to be paid: terms as written, due date when printed.
+PAYMENT = {
+    "FA-26-5531": ("Paiement à 45 jours", None),
+    "F-0098812": ("30 jours fin de mois", None),
+    "FC-26-7740": ("Virement à 45 jours", None),
+    "FA-104552": ("30 jours", None),
+    "FBP-26-412": ("60 jours", "2026-12-14"),
+    "SAN-F-26-1187": ("Paiement à 30 jours", None),
+    "PM-26-3390": ("45 jours", None),
+    "CL-26-0912": ("45 jours fin de mois", None),
+    "IVP-F-26-377": ("Paiement à réception de facture", None),
+    "TPP-2611-0458": ("Prélèvement à échéance", "2026-11-20"),
+}
 
 # How each document is delivered: written method, mode, promised date (orders).
 DELIVERY = {
@@ -358,6 +393,16 @@ for _case in CASES:
             promised_day=DELIVERY[doc.number][2],
         )
         if doc.number in DELIVERY
+        else doc
+        for doc in _case.documents
+    ]
+    _case.documents = [
+        replace(
+            doc,
+            payment_terms=PAYMENT[doc.number][0],
+            due_day=PAYMENT[doc.number][1],
+        )
+        if doc.number in PAYMENT
         else doc
         for doc in _case.documents
     ]
@@ -472,6 +517,24 @@ def draw(case: Case, index: int, doc: Doc) -> FPDF:
             pdf.cell(
                 24, 6, f"{fr(value)} EUR", align="R", new_x="LMARGIN", new_y="NEXT"
             )
+        if doc.payment_terms:
+            pdf.ln(4)
+            pdf.cell(
+                0,
+                6,
+                latin(f"Conditions de paiement : {doc.payment_terms}"),
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
+        if doc.due_day:
+            dy, dm, dd = doc.due_day.split("-")
+            pdf.cell(
+                0,
+                6,
+                latin(f"Date d'échéance : {dd}/{dm}/{dy}"),
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
     else:
         pdf.ln(10)
         pdf.cell(
@@ -501,6 +564,11 @@ def expected_document(case: Case, filename: str, doc: Doc) -> dict[str, object]:
         for line in doc.lines
     ]
     excl = cents(sum(cents(line.quantity * line.price) for line in doc.lines))
+    due = doc.due_day or (
+        due_from_terms(doc.payment_terms, date.fromisoformat(doc.day))
+        if doc.payment_terms
+        else None
+    )
     return {
         "filename": filename,
         "kind": doc.kind,
@@ -512,6 +580,8 @@ def expected_document(case: Case, filename: str, doc: Doc) -> dict[str, object]:
         "delivery_mode": doc.delivery_mode,
         "expected_delivery_date": doc.promised_day,
         "amount_excl_tax": excl if priced else None,
+        "payment_terms": doc.payment_terms,
+        "due_date": str(due) if due else None,
         "lines": lines,
     }
 

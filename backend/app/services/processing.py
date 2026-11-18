@@ -28,6 +28,7 @@ from app.services.extraction import (
     ExtractedLine,
     ExtractionError,
 )
+from app.services.payment_terms import due_from_terms
 from app.services.pdf_reader import PdfReader
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,10 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
     document.delivery_method = to_text(extracted.delivery_method, 100)
     document.delivery_mode = DELIVERY_MODES.get(extracted.delivery_mode or "")
     document.expected_delivery_date = to_date(extracted.expected_delivery_date)
+    document.payment_terms = to_text(extracted.payment_terms, 100)
+    document.due_date = to_date(extracted.due_date) or due_from_terms(
+        document.payment_terms, document.document_date
+    )
     document.lines = to_lines(extracted.lines)
     sign_credit_note(document)
 

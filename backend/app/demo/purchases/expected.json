@@ -11,6 +11,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": "2026-10-03",
       "amount_excl_tax": 1225.8,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "CAB-R2V-3G25",
@@ -43,6 +45,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "CAB-R2V-3G25",
@@ -75,6 +79,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 1225.8,
+      "payment_terms": "Paiement à 45 jours",
+      "due_date": "2026-11-18",
       "lines": [
         {
           "reference": "CAB-R2V-3G25",
@@ -107,6 +113,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": "2026-10-06",
       "amount_excl_tax": 1128.0,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "CIM-CEM2-35",
@@ -139,6 +147,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "CIM-CEM2-35",
@@ -171,6 +181,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 1128.0,
+      "payment_terms": "30 jours fin de mois",
+      "due_date": "2026-11-30",
       "lines": [
         {
           "reference": "CIM-CEM2-35",
@@ -203,6 +215,8 @@
       "delivery_mode": "pickup",
       "expected_delivery_date": "2026-10-07",
       "amount_excl_tax": 374.4,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "VIS-TF-4x40",
@@ -235,6 +249,8 @@
       "delivery_mode": "pickup",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "VIS-TF-4x40",
@@ -267,6 +283,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 388.4,
+      "payment_terms": "Virement à 45 jours",
+      "due_date": "2026-11-22",
       "lines": [
         {
           "reference": "VIS-TF-4x40",
@@ -299,6 +317,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": "2026-10-09",
       "amount_excl_tax": 696.2,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "PER-16-50",
@@ -331,6 +351,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "PER-16-50",
@@ -363,6 +385,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 810.2,
+      "payment_terms": "30 jours",
+      "due_date": "2026-11-09",
       "lines": [
         {
           "reference": "PER-16-50",
@@ -401,6 +425,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": "2026-10-14",
       "amount_excl_tax": 2629.0,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "OSB3-18",
@@ -433,6 +459,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "OSB3-18",
@@ -459,6 +487,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "OSB3-18",
@@ -485,6 +515,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 2629.0,
+      "payment_terms": "60 jours",
+      "due_date": "2026-12-14",
       "lines": [
         {
           "reference": "OSB3-18",
@@ -517,6 +549,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": "2026-10-12",
       "amount_excl_tax": 1484.0,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "WC-SUS-PK",
@@ -549,6 +583,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "WC-SUS-PK",
@@ -581,6 +617,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 1484.0,
+      "payment_terms": "Paiement à 30 jours",
+      "due_date": "2026-11-12",
       "lines": [
         {
           "reference": null,
@@ -613,6 +651,8 @@
       "delivery_mode": "pickup",
       "expected_delivery_date": "2026-10-12",
       "amount_excl_tax": 1328.0,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "PEI-BLC-15",
@@ -645,6 +685,8 @@
       "delivery_mode": "pickup",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "PEI-BLC-15",
@@ -677,6 +719,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 1328.0,
+      "payment_terms": "45 jours",
+      "due_date": "2026-11-27",
       "lines": [
         {
           "reference": "PEI-BLC-15",
@@ -709,6 +753,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "MEU-125",
@@ -735,6 +781,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 343.0,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "MEU-125",
@@ -761,6 +809,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": "2026-10-12",
       "amount_excl_tax": 1676.8,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "CAR-60-GRS",
@@ -793,6 +843,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "CAR-60-GRS",
@@ -825,6 +877,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 1676.8,
+      "payment_terms": "45 jours fin de mois",
+      "due_date": "2026-12-31",
       "lines": [
         {
           "reference": "CAR-60-GRS",
@@ -857,6 +911,8 @@
       "delivery_mode": "express",
       "expected_delivery_date": "2026-10-10",
       "amount_excl_tax": 1023.4,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "PSE-TH38-100",
@@ -889,6 +945,8 @@
       "delivery_mode": "standard",
       "expected_delivery_date": null,
       "amount_excl_tax": null,
+      "payment_terms": null,
+      "due_date": null,
       "lines": [
         {
           "reference": "PSE-TH38-100",
@@ -915,6 +973,8 @@
       "delivery_mode": null,
       "expected_delivery_date": null,
       "amount_excl_tax": 1023.4,
+      "payment_terms": "Paiement à réception de facture",
+      "due_date": "2026-10-14",
       "lines": [
         {
           "reference": "PSE-TH38-100",
@@ -933,6 +993,34 @@
           "description": "Frais de livraison express 24 h",
           "quantity": 1,
           "unit_price": 45.0
+        }
+      ]
+    },
+    {
+      "filename": "11-tpp-2611-0458.pdf",
+      "kind": "invoice",
+      "supplier": "Télécom Pro Provence",
+      "number": "TPP-2611-0458",
+      "date": "2026-11-02",
+      "order_reference": null,
+      "delivery_method": null,
+      "delivery_mode": null,
+      "expected_delivery_date": null,
+      "amount_excl_tax": 119.87,
+      "payment_terms": "Prélèvement à échéance",
+      "due_date": "2026-11-20",
+      "lines": [
+        {
+          "reference": "FIB-PRO",
+          "description": "Abonnement fibre pro novembre 2026",
+          "quantity": 1,
+          "unit_price": 59.9
+        },
+        {
+          "reference": "MOB-50",
+          "description": "Forfait mobile 50 Go",
+          "quantity": 3,
+          "unit_price": 19.99
         }
       ]
     }
@@ -985,7 +1073,7 @@
     {
       "case": "Livraison et facture sans bon de commande",
       "order_reference": "CMD-26-108",
-      "status": "no_order",
+      "status": "to_pay",
       "unlinked": []
     },
     {
@@ -998,6 +1086,12 @@
       "case": "Express commandé, livré en standard",
       "order_reference": "CMD-26-110",
       "status": "dispute",
+      "unlinked": []
+    },
+    {
+      "case": "Facture seule, sans commande ni livraison",
+      "order_reference": "TPP-2611-0458",
+      "status": "to_pay",
       "unlinked": []
     }
   ]

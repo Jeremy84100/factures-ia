@@ -205,4 +205,4 @@ def test_demo_login_opens_a_filled_account(client: TestClient) -> None:
     purchases = client.get(
         f"{settings.API_V1_STR}/reconciliations/", headers=headers
     ).json()
-    assert purchases["count"] == 10
+    assert purchases["count"] == 11

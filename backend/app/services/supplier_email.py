@@ -17,9 +17,35 @@ def described(documents: Sequence[DocumentRef], one: str, many: str) -> str:
     return text
 
 
+def signed(lines: list[str], sender: str | None) -> list[str]:
+    return [*lines, "Cordialement,", *([sender] if sender else [])]
+
+
+# Goods promised and still not delivered: ask when they will come.
+def write_reminder(purchase: Purchase, sender: str | None = None) -> SupplierEmail:
+    ordered = described(purchase.orders, "notre commande", "nos commandes")
+    promised = purchase.expected_delivery_date
+    when = f", dont la livraison était prévue le {day(promised)}," if promised else ""
+    lines = [
+        "Bonjour,",
+        "",
+        f"Sauf erreur de notre part, {ordered}{when} ne nous est pas encore"
+        " parvenue.",
+        "",
+        "Pourriez-vous nous indiquer la date de livraison ?",
+        "",
+    ]
+    return SupplierEmail(
+        subject=f"Commande {purchase.order_reference} : livraison pas encore reçue",
+        body="\n".join(signed(lines, sender)),
+    )
+
+
 # A plain, polite letter listing what does not match, ready to send. Written
 # from the comparison itself, without the AI: every figure is one it checked.
 def write_email(purchase: Purchase, sender: str | None = None) -> SupplierEmail:
+    if not all_issues(purchase) and purchase.late:
+        return write_reminder(purchase, sender)
     order = purchase.order_reference
     if purchase.invoices:
         checked = described(purchase.invoices, "votre facture", "vos factures")
@@ -47,7 +73,5 @@ def write_email(purchase: Purchase, sender: str | None = None) -> SupplierEmail:
     extra = purchase.gap_excl_tax or Decimal(0)
     if purchase.invoices and extra > AMOUNT_TOLERANCE:
         lines += [f"Le montant facturé en trop s'élève à {euros(extra)} HT.", ""]
-    lines += [request, "", "Cordialement,"]
-    if sender:
-        lines.append(sender)
-    return SupplierEmail(subject=subject, body="\n".join(lines))
+    lines += [request, ""]
+    return SupplierEmail(subject=subject, body="\n".join(signed(lines, sender)))
