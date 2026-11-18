@@ -80,27 +80,16 @@ def purchase_documents(
     return order, delivery, invoice
 
 
-class FakeReader:
-    def __init__(self, text: str = "facture", error: bool = False) -> None:
-        self.text = text
-        self.error = error
-
-    def read(self, data: bytes, filename: str) -> str:  # noqa: ARG002
-        if self.error:
-            raise ValueError("PDF cassé")
-        return self.text
-
-
 class FakeExtractor:
     def __init__(
         self, result: ExtractedDocument = EDF, error: str | None = None
     ) -> None:
         self.result = result
         self.error = error
-        self.calls: list[tuple[str, bytes]] = []
+        self.calls: list[bytes] = []
 
-    def extract(self, text: str, pdf: bytes) -> ExtractedDocument:
-        self.calls.append((text, pdf))
+    def extract(self, pdf: bytes) -> ExtractedDocument:
+        self.calls.append(pdf)
         if self.error:
             raise ExtractionError(self.error)
         return self.result

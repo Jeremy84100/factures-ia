@@ -4,14 +4,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_extractor, get_pdf_reader
+from app.api.deps import get_extractor
 from app.core.config import settings
 from app.main import app
 from app.services.extraction import ExtractedDocument
 from tests.utils.invoice import (
     PDF_BYTES,
     FakeExtractor,
-    FakeReader,
     purchase_documents,
 )
 
@@ -21,7 +20,6 @@ URL = f"{settings.API_V1_STR}/reconciliations/"
 
 @pytest.fixture(autouse=True)
 def fake_ai() -> Generator[None]:
-    app.dependency_overrides[get_pdf_reader] = FakeReader
     yield
     app.dependency_overrides.clear()
 

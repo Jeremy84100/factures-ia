@@ -5,18 +5,16 @@ from collections.abc import Generator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_pdf_reader
 from app.core.config import settings
 from app.main import app
 from tests.api.routes.test_reconciliations import URL, deposit
-from tests.utils.invoice import FakeReader, purchase_documents
+from tests.utils.invoice import purchase_documents
 
 EXPORT = f"{settings.API_V1_STR}/documents/export"
 
 
 @pytest.fixture(autouse=True)
 def fake_ai() -> Generator[None]:
-    app.dependency_overrides[get_pdf_reader] = FakeReader
     yield
     app.dependency_overrides.clear()
 

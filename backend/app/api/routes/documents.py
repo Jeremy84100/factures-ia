@@ -8,7 +8,7 @@ from fastapi import File as FileParam
 from sqlalchemy.orm import defer, selectinload
 from sqlmodel import col, delete, extract, func, select
 
-from app.api.deps import CurrentUser, EngineDep, ExtractorDep, PdfReaderDep, SessionDep
+from app.api.deps import CurrentUser, EngineDep, ExtractorDep, SessionDep
 from app.models import (
     Document,
     DocumentKind,
@@ -103,7 +103,6 @@ async def upload_documents(
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
     engine: EngineDep,
-    reader: PdfReaderDep,
     extractor: ExtractorDep,
     files: Annotated[list[UploadFile], FileParam()],
 ) -> Any:
@@ -143,9 +142,7 @@ async def upload_documents(
     session.commit()
     for document in documents:
         session.refresh(document)
-        background_tasks.add_task(
-            process_document, document.id, engine, reader, extractor
-        )
+        background_tasks.add_task(process_document, document.id, engine, extractor)
 
     return DocumentsPublic(data=[to_public(d) for d in documents], count=len(documents))
 
@@ -308,7 +305,6 @@ def retry_document(
     current_user: CurrentUser,
     background_tasks: BackgroundTasks,
     engine: EngineDep,
-    reader: PdfReaderDep,
     extractor: ExtractorDep,
     id: uuid.UUID,
 ) -> Any:
@@ -325,7 +321,7 @@ def retry_document(
     session.add(document)
     session.commit()
     session.refresh(document)
-    background_tasks.add_task(process_document, document.id, engine, reader, extractor)
+    background_tasks.add_task(process_document, document.id, engine, extractor)
     return to_public(document)
 
 

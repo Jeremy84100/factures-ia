@@ -9,7 +9,6 @@ backend/app/frontend/
 .env
 .venv/
 __pycache__/
-backend/docling-models/
 
 .agents/
 .claude/

@@ -19,9 +19,6 @@ dependencies = [
     "pyjwt>=2.15.0,<3.0.0",
     "pwdlib[argon2,bcrypt]>=0.3.1",
     "google-genai>=3.3.0",
-    "docling>=2.150.1",
-    "torch>=2.15.0",
-    "torchvision>=0.29.2",
     "rapidfuzz>=3.14",
     "pillow>=12.0",
     "pypdfium2>=5.15",
@@ -36,15 +33,6 @@ dev = [
     "coverage<8.0.0,>=7.4.3",
     "fpdf2>=2.9.0",
 ]
-
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
-torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
 
 [tool.vercel.scripts]
 build = "bash scripts/vercel-build.sh"

@@ -10,7 +10,6 @@ from app.models import Document, DocumentStatus
 from app.services.checks import check_document, review_extraction
 from app.services.demo import check_ibans
 from app.services.extraction import ExtractionError, GeminiExtractor
-from app.services.pdf_reader import DoclingReader
 from app.services.processing import apply_extraction
 from app.services.reconciliation import build_purchases, reference_key
 
@@ -38,7 +37,6 @@ def main() -> None:
     if not settings.GEMINI_API_KEY:
         sys.exit("Ajoute GEMINI_API_KEY dans .env avant de lancer l'évaluation.")
 
-    reader = DoclingReader()
     extractor = GeminiExtractor(settings.GEMINI_API_KEY, settings.GEMINI_MODEL)
     expected = json.loads((FIXTURES / "expected.json").read_text(encoding="utf-8"))
     owner = uuid.uuid4()
@@ -59,7 +57,7 @@ def main() -> None:
         data = path.read_bytes()
         document = Document(filename=path.name, file=b"", owner_id=owner)
         try:
-            extracted = extractor.extract(reader.read(data, path.name), data)
+            extracted = extractor.extract(data)
         except ExtractionError as e:
             print(f"ÉCHEC {path.name} : {e}")
             continue

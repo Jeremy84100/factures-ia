@@ -2,14 +2,12 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-PROMPT = """Tu es un assistant comptable. Tu reçois un document d'achat en PDF et le texte qu'un OCR en a tiré : une facture, un avoir, un bon de commande ou un bon de livraison.
-Le PDF fait foi : regarde aussi le logo, l'en-tête et la mise en page. Le texte t'aide à lire les chiffres.
+PROMPT = """Tu es un assistant comptable. Tu reçois un document d'achat en PDF : une facture, un avoir, un bon de commande ou un bon de livraison.
+Lis-le entièrement : le logo, l'en-tête, la mise en page et les tableaux.
 Règles :
 - Recopie les valeurs telles qu'elles figurent sur le document. N'invente jamais rien : si une valeur est absente ou illisible, mets null.
 - Les montants et les quantités sont des nombres avec un point décimal, sans symbole (1234.50). Un avoir a des montants négatifs.
 - Une ligne par article, dans l'ordre du document. Les sous-totaux, totaux, acomptes et la TVA ne sont jamais des lignes. Des frais de port ou une écotaxe écrits sur une ligne à part sont des lignes.
-
-Texte OCR du document :
 """
 
 DocumentType = Literal["facture", "bon_de_commande", "bon_de_livraison", "autre"]
@@ -118,7 +116,7 @@ class ExtractionError(Exception):
 
 
 class DocumentExtractor(Protocol):
-    def extract(self, text: str, pdf: bytes) -> ExtractedDocument: ...
+    def extract(self, pdf: bytes) -> ExtractedDocument: ...
 
 
 class GeminiExtractor:
@@ -126,7 +124,7 @@ class GeminiExtractor:
         self.api_key = api_key
         self.model = model
 
-    def extract(self, text: str, pdf: bytes) -> ExtractedDocument:
+    def extract(self, pdf: bytes) -> ExtractedDocument:
         if not self.api_key:
             raise ExtractionError("Clé GEMINI_API_KEY manquante dans .env")
 
@@ -136,7 +134,7 @@ class GeminiExtractor:
         client = genai.Client(api_key=self.api_key)
         contents: list[types.PartUnionDict] = [
             types.Part.from_bytes(data=pdf, mime_type="application/pdf"),
-            PROMPT + (text or "(aucun texte extrait)"),
+            PROMPT,
         ]
         try:
             response = client.models.generate_content(

@@ -9,7 +9,7 @@ from app.models import Document, DocumentKind, DocumentStatus, User
 from app.services.einvoice import parse_cii, read_einvoice
 from app.services.extraction import ExtractedDocument, ExtractedLine
 from app.services.processing import process_document
-from tests.utils.invoice import PDF_BYTES, FakeExtractor, FakeReader
+from tests.utils.invoice import PDF_BYTES, FakeExtractor
 
 SAMPLES = Path(__file__).parents[1] / "fixtures" / "einvoices"
 INVOICE = (SAMPLES / "Facture_FR_BASICWL.pdf").read_bytes()
@@ -75,7 +75,7 @@ def owner(db: Session) -> object:
 def test_einvoice_with_lines_skips_the_ai(db: Session) -> None:
     document = store(db, CREDIT)
     extractor = FakeExtractor()
-    process_document(document.id, engine, FakeReader(), extractor)
+    process_document(document.id, engine, extractor)
     db.expire_all()
     read = db.get(Document, document.id)
     assert read is not None
@@ -97,7 +97,7 @@ def test_einvoice_without_lines_takes_them_from_the_ai(db: Session) -> None:
         lines=[ExtractedLine(description="Farine", quantity=10, amount_excl_tax=20)],
     )
     extractor = FakeExtractor(from_ai)
-    process_document(document.id, engine, FakeReader(), extractor)
+    process_document(document.id, engine, extractor)
     db.expire_all()
     read = db.get(Document, document.id)
     assert read is not None

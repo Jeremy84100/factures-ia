@@ -4,7 +4,6 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.services.extraction import ExtractionError, GeminiExtractor
-from app.services.pdf_reader import DoclingReader
 from app.services.processing import to_amount, to_date
 
 FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures" / "invoices"
@@ -32,7 +31,6 @@ def main() -> None:
     if not settings.GEMINI_API_KEY:
         sys.exit("Ajoute GEMINI_API_KEY dans .env avant de lancer l'évaluation.")
 
-    reader = DoclingReader()
     extractor = GeminiExtractor(settings.GEMINI_API_KEY, settings.GEMINI_MODEL)
     expected = json.loads((FIXTURES / "expected.json").read_text(encoding="utf-8"))
 
@@ -41,7 +39,7 @@ def main() -> None:
         path = FIXTURES / case["filename"]
         try:
             data = path.read_bytes()
-            result = extractor.extract(reader.read(data, path.name), data)
+            result = extractor.extract(data)
         except ExtractionError as e:
             print(f"ÉCHEC {case['filename']} : {e}")
             continue

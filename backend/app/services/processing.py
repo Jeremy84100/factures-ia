@@ -32,7 +32,6 @@ from app.services.extraction import (
 )
 from app.services.iban import clean_iban, iban_change
 from app.services.payment_terms import due_from_terms
-from app.services.pdf_reader import PdfReader
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +250,6 @@ def _finish(
 def process_document(
     document_id: uuid.UUID,
     engine: Engine,
-    reader: PdfReader,
     extractor: DocumentExtractor,
 ) -> None:
     with Session(engine) as session:
@@ -264,7 +262,7 @@ def process_document(
         session.commit()
 
         try:
-            _read(session, document, reader, extractor)
+            _read(session, document, extractor)
         except StaleDataError, ObjectDeletedError:
             session.rollback()
             logger.info("Document %s supprimé pendant sa lecture", document_id)
@@ -273,22 +271,17 @@ def process_document(
 def _read(
     session: Session,
     document: Document,
-    reader: PdfReader,
     extractor: DocumentExtractor,
 ) -> None:
-    # An e-invoice carries its own figures: no OCR, no AI.
+    # An e-invoice carries its own figures: no AI.
     einvoice = read_einvoice(document.file)
     if einvoice is not None and einvoice.lines:
         extracted = einvoice
     else:
+        # Gemini reads the PDF itself. A text copy made beforehand (Docling)
+        # was tried and measured: it did not help, and sometimes misled it.
         try:
-            text = reader.read(document.file, document.filename)
-        except Exception:
-            logger.exception("Lecture OCR impossible de %s", document.filename)
-            text = ""
-
-        try:
-            extracted = extractor.extract(text, document.file)
+            extracted = extractor.extract(document.file)
         except ExtractionError as e:
             _finish(session, document, DocumentStatus.failed, str(e))
             return

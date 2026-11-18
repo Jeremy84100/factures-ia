@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from app.api.deps import get_extractor, get_pdf_reader
+from app.api.deps import get_extractor
 from app.core.config import settings
 from app.main import app
 from app.models import DocumentLine, DocumentStatus
@@ -14,7 +14,6 @@ from tests.utils.invoice import (
     ORDER,
     PDF_BYTES,
     FakeExtractor,
-    FakeReader,
     create_random_invoice,
 )
 
@@ -23,7 +22,6 @@ URL = f"{settings.API_V1_STR}/documents/"
 
 @pytest.fixture(autouse=True)
 def fake_ai() -> Generator[None]:
-    app.dependency_overrides[get_pdf_reader] = FakeReader
     app.dependency_overrides[get_extractor] = FakeExtractor
     yield
     app.dependency_overrides.clear()

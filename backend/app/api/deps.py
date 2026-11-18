@@ -14,7 +14,6 @@ from app.core.config import settings
 from app.core.db import engine
 from app.models import TokenPayload, User
 from app.services.extraction import DocumentExtractor, GeminiExtractor
-from app.services.pdf_reader import DoclingReader, PdfReader
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -58,10 +57,6 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
     return current_user
 
 
-def get_pdf_reader() -> PdfReader:
-    return DoclingReader()
-
-
 def get_extractor() -> DocumentExtractor:
     return GeminiExtractor(api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL)
 
@@ -70,6 +65,5 @@ def get_engine() -> Engine:
     return engine
 
 
-PdfReaderDep = Annotated[PdfReader, Depends(get_pdf_reader)]
 ExtractorDep = Annotated[DocumentExtractor, Depends(get_extractor)]
 EngineDep = Annotated[Engine, Depends(get_engine)]
