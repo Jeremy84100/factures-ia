@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
@@ -29,6 +30,7 @@ from app.services.extraction import (
     ExtractedLine,
     ExtractionError,
 )
+from app.services.iban import clean_iban, iban_change
 from app.services.payment_terms import due_from_terms
 from app.services.pdf_reader import PdfReader
 
@@ -40,6 +42,7 @@ PRICE_STEP = Decimal("0.0001")
 STALE_AFTER = timedelta(minutes=10)
 QUEUED_TOO_LONG = timedelta(hours=1)
 INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 KINDS = {
     "facture": DocumentKind.invoice,
@@ -77,6 +80,11 @@ def to_date(value: str | None) -> date | None:
 
 def to_text(value: str | None, max_length: int) -> str | None:
     return (value or "").strip()[:max_length] or None
+
+
+def to_email(value: str | None) -> str | None:
+    text = (value or "").strip().removeprefix("mailto:")
+    return text[:255] if EMAIL.match(text) else None
 
 
 def to_line(line: ExtractedLine | LineFields, position: int) -> DocumentLine:
@@ -132,6 +140,8 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
     document.due_date = to_date(extracted.due_date) or due_from_terms(
         document.payment_terms, document.document_date
     )
+    document.iban = clean_iban(extracted.iban)
+    document.supplier_email = to_email(extracted.supplier_email)
     document.lines = to_lines(extracted.lines)
     sign_credit_note(document)
 
@@ -150,6 +160,21 @@ def find_duplicate(session: Session, document: Document) -> Document | None:
     same_amount = [m for m in matches if m.amount_incl_tax == document.amount_incl_tax]
     best = same_amount or matches
     return best[0] if best else None
+
+
+def invoices_with_iban(session: Session, document: Document) -> list[Document]:
+    if document.kind != DocumentKind.invoice or not document.iban:
+        return []
+    return list(
+        session.exec(
+            select(Document).where(
+                Document.owner_id == document.owner_id,
+                Document.kind == DocumentKind.invoice,
+                Document.id != document.id,
+                col(Document.iban).is_not(None),
+            )
+        ).all()
+    )
 
 
 def expire_stale(session: Session) -> None:
@@ -206,6 +231,7 @@ def run_checks(
         document,
         find_duplicate(session, document),
         extraction_issues=extraction_issues,
+        iban_issue=iban_change(document, invoices_with_iban(session, document)),
     )
     document.status = status
     document.issues = issues

@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from app.models import Document, DocumentKind, DocumentStatus, LineFields
 from app.services.extraction import ExtractedDocument
+from app.services.iban import INVALID_IBAN, valid_iban
 
 TOLERANCE = Decimal("0.02")
 CENT = Decimal("0.01")
@@ -133,6 +134,7 @@ def check_document(
     duplicate_of: Document | None,
     today: date | None = None,
     extraction_issues: list[str] | None = None,
+    iban_issue: str | None = None,
 ) -> tuple[DocumentStatus, list[str]]:
     if document.kind == DocumentKind.unknown:
         return DocumentStatus.unreadable, [NOT_A_PURCHASE_DOCUMENT]
@@ -174,6 +176,11 @@ def check_document(
     due = document.due_date
     if due and document.document_date and due < document.document_date:
         issues.append(DUE_BEFORE_INVOICE)
+
+    if document.iban and not valid_iban(document.iban):
+        issues.append(INVALID_IBAN)
+    if iban_issue:
+        issues.append(iban_issue)
 
     if duplicate_of is not None:
         issues.append(number_issue(document, duplicate_of))

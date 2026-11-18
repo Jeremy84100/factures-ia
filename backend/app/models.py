@@ -128,6 +128,8 @@ class DocumentFields(SQLModel):
     expected_delivery_date: date | None = None
     due_date: date | None = None
     payment_terms: str | None = Field(default=None, max_length=100)
+    iban: str | None = Field(default=None, max_length=34)
+    supplier_email: str | None = Field(default=None, max_length=255)
 
 
 class DocumentUpdate(DocumentFields):
@@ -240,6 +242,8 @@ class DocumentRef(SQLModel):
 class LinkSuggestion(SQLModel):
     key: str
     order_reference: str
+    # When the order was placed, so the user can tell it is the right one.
+    order_date: date | None = None
 
 
 # A document no purchase could take, with the purchases it may belong to.
@@ -284,6 +288,9 @@ class Purchase(SQLModel):
     due_date: date | None = None
     # No due date written on the invoice: the legal 30 days are assumed.
     due_date_assumed: bool = False
+    # Where to pay and whom to write to, from the latest invoice.
+    iban: str | None = None
+    supplier_email: str | None = None
     settled_at: datetime | None = None
     paid_at: datetime | None = None
 
@@ -295,6 +302,7 @@ class Purchases(SQLModel):
 
 
 class SupplierEmail(SQLModel):
+    to: str | None = None
     subject: str
     body: str
 

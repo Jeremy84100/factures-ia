@@ -21,11 +21,11 @@ def documents_of(db: Session, user: User) -> list[Document]:
     return list(db.exec(select(Document).where(Document.owner_id == user.id)).all())
 
 
-def test_demo_user_gets_the_31_documents_already_read(db: Session) -> None:
+def test_demo_user_gets_the_33_documents_already_read(db: Session) -> None:
     user = create_demo_user(db, TODAY)
     assert is_demo(user)
     documents = documents_of(db, user)
-    assert len(documents) == 31
+    assert len(documents) == 33
     assert {d.status for d in documents} == {DocumentStatus.ok, DocumentStatus.to_check}
     assert all(d.file.startswith(b"%PDF") for d in documents)
 

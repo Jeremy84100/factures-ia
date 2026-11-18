@@ -30,6 +30,7 @@ def test_header_read_from_the_xml() -> None:
     )
     assert read.currency == "EUR"
     assert read.due_date == "2017-12-13"
+    assert read.iban == "FR2012421242124212421242124"
     assert not read.is_credit_note
     # BASIC WL: no lines in the XML.
     assert read.lines == []

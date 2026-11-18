@@ -35,6 +35,7 @@ def write_reminder(purchase: Purchase, sender: str | None = None) -> SupplierEma
         "",
     ]
     return SupplierEmail(
+        to=purchase.supplier_email,
         subject=f"Commande {purchase.order_reference} : livraison pas encore reçue",
         body="\n".join(signed(lines, sender)),
     )
@@ -73,4 +74,8 @@ def write_email(purchase: Purchase, sender: str | None = None) -> SupplierEmail:
     if purchase.invoices and extra > AMOUNT_TOLERANCE:
         lines += [f"Le montant facturé en trop s'élève à {euros(extra)} HT.", ""]
     lines += [request, ""]
-    return SupplierEmail(subject=subject, body="\n".join(signed(lines, sender)))
+    return SupplierEmail(
+        to=purchase.supplier_email,
+        subject=subject,
+        body="\n".join(signed(lines, sender)),
+    )

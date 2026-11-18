@@ -170,6 +170,19 @@ def parse_cii(xml: bytes) -> ExtractedDocument | None:
         or (incl is not None and incl < 0),
         vat_exemption=exemption,
         due_date=day(terms, "ram:DueDateDateTime/udt:DateTimeString"),
+        iban=text(
+            settlement,
+            "ram:SpecifiedTradeSettlementPaymentMeans"
+            "/ram:PayeePartyCreditorFinancialAccount/ram:IBANID",
+        ),
+        supplier_email=text(
+            agreement, "ram:SellerTradeParty/ram:URIUniversalCommunication/ram:URIID"
+        )
+        or text(
+            agreement,
+            "ram:SellerTradeParty/ram:DefinedTradeContact"
+            "/ram:EmailURIUniversalCommunication/ram:URIID",
+        ),
         payment_terms=text(terms, "ram:Description"),
         lines=[
             to_line(item)

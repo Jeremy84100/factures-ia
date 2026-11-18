@@ -470,6 +470,12 @@ def due_of(invoices: Sequence[Document]) -> tuple[date | None, bool]:
     return min(dues, default=(None, False))
 
 
+def latest(documents: Sequence[Document], field: str) -> str | None:
+    """The value on the most recent document that has one."""
+    dated = sorted(documents, key=lambda d: d.document_date or date.min, reverse=True)
+    return next((getattr(d, field) for d in dated if getattr(d, field)), None)
+
+
 def invoice_only_note(invoices: Sequence[Document]) -> str:
     cited = next((i.order_reference for i in invoices if i.order_reference), None)
     if all(i.is_credit_note for i in invoices):
@@ -583,6 +589,8 @@ def reconcile(
         gap_incl_tax=with_tax(gap, total, incl),
         due_date=due_date,
         due_date_assumed=assumed,
+        iban=latest(invoices, "iban"),
+        supplier_email=latest(documents, "supplier_email"),
     )
     disputed = all_issues(purchase)
     if disputed and settles(settlement, disputed):
@@ -626,7 +634,11 @@ def suggestions_for(
         and not getattr(p, MISSING[document.kind])
     ]
     return [
-        LinkSuggestion(key=p.key, order_reference=p.order_reference)
+        LinkSuggestion(
+            key=p.key,
+            order_reference=p.order_reference,
+            order_date=p.orders[0].document_date,
+        )
         for p in candidates[:3]
     ]
 

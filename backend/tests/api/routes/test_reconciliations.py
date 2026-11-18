@@ -268,3 +268,39 @@ def test_reminder_for_a_late_delivery(
     email = r.json()
     assert email["subject"] == "Commande API-16 : livraison pas encore reçue"
     assert "dont la livraison était prévue le 04/10/2026" in email["body"]
+
+
+def test_changed_iban_holds_the_payment(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    _, _, invoice = purchase_documents("API-17")
+    usual = invoice.model_copy(
+        update={
+            "order_reference": None,
+            "supplier": "Loueur Iban Test",
+            "number": "LIT-1",
+            "date": "2026-10-01",
+            "iban": "FR76 3000 6000 0112 3456 7890 189",
+            "supplier_email": "compta@loueur.example",
+        }
+    )
+    changed = usual.model_copy(
+        update={
+            "number": "LIT-2",
+            "date": "2026-11-01",
+            "iban": "FR7699999000120000000000241",
+        }
+    )
+    deposit(client, normal_user_token_headers, usual, changed)
+    r = client.get(URL, headers=normal_user_token_headers)
+    by_number = {p["order_reference"]: p for p in r.json()["data"]}
+    assert by_number["LIT-1"]["status"] == "to_pay"
+    assert by_number["LIT-1"]["iban"] == "FR7630006000011234567890189"
+    assert by_number["LIT-2"]["status"] == "waiting"
+    assert "Nouvel IBAN" in by_number["LIT-2"]["notes"][0]
+
+    key = by_number["LIT-1"]["key"]
+    deposit_dispute(client, normal_user_token_headers, "API-18")
+    email = client.get(f"{URL}API18/email", headers=normal_user_token_headers).json()
+    assert email["to"] is None
+    assert key.startswith("FACTURE-")

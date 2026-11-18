@@ -34,6 +34,7 @@ class Doc:
     promised_day: str | None = None
     payment_terms: str | None = None
     due_day: str | None = None
+    iban: str | None = None
 
 
 @dataclass
@@ -92,8 +93,24 @@ EXPRESS = Line("PORT-EXP", "Frais de livraison express 24 h", 1, "forfait", 45.0
 DISQUE = Line(
     "DIS-125-INOX", "Disque à tronçonner inox 125 mm lot de 10", 6, "lot", 17.50
 )
+MINIPELLE = Line("LOC-MP15", "Location mini-pelle 1,5 t (semaine)", 1, "sem", 420.00)
+TRANSPORT = Line("TRP-AR", "Transport aller-retour chantier", 1, "forfait", 90.00)
 FIBRE = Line("FIB-PRO", "Abonnement fibre pro novembre 2026", 1, "mois", 59.90)
 MOBILE = Line("MOB-50", "Forfait mobile 50 Go", 3, "ligne", 19.99)
+
+
+def fake_iban(supplier: int, account: int) -> str:
+    """A well-formed French IBAN on bank code 99999, which no bank uses: the
+    demo must never print a real account number."""
+    bank, branch, number = "99999", f"{supplier:05d}", f"{account:011d}"
+    key = 97 - (89 * int(bank) + 15 * int(branch) + 3 * int(number)) % 97
+    bban = f"{bank}{branch}{number}{key:02d}"
+    check = 98 - int(f"{bban}152700") % 97
+    return f"FR{check:02d}{bban}"
+
+
+def supplier_email(supplier: str) -> str:
+    return f"compta@{slug(supplier)}.example"
 
 
 def delivered(*lines: Line) -> list[Line]:
@@ -345,6 +362,36 @@ CASES += [
             ),
         ],
     ),
+    Case(
+        "Même loueur, l'IBAN a changé : à vérifier",
+        "Location Matériel Vaucluse",
+        "LMV-2611-131",
+        "waiting",
+        [
+            Doc(
+                "invoice",
+                "LMV-2611-131",
+                "2026-11-05",
+                [MINIPELLE, TRANSPORT],
+                iban=fake_iban(12, 2),
+            ),
+        ],
+    ),
+    Case(
+        "Location du mois précédent, IBAN habituel",
+        "Location Matériel Vaucluse",
+        "LMV-2610-118",
+        "to_pay",
+        [
+            Doc(
+                "invoice",
+                "LMV-2610-118",
+                "2026-10-05",
+                [MINIPELLE, TRANSPORT],
+                iban=fake_iban(12, 1),
+            ),
+        ],
+    ),
 ]
 
 # How each invoice is to be paid: terms as written, due date when printed.
@@ -359,6 +406,8 @@ PAYMENT = {
     "CL-26-0912": ("45 jours fin de mois", None),
     "IVP-F-26-377": ("Paiement à réception de facture", None),
     "TPP-2611-0458": ("Prélèvement à échéance", "2026-11-20"),
+    "LMV-2610-118": ("30 jours fin de mois", None),
+    "LMV-2611-131": ("30 jours fin de mois", None),
 }
 
 # How each document is delivered: written method, mode, promised date (orders).
@@ -384,7 +433,7 @@ DELIVERY = {
     "CMD-26-110": ("Livraison express 24 h", "express", "2026-10-10"),
     "BL-IVP-2208": ("Livraison standard J+3", "standard", None),
 }
-for _case in CASES:
+for _index, _case in enumerate(CASES, start=1):
     _case.documents = [
         replace(
             doc,
@@ -403,6 +452,12 @@ for _case in CASES:
             due_day=PAYMENT[doc.number][1],
         )
         if doc.number in PAYMENT
+        else doc
+        for doc in _case.documents
+    ]
+    _case.documents = [
+        replace(doc, iban=doc.iban or fake_iban(_index, 1))
+        if doc.kind == "invoice"
         else doc
         for doc in _case.documents
     ]
@@ -526,6 +581,16 @@ def draw(case: Case, index: int, doc: Doc) -> FPDF:
                 new_x="LMARGIN",
                 new_y="NEXT",
             )
+        if doc.iban:
+            iban = " ".join(doc.iban[i : i + 4] for i in range(0, len(doc.iban), 4))
+            pdf.cell(0, 6, latin(f"IBAN : {iban}"), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            0,
+            6,
+            latin(f"Contact comptabilité : {supplier_email(case.supplier)}"),
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
         if doc.due_day:
             dy, dm, dd = doc.due_day.split("-")
             pdf.cell(
@@ -582,6 +647,10 @@ def expected_document(case: Case, filename: str, doc: Doc) -> dict[str, object]:
         "amount_excl_tax": excl if priced else None,
         "payment_terms": doc.payment_terms,
         "due_date": str(due) if due else None,
+        "iban": doc.iban,
+        "supplier_email": supplier_email(case.supplier)
+        if priced and doc.kind == "invoice"
+        else None,
         "lines": lines,
     }
 

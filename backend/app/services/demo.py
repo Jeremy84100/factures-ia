@@ -23,10 +23,12 @@ from app.models import (
     Document,
     DocumentKind,
     DocumentLine,
+    DocumentStatus,
     User,
     get_datetime_utc,
 )
 from app.services.checks import check_document
+from app.services.iban import iban_change
 
 DEMO_DIR = Path(__file__).parent.parent / "demo" / "purchases"
 DEMO_DOMAIN = "demo.example.com"
@@ -86,6 +88,8 @@ def demo_document(case: dict[str, Any], owner_id: uuid.UUID, today: date) -> Doc
         else None,
         expected_delivery_date=date.fromisoformat(promised) if promised else None,
         payment_terms=case.get("payment_terms"),
+        iban=case.get("iban"),
+        supplier_email=case.get("supplier_email"),
         due_date=date.fromisoformat(due) if due else None,
         amount_excl_tax=to_decimal(case["amount_excl_tax"]),
         currency="EUR",
@@ -99,6 +103,15 @@ def demo_document(case: dict[str, Any], owner_id: uuid.UUID, today: date) -> Doc
         document.amount_incl_tax = excl + document.vat_amount
     document.status, document.issues = check_document(document, None, today)
     return document
+
+
+def check_ibans(documents: list[Document]) -> None:
+    """The bank account check that a real upload does against the database."""
+    for document in documents:
+        issue = iban_change(document, documents)
+        if issue:
+            document.issues = [*document.issues, issue]
+            document.status = DocumentStatus.to_check
 
 
 def is_demo(user: User) -> bool:
@@ -133,9 +146,11 @@ def create_demo_user(session: Session, today: date | None = None) -> User:
     )
     session.add(user)
     session.flush()
-    session.add_all(
+    documents = [
         demo_document(case, user.id, today or date.today()) for case in demo_cases()
-    )
+    ]
+    check_ibans(documents)
+    session.add_all(documents)
     session.commit()
     session.refresh(user)
     return user

@@ -14,6 +14,7 @@ from app.models import (
     PurchaseStatus,
 )
 from app.services.checks import check_document
+from app.services.demo import check_ibans
 from app.services.reconciliation import build_purchases, reference_key
 
 FIXTURES = Path(__file__).parents[2] / "app" / "demo" / "purchases"
@@ -61,6 +62,8 @@ def as_read_perfectly(case: dict[str, Any]) -> Document:
         else None,
         amount_excl_tax=to_decimal(case["amount_excl_tax"]),
         payment_terms=case["payment_terms"],
+        iban=case["iban"],
+        supplier_email=case["supplier_email"],
         due_date=date.fromisoformat(case["due_date"]) if case["due_date"] else None,
         currency="EUR",
         lines=lines,
@@ -73,8 +76,14 @@ def as_read_perfectly(case: dict[str, Any]) -> Document:
     return document
 
 
-def test_demo_purchases_get_the_expected_verdict() -> None:
+def all_read_perfectly() -> list[Document]:
     documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    check_ibans(documents)
+    return documents
+
+
+def test_demo_purchases_get_the_expected_verdict() -> None:
+    documents = all_read_perfectly()
     assert {d.status for d in documents} <= {DocumentStatus.ok, DocumentStatus.to_check}
 
     result = build_purchases(documents, TODAY)
@@ -89,7 +98,7 @@ def test_demo_purchases_get_the_expected_verdict() -> None:
 
 
 def test_demo_delivery_problems_are_explained() -> None:
-    documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    documents = all_read_perfectly()
     purchases = {p.key: p for p in build_purchases(documents, TODAY).data}
 
     late = purchases["CMD26109"]
@@ -105,7 +114,7 @@ def test_demo_delivery_problems_are_explained() -> None:
 
 
 def test_demo_payment_dates() -> None:
-    documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    documents = all_read_perfectly()
     purchases = {p.order_reference: p for p in build_purchases(documents, TODAY).data}
 
     # 45 days after the 04/10 invoice.
@@ -123,7 +132,7 @@ def test_demo_payment_dates() -> None:
 
 
 def test_demo_unlinked_delivery_is_not_called_late() -> None:
-    documents = [as_read_perfectly(case) for case in EXPECTED["documents"]]
+    documents = all_read_perfectly()
     result = build_purchases(documents, TODAY)
     paint = next(p for p in result.data if p.order_reference == "CMD-26-107")
     assert not paint.late
@@ -133,3 +142,16 @@ def test_demo_unlinked_delivery_is_not_called_late() -> None:
     ]
     (unlinked,) = result.unlinked
     assert [s.order_reference for s in unlinked.suggestions] == ["CMD-26-107"]
+
+
+def test_demo_changed_iban_waits_for_a_call() -> None:
+    purchases = {
+        p.order_reference: p for p in build_purchases(all_read_perfectly(), TODAY).data
+    }
+    usual = purchases["LMV-2610-118"]
+    assert usual.status == PurchaseStatus.to_pay
+    assert usual.iban and usual.supplier_email
+    changed = purchases["LMV-2611-131"]
+    assert changed.status == PurchaseStatus.waiting
+    assert changed.notes[0].startswith("Facture LMV-2611-131 à vérifier : Nouvel IBAN")
+    assert "Appelez le fournisseur" in changed.notes[0]

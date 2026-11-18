@@ -100,6 +100,14 @@ class ExtractedDocument(BaseModel):
         default=None,
         description="Sur une facture : conditions ou délai de paiement recopiés tels quels (« 30 jours », « 45 jours fin de mois », « à réception », « comptant »). null si le document n'en parle pas.",
     )
+    iban: str | None = Field(
+        default=None,
+        description="Sur une facture : IBAN du fournisseur où payer, recopié tel qu'il est écrit. null s'il n'y en a pas.",
+    )
+    supplier_email: str | None = Field(
+        default=None,
+        description="Adresse e-mail du fournisseur écrite sur le document (contact, comptabilité, service client). Jamais celle de l'acheteur. null s'il n'y en a pas.",
+    )
     lines: list[ExtractedLine] = Field(
         default_factory=list, description="Lignes d'articles du document"
     )
