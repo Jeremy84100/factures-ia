@@ -41,9 +41,17 @@ class ExtractedDocument(BaseModel):
         default=None,
         description="facture (y compris avoir, reçu, ticket, note d'hôtel, invoice, Rechnung, bill), bon_de_commande (commande d'achat, purchase order), bon_de_livraison (bon de livraison, bordereau de livraison, delivery note, Lieferschein) ou autre",
     )
+    title: str | None = Field(
+        default=None,
+        description="Titre du document recopié tel qu'il est imprimé en haut (« FACTURE », « AVOIR », « Facture d'avoir », « BON DE LIVRAISON », « Gutschrift », « Credit note »…). null s'il n'y en a pas.",
+    )
     supplier: str | None = Field(
         default=None,
         description="Raison sociale de l'entreprise qui vend : celle qui émet la facture ou le bon de livraison, celle à qui le bon de commande est adressé. Jamais l'acheteur, jamais une personne de contact.",
+    )
+    supplier_country: str | None = Field(
+        default=None,
+        description="Pays de l'adresse du fournisseur, en code ISO à 2 lettres (FR, BE, DE, ES, IT, GB, US…). null si l'adresse n'indique pas le pays et que rien ne permet de le savoir.",
     )
     number: str | None = Field(
         default=None,

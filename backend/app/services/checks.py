@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
-from app.models import Document, DocumentKind, DocumentStatus, LineFields
+from app.models import DateOrder, Document, DocumentKind, DocumentStatus, LineFields
 from app.services.extraction import ExtractedDocument
 from app.services.iban import INVALID_IBAN, valid_iban
 
@@ -56,7 +56,13 @@ def ambiguous_date(extracted: ExtractedDocument) -> str | None:
     return f"Date « {raw.strip()} » à vérifier : jour et mois peuvent être inversés"
 
 
-def review_extraction(extracted: ExtractedDocument) -> list[str]:
+def review_extraction(
+    extracted: ExtractedDocument, date_order: DateOrder | None = None
+) -> list[str]:
+    # Known from the supplier's country or a correction: the code read the
+    # date, nothing is ambiguous.
+    if date_order is not None:
+        return []
     date_issue = ambiguous_date(extracted)
     return [date_issue] if date_issue else []
 

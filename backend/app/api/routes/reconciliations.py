@@ -18,6 +18,7 @@ from app.models import (
 from app.services.demo import is_demo
 from app.services.reconciliation import PURCHASE_KINDS, all_issues, build_purchases
 from app.services.supplier_email import write_email
+from app.services.suppliers import ensure_suppliers
 
 router = APIRouter(prefix="/reconciliations", tags=["reconciliations"])
 
@@ -32,6 +33,7 @@ def payments_of(session: SessionDep, user: CurrentUser) -> list[Payment]:
 
 
 def load_purchases(session: SessionDep, user: CurrentUser) -> Purchases:
+    ensure_suppliers(session, user.id)
     documents = session.exec(
         select(Document)
         .where(

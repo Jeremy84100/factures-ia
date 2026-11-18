@@ -585,6 +585,9 @@ def reconcile(
         key=key,
         order_reference=reference or key,
         supplier=next((d.supplier for d in [*orders, *documents] if d.supplier), None),
+        supplier_id=next(
+            (d.supplier_id for d in [*orders, *documents] if d.supplier_id), None
+        ),
         status=status,
         orders=[to_ref(d) for d in orders],
         deliveries=[to_ref(d) for d in deliveries],

@@ -132,6 +132,76 @@ class DocumentFields(SQLModel):
     supplier_email: str | None = Field(default=None, max_length=255)
 
 
+class DateOrder(StrEnum):
+    day_first = "day_first"
+    month_first = "month_first"
+
+
+# What the app knows about a supplier, like an Odoo partner: country, payment
+# terms, bank account. Filled from its documents and by the user.
+class SupplierFields(SQLModel):
+    name: str = Field(max_length=255)
+    # ISO 3166 code of the supplier's address (FR, DE, US…).
+    country: str | None = Field(default=None, max_length=2)
+    # How the supplier writes 08/01/2026. Unset: from its country.
+    date_order: DateOrder | None = Field(default=None, sa_type=String(20))
+    payment_terms: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=255)
+    iban: str | None = Field(default=None, max_length=34)
+
+
+class Supplier(SupplierFields, table=True):
+    __table_args__ = (UniqueConstraint("owner_id", "key"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    # The name without accents, punctuation or legal form: one supplier
+    # whatever way its documents write it.
+    key: str = Field(max_length=255)
+    # When the user confirmed the IBAN, by phone or by typing it.
+    iban_confirmed_at: datetime | None = None
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+
+
+class SupplierUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    # Checked by the route, to answer in French.
+    country: str | None = Field(default=None, max_length=60)
+    date_order: DateOrder | None = None
+    payment_terms: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=255)
+    iban: str | None = Field(default=None, max_length=34)
+
+
+class RuleField(StrEnum):
+    # A supplier name as the AI read it, and the supplier it is.
+    supplier = "supplier"
+    # A delivery method as written by the supplier, and what it means.
+    delivery_mode = "delivery_mode"
+
+
+# A correction the user made once and the app replays on the next documents,
+# like the matching rules of paperless-ngx. Shown and removable in the
+# supplier's page.
+class LearnedRule(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("owner_id", "supplier_id", "field", "seen"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    supplier_id: uuid.UUID = Field(
+        foreign_key="supplier.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    field: RuleField = Field(sa_type=String(30))
+    # What the document says, folded (no accents, lower case).
+    seen: str = Field(max_length=255)
+    value: str = Field(max_length=255)
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+
+
 class DocumentUpdate(DocumentFields):
     kind: DocumentKind | None = None
     lines: list[LineFields] | None = None
@@ -152,6 +222,12 @@ class Document(DocumentFields, table=True):
     from_einvoice: bool = False
     # The user called the supplier: a new IBAN on this invoice is genuine.
     iban_checked: bool = False
+    # The date as printed (« 08/01/2026 »): read again once the supplier's
+    # way of writing dates is known.
+    date_raw: str | None = Field(default=None, max_length=30)
+    supplier_id: uuid.UUID | None = Field(
+        default=None, foreign_key="supplier.id", ondelete="SET NULL", index=True
+    )
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     started_at: datetime | None = None
     processed_at: datetime | None = None
@@ -188,9 +264,13 @@ class DocumentPublic(DocumentFields):
     issues: list[str]
     from_einvoice: bool = False
     iban_checked: bool = False
+    date_raw: str | None = None
+    supplier_id: uuid.UUID | None = None
     lines: list[LineFields] = []
     created_at: datetime | None = None
     processed_at: datetime | None = None
+    # What a correction taught the app, said back once after saving.
+    learned: list[str] = []
 
 
 class DocumentsPublic(SQLModel):
@@ -272,6 +352,7 @@ class Purchase(SQLModel):
     key: str
     order_reference: str
     supplier: str | None = None
+    supplier_id: uuid.UUID | None = None
     status: PurchaseStatus
     orders: list[DocumentRef] = []
     deliveries: list[DocumentRef] = []
@@ -304,6 +385,31 @@ class Purchase(SQLModel):
 class Purchases(SQLModel):
     data: list[Purchase]
     unlinked: list[UnlinkedDocument]
+    count: int
+
+
+class SupplierRule(SQLModel):
+    id: uuid.UUID
+    field: RuleField
+    # Said in French: « "Livraison dépôt" veut dire livraison standard ».
+    label: str
+
+
+class SupplierSummary(SupplierFields):
+    id: uuid.UUID
+    iban_confirmed_at: datetime | None = None
+    documents: int = 0
+    invoiced_incl_tax: Decimal = Decimal(0)
+    last_document_date: date | None = None
+
+
+class SupplierDetail(SupplierSummary):
+    rules: list[SupplierRule] = []
+    recent: list[DocumentRef] = []
+
+
+class Suppliers(SQLModel):
+    data: list[SupplierSummary]
     count: int
 
 

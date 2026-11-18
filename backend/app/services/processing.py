@@ -32,6 +32,7 @@ from app.services.extraction import (
 )
 from app.services.iban import clean_iban, iban_change
 from app.services.payment_terms import due_from_terms
+from app.services.suppliers import remember
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,13 @@ STALE_AFTER = timedelta(minutes=10)
 QUEUED_TOO_LONG = timedelta(hours=1)
 INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# A title that says credit note, in the languages of the suppliers met. Read by
+# code: the AI once took a « Gutschrift » for an invoice.
+CREDIT_TITLE = re.compile(
+    r"\b(avoirs?|note de cr[ée]dit|credit ?notes?|credit memo|gutschrift"
+    r"|nota de cr[ée]dito|nota di credito|creditnota)\b",
+    re.IGNORECASE,
+)
 
 KINDS = {
     "facture": DocumentKind.invoice,
@@ -110,6 +118,10 @@ def to_lines(lines: list[ExtractedLine] | list[LineFields]) -> list[DocumentLine
     return [to_line(line, position) for position, line in enumerate(kept)]
 
 
+def is_credit_title(title: str | None) -> bool:
+    return bool(CREDIT_TITLE.search(title or ""))
+
+
 def sign_credit_note(document: Document) -> None:
     if not document.is_credit_note:
         return
@@ -125,12 +137,15 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
     document.supplier = to_text(extracted.supplier, 255)
     document.number = to_text(extracted.number, 100)
     document.document_date = to_date(extracted.date)
+    document.date_raw = to_text(extracted.date_raw, 30)
     document.order_reference = to_text(extracted.order_reference, 100)
     document.amount_excl_tax = to_amount(extracted.amount_excl_tax)
     document.vat_amount = to_amount(extracted.vat_amount)
     document.amount_incl_tax = to_amount(extracted.amount_incl_tax)
     document.currency = (extracted.currency or "").upper()[:3] or None
-    document.is_credit_note = bool(extracted.is_credit_note)
+    document.is_credit_note = bool(extracted.is_credit_note) or is_credit_title(
+        extracted.title
+    )
     document.vat_exemption = to_text(extracted.vat_exemption, 255)
     document.delivery_method = to_text(extracted.delivery_method, 100)
     document.delivery_mode = DELIVERY_MODES.get(extracted.delivery_mode or "")
@@ -290,7 +305,13 @@ def _read(
 
     apply_extraction(document, extracted)
     document.from_einvoice = einvoice is not None
-    run_checks(session, document, review_extraction(extracted))
+    order = remember(
+        session,
+        document,
+        extracted.supplier_country,
+        due_printed=to_date(extracted.due_date) is not None,
+    )
+    run_checks(session, document, review_extraction(extracted, order))
     document.processed_at = get_datetime_utc()
     session.add(document)
     session.commit()

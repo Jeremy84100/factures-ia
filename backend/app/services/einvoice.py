@@ -155,6 +155,9 @@ def parse_cii(xml: bytes) -> ExtractedDocument | None:
     return ExtractedDocument(
         document_type="facture",
         supplier=text(agreement, "ram:SellerTradeParty/ram:Name"),
+        supplier_country=text(
+            agreement, "ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID"
+        ),
         number=text(header, "ram:ID"),
         date_raw=None,
         date=day(header, "ram:IssueDateTime/udt:DateTimeString"),

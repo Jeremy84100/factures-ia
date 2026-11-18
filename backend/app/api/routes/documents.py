@@ -19,6 +19,7 @@ from app.models import (
     LineFields,
     Message,
     Payment,
+    Supplier,
     SupplierTotal,
     SupplierTotals,
     User,
@@ -36,6 +37,7 @@ from app.services.processing import (
     sign_credit_note,
     to_lines,
 )
+from app.services.suppliers import Before, learn
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -262,6 +264,7 @@ def update_document(
     document = get_owned_document(session, current_user, id)
     if document.status in BUSY:
         raise HTTPException(status_code=409, detail="Document en cours de lecture")
+    before = Before.of(document)
     changes = document_in.model_dump(exclude_unset=True, exclude={"lines"})
     if "iban" in changes and clean_iban(changes["iban"]) != document.iban:
         document.iban_checked = False
@@ -276,11 +279,14 @@ def update_document(
             document.payment_terms, document.document_date
         )
     sign_credit_note(document)
+    learned = learn(session, document, before)
     run_checks(session, document)
     session.add(document)
     session.commit()
     session.refresh(document)
-    return to_public(document)
+    public = to_public(document)
+    public.learned = learned
+    return public
 
 
 @router.post("/{id}/confirm-iban", response_model=DocumentPublic)
@@ -292,6 +298,14 @@ def confirm_iban(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) 
     if document.status in BUSY:
         raise HTTPException(status_code=409, detail="Document en cours de lecture")
     document.iban_checked = True
+    supplier = (
+        session.get(Supplier, document.supplier_id) if document.supplier_id else None
+    )
+    if supplier is not None and document.iban:
+        # Like a trusted bank account in Odoo: the one to pay from now on.
+        supplier.iban = document.iban
+        supplier.iban_confirmed_at = get_datetime_utc()
+        session.add(supplier)
     run_checks(session, document)
     session.add(document)
     session.commit()
