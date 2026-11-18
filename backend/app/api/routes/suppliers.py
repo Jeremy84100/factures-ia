@@ -120,7 +120,7 @@ def other_ibans(session: SessionDep, supplier: Supplier) -> list[OtherIban]:
     the old ones, and a new one nobody has confirmed yet.
     """
     invoices = session.exec(
-        select(Document.iban, Document.document_date, Document.number)
+        select(col(Document.iban), col(Document.document_date), col(Document.number))
         .where(
             Document.owner_id == supplier.owner_id,
             Document.supplier_id == supplier.id,
