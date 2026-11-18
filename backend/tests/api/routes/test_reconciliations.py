@@ -297,7 +297,22 @@ def test_changed_iban_holds_the_payment(
     assert by_number["LIT-1"]["status"] == "to_pay"
     assert by_number["LIT-1"]["iban"] == "FR7630006000011234567890189"
     assert by_number["LIT-2"]["status"] == "waiting"
-    assert "Nouvel IBAN" in by_number["LIT-2"]["notes"][0]
+    assert by_number["LIT-2"]["iban_warning"].startswith("Nouvel IBAN")
+    assert by_number["LIT-2"]["notes"] == [
+        "Facture seule : rien à comparer, elle est vérifiée seule"
+    ]
+
+    # The supplier was called: the new IBAN is good.
+    invoice_id = by_number["LIT-2"]["iban_document_id"]
+    r = client.post(
+        f"{DOCUMENTS}{invoice_id}/confirm-iban", headers=normal_user_token_headers
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "ok"
+    r = client.get(URL, headers=normal_user_token_headers)
+    by_number = {p["order_reference"]: p for p in r.json()["data"]}
+    assert by_number["LIT-2"]["status"] == "to_pay"
+    assert by_number["LIT-2"]["iban_warning"] is None
 
     key = by_number["LIT-1"]["key"]
     deposit_dispute(client, normal_user_token_headers, "API-18")

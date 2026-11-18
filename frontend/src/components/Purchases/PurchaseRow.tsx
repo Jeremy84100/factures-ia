@@ -82,6 +82,7 @@ function summary(purchase: Purchase): string {
           "Un point bloque le paiement",
       )
     case "waiting":
+      if (purchase.iban_warning) return "Nouvel IBAN : appelez avant de payer"
       return shortReason(purchase.notes?.[0] ?? "Il manque un document")
     case "paid":
       return `Payé le ${paidOn(purchase)}`
@@ -117,7 +118,7 @@ function meta(purchase: Purchase): { text: string; alert: boolean } {
   }
   return {
     text: PURCHASE_STATUS[purchase.status].label,
-    alert: purchase.status === "dispute",
+    alert: purchase.status === "dispute" || !!purchase.iban_warning,
   }
 }
 

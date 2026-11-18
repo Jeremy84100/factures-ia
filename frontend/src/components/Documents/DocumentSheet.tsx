@@ -7,30 +7,28 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 
 import { type DocumentPublic, DocumentsService } from "@/client"
-import {
-  BigAmount,
-  QuickAction,
-  QuickActions,
-} from "@/components/App/QuickAction"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Spinner } from "@/components/ui/spinner"
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   formatAmount,
   formatDate,
   formatQuantity,
+  groupIban,
   isBusy,
   KIND_LONG,
   plural,
@@ -64,33 +62,41 @@ function Details({ document }: { document: DocumentPublic }) {
       rows.push(["Promise le", formatDate(document.expected_delivery_date)])
   }
   if (document.kind !== "delivery") {
-    if (document.amount_excl_tax)
-      rows.push(["Total HT", money(document.amount_excl_tax)])
-    if (document.vat_amount) rows.push(["TVA", money(document.vat_amount)])
-    if (document.amount_incl_tax)
-      rows.push(["Total TTC", money(document.amount_incl_tax)])
+    // HT and VAT on one line: they are read together, the TTC is on top.
+    const totals = [
+      document.amount_excl_tax && `${money(document.amount_excl_tax)} HT`,
+      document.vat_amount && `TVA ${money(document.vat_amount)}`,
+    ].filter(Boolean)
+    if (totals.length) rows.push(["Montants", totals.join(" · ")])
   }
-  if (document.kind === "invoice") {
-    if (document.payment_terms)
-      rows.push(["Conditions de paiement", document.payment_terms])
-    if (document.due_date)
-      rows.push(["Échéance", formatDate(document.due_date)])
-  }
-  rows.push(["Fichier", document.filename])
+  if (
+    document.kind === "invoice" &&
+    (document.due_date || document.payment_terms)
+  )
+    rows.push([
+      "Échéance",
+      [
+        document.due_date && formatDate(document.due_date),
+        document.payment_terms &&
+          (document.due_date
+            ? `(${document.payment_terms})`
+            : document.payment_terms),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    ])
+  if (document.iban) rows.push(["IBAN", groupIban(document.iban)])
+  if (document.supplier_email) rows.push(["E-mail", document.supplier_email])
   return (
-    <Card size="sm" className="gap-0 py-1.5">
-      <ItemGroup className="gap-0">
+    <Card size="sm" className="py-3">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-4 text-sm">
         {rows.map(([label, value]) => (
-          <Item key={label} size="sm" className="flex-nowrap">
-            <ItemContent>
-              <ItemDescription>{label}</ItemDescription>
-            </ItemContent>
-            <ItemActions className="min-w-0 text-right">
-              <span className="font-medium break-all">{value}</span>
-            </ItemActions>
-          </Item>
+          <Fragment key={label}>
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-right font-medium break-words">{value}</dd>
+          </Fragment>
         ))}
-      </ItemGroup>
+      </dl>
     </Card>
   )
 }
@@ -98,36 +104,58 @@ function Details({ document }: { document: DocumentPublic }) {
 function Lines({ document }: { document: DocumentPublic }) {
   const lines = document.lines ?? []
   if (lines.length === 0) return null
+  const priced = document.kind !== "delivery"
+  const head = "h-9 px-2 text-right text-xs text-muted-foreground"
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="px-1 text-base font-semibold">
-        {lines.length > 1 ? `${lines.length} articles` : "1 article"}
+    <section className="flex flex-col gap-2">
+      <h2 className="px-1 text-sm font-semibold">
+        {plural(lines.length, "article", "articles")}
       </h2>
-      <Card size="sm" className="gap-0 py-1.5">
-        <ItemGroup className="gap-0">
-          {lines.map((line, index) => (
-            <Item key={`${line.reference}-${index}`} className="flex-nowrap">
-              <ItemContent className="min-w-0">
-                <ItemTitle className="block w-full">
-                  {line.description ?? line.reference}
-                </ItemTitle>
-                {line.unit_price && (
-                  <ItemDescription>
-                    {formatAmount(line.unit_price)} l'unité
-                  </ItemDescription>
-                )}
-              </ItemContent>
-              <ItemActions className="flex-col items-end gap-1 text-right">
-                <span className="font-medium tabular-nums">
-                  {formatAmount(line.amount_excl_tax)}
-                </span>
-                <span className="text-muted-foreground tabular-nums">
-                  {formatQuantity(line.quantity)} {line.unit ?? ""}
-                </span>
-              </ItemActions>
-            </Item>
-          ))}
-        </ItemGroup>
+      <Card size="sm" className="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-9 text-xs text-muted-foreground">
+                Article
+              </TableHead>
+              <TableHead className={head}>Qté</TableHead>
+              {priced && <TableHead className={head}>HT</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {lines.map((line, index) => {
+              const detail = [
+                line.description && line.reference,
+                line.unit_price && `${formatAmount(line.unit_price)} l'unité`,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+              return (
+                <TableRow
+                  key={`${line.reference}-${index}`}
+                  className="hover:bg-transparent"
+                >
+                  <TableCell className="py-2 whitespace-normal">
+                    <p className="font-medium">
+                      {line.description ?? line.reference}
+                    </p>
+                    {detail && (
+                      <p className="text-xs text-muted-foreground">{detail}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-2 py-2 text-right tabular-nums">
+                    {formatQuantity(line.quantity)} {line.unit ?? ""}
+                  </TableCell>
+                  {priced && (
+                    <TableCell className="px-2 py-2 text-right tabular-nums">
+                      {formatAmount(line.amount_excl_tax)}
+                    </TableCell>
+                  )}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       </Card>
     </section>
   )
@@ -192,22 +220,69 @@ export function DocumentSheet({
           .filter(Boolean)
           .join(" ")}
       >
-        <div className="flex flex-col gap-6">
-          <section className="flex flex-col items-center gap-2 text-center">
-            <DocumentBadge document={document} />
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <BigAmount text={figure} size="md" />
+        <div className="flex flex-col gap-5">
+          <section className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <DocumentBadge document={document} />
+              <span>{label}</span>
+            </div>
+            <p className="text-3xl font-semibold tracking-tight tabular-nums">
+              {figure}
+            </p>
+            {document.from_einvoice && (
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <BadgeCheck className="size-4" />
+                Facture électronique : chiffres lus dans le fichier, sans IA
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                size="sm"
+                onClick={() =>
+                  openPdf(document.id).catch(() =>
+                    showErrorToast("Impossible d'ouvrir le document"),
+                  )
+                }
+              >
+                <Eye data-icon="inline-start" />
+                Voir le PDF
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => {
+                  setEditRound((round) => round + 1)
+                  switchTo(setEditing)
+                }}
+              >
+                <Pencil data-icon="inline-start" />
+                Corriger
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy || retry.isPending}
+                onClick={() => retry.mutate(document.id)}
+              >
+                {retry.isPending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <RotateCw data-icon="inline-start" />
+                )}
+                Relire avec l'IA
+              </Button>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="text-destructive"
+                aria-label="Supprimer"
+                onClick={() => switchTo(setDeleting)}
+              >
+                <Trash2 />
+              </Button>
+            </div>
           </section>
-
-          {document.from_einvoice && (
-            <Alert>
-              <BadgeCheck />
-              <AlertTitle>Facture électronique</AlertTitle>
-              <AlertDescription>
-                Chiffres lus tels quels dans le fichier joint au PDF, sans IA.
-              </AlertDescription>
-            </Alert>
-          )}
 
           {document.issues.length > 0 && (
             <Alert>
@@ -223,42 +298,11 @@ export function DocumentSheet({
             </Alert>
           )}
 
-          <QuickActions>
-            <QuickAction
-              icon={Eye}
-              label="Voir"
-              onClick={() =>
-                openPdf(document.id).catch(() =>
-                  showErrorToast("Impossible d'ouvrir le document"),
-                )
-              }
-            />
-            <QuickAction
-              icon={Pencil}
-              label="Corriger"
-              disabled={busy}
-              onClick={() => {
-                setEditRound((round) => round + 1)
-                switchTo(setEditing)
-              }}
-            />
-            <QuickAction
-              icon={RotateCw}
-              label="Relire"
-              disabled={busy}
-              pending={retry.isPending}
-              onClick={() => retry.mutate(document.id)}
-            />
-            <QuickAction
-              icon={Trash2}
-              label="Supprimer"
-              destructive
-              onClick={() => switchTo(setDeleting)}
-            />
-          </QuickActions>
-
           <Details document={document} />
           <Lines document={document} />
+          <p className="px-1 text-xs break-all text-muted-foreground">
+            Fichier : {document.filename}
+          </p>
         </div>
       </ResponsiveSheet>
       <EditDocument

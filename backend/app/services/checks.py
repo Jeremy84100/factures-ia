@@ -179,7 +179,7 @@ def check_document(
 
     if document.iban and not valid_iban(document.iban):
         issues.append(INVALID_IBAN)
-    if iban_issue:
+    if iban_issue and not document.iban_checked:
         issues.append(iban_issue)
 
     if duplicate_of is not None:

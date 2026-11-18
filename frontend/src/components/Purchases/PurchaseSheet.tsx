@@ -1,18 +1,20 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Check,
+  ChevronRight,
   CircleCheck,
   ClipboardList,
+  Copy,
   Info,
   Link2,
   Mail,
   Receipt,
   RotateCcw,
+  ShieldAlert,
   TriangleAlert,
   Truck,
 } from "lucide-react"
-
-import { Fragment, useState } from "react"
+import { type ReactNode, useState } from "react"
 
 import {
   type DocumentRef,
@@ -22,21 +24,27 @@ import {
   ReconciliationsService,
   type UnlinkedDocument,
 } from "@/client"
-import { ListGroup, ListRow } from "@/components/App/ListRow"
-import { QuickAction, QuickActions } from "@/components/App/QuickAction"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Item,
+  ItemActions,
   ItemContent,
-  ItemDescription,
-  ItemFooter,
   ItemGroup,
-  ItemSeparator,
+  ItemMedia,
   ItemTitle,
 } from "@/components/ui/item"
+import { Spinner } from "@/components/ui/spinner"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   afterLabel,
@@ -45,7 +53,9 @@ import {
   formatAmount,
   formatDate,
   formatQuantity,
+  groupIban,
   KIND_LONG,
+  PURCHASE_STATUS,
 } from "@/lib/documents"
 import { openPdf } from "@/lib/pdf"
 import { handleError } from "@/utils"
@@ -71,53 +81,78 @@ function dueText(purchase: Purchase) {
   const date = formatDate(purchase.due_date)
   const when =
     left < 0
-      ? `TTC, échéance du ${date} dépassée de ${days(-left)}`
+      ? `TTC, échéance du ${date} dépassée de ${days(-left)} : le fournisseur peut réclamer 40 € d'indemnité`
       : left === 0
         ? "TTC, à payer aujourd'hui"
         : `TTC, à payer avant le ${date}`
   return purchase.due_date_assumed
-    ? `${when} (30 jours, le délai légal : aucune échéance sur la facture)`
+    ? `${when} (délai légal de 30 jours : aucune échéance sur la facture)`
     : when
 }
 
-function Verdict({ purchase }: { purchase: Purchase }) {
+// What the purchase comes to, in three short lines.
+function verdict(purchase: Purchase): [string, string, string | null] {
   const extra = overbilled(purchase)
   const toPay = Number(purchase.to_pay_incl_tax ?? 0)
   const invoiced = purchase.invoiced_incl_tax ?? purchase.invoiced_excl_tax
-  const [label, amount, footer]: [string, string, string | null] =
-    purchase.status === "paid"
-      ? [`Payé le ${paidOn(purchase)}`, formatAmount(invoiced), "TTC"]
-      : purchase.status === "to_pay" && isCredit(purchase)
-        ? [
-            "Avoir à déduire",
-            formatAmount(-toPay),
-            "TTC, de votre prochain paiement à ce fournisseur",
-          ]
-        : purchase.status === "to_pay"
-          ? ["Montant", formatAmount(toPay), dueText(purchase)]
-          : purchase.status === "dispute" && extra > 0.02
-            ? [
-                "Facturé en trop",
-                formatAmount(extra),
-                `TTC, sur ${formatAmount(invoiced)} facturés`,
-              ]
-            : purchase.status === "dispute"
-              ? ["Verdict", "À ne pas payer tout de suite", null]
-              : ["Verdict", "Pas encore payable", null]
+  if (purchase.status === "paid")
+    return [`Payé le ${paidOn(purchase)}`, formatAmount(invoiced), "TTC"]
+  if (purchase.status === "to_pay" && isCredit(purchase))
+    return [
+      "Avoir à déduire",
+      formatAmount(-toPay),
+      "TTC, de votre prochain paiement à ce fournisseur",
+    ]
+  if (purchase.status === "to_pay")
+    return ["À payer", formatAmount(toPay), dueText(purchase)]
+  if (purchase.status === "dispute" && extra > 0.02)
+    return [
+      "Facturé en trop",
+      formatAmount(extra),
+      `TTC, sur ${formatAmount(invoiced)} facturés`,
+    ]
+  if (purchase.status === "dispute")
+    return ["Litige", "À ne pas payer tout de suite", null]
+  if (purchase.iban_warning)
+    return ["En attente", "Ne payez pas avant d'avoir appelé", null]
+  return ["En attente", "Pas encore payable", null]
+}
+
+function Summary({
+  purchase,
+  children,
+}: {
+  purchase: Purchase
+  children: ReactNode
+}) {
+  const [label, amount, footer] = verdict(purchase)
   return (
-    <section className="flex flex-col items-center gap-2 text-center">
-      <PurchaseBadge purchase={purchase} />
-      <p className="text-sm text-muted-foreground">{label}</p>
+    <section className="flex flex-col gap-1">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <PurchaseBadge purchase={purchase} />
+        {label !== PURCHASE_STATUS[purchase.status].label && (
+          <span>{label}</span>
+        )}
+      </div>
       <p
         className={
           footer
-            ? "text-4xl font-semibold tracking-tight tabular-nums"
-            : "text-xl font-semibold"
+            ? "text-3xl font-semibold tracking-tight tabular-nums"
+            : "text-lg font-semibold"
         }
       >
         {amount}
       </p>
       {footer && <p className="text-sm text-muted-foreground">{footer}</p>}
+      {purchase.iban && purchase.status === "to_pay" && !isCredit(purchase) && (
+        <p className="text-sm whitespace-nowrap text-muted-foreground">
+          IBAN{" "}
+          <span className="font-medium text-foreground tabular-nums">
+            {groupIban(purchase.iban)}
+          </span>
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2 pt-2">{children}</div>
     </section>
   )
 }
@@ -135,7 +170,6 @@ function Reasons({ purchase }: { purchase: Purchase }) {
           <CircleCheck />
           <AlertTitle>Litige réglé le {settledOn(purchase)}</AlertTitle>
           <AlertDescription>
-            <p>Écarts réglés avec le fournisseur :</p>
             <ul className="list-disc pl-4">
               {allIssues(purchase).map((text) => (
                 <li key={text}>{text}</li>
@@ -175,122 +209,190 @@ function Reasons({ purchase }: { purchase: Purchase }) {
   )
 }
 
-function Figure({
-  label,
-  value,
-  flagged,
-}: {
+type Column = {
   label: string
-  value: string
-  flagged: boolean
-}) {
-  return (
-    <div className="flex flex-1 flex-col gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span
-        className={
-          flagged
-            ? "font-medium text-destructive tabular-nums"
-            : "font-medium tabular-nums"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  )
+  short: string
+  value: (line: LineMatch) => string
+  word: string
 }
 
-// One article: its name, then ordered / delivered / invoiced side by side,
-// the figure at fault in red. Only the columns this purchase has documents for.
-function LineRow({ line, purchase }: { line: LineMatch; purchase: Purchase }) {
+// Only the columns this purchase has documents for.
+function columnsOf(purchase: Purchase): Column[] {
+  const columns: Column[] = []
+  if (purchase.orders?.length)
+    columns.push({
+      label: "Commandé",
+      short: "Cmd",
+      value: (line) => formatQuantity(line.ordered),
+      word: "commandé",
+    })
+  if (purchase.deliveries?.length)
+    columns.push({
+      label: "Livré",
+      short: "Livré",
+      value: (line) => (line.fee ? "—" : formatQuantity(line.delivered)),
+      word: "livré",
+    })
+  if (purchase.invoices?.length)
+    columns.push({
+      label: "Facturé",
+      short: "Fact.",
+      value: (line) => formatQuantity(line.invoiced),
+      word: "facturé",
+    })
+  return columns
+}
+
+// One article per row: its name, then what was ordered, delivered and
+// invoiced on the same line, the figure at fault in red. Reference, price
+// change and notes fit in one small line under the name.
+function Articles({ purchase }: { purchase: Purchase }) {
   const settled = !!purchase.settled_at
-  const issues = settled ? [] : (line.issues ?? [])
-  const notes = settled
-    ? [...(line.issues ?? []), ...(line.notes ?? [])]
-    : (line.notes ?? [])
-  const flagged = (word: string) => issues.some((issue) => issue.includes(word))
-  const priceChanged =
-    line.invoice_price != null &&
-    line.order_price != null &&
-    Number(line.invoice_price) !== Number(line.order_price)
-  const price = line.invoice_price ?? line.order_price
-  const extra = [...issues, ...notes].filter(
-    (text) => !text.includes("prix") && !REPEATS_FIGURES.test(text),
-  )
+  const columns = columnsOf(purchase)
   return (
-    <Item>
-      <ItemContent className="min-w-0">
-        <ItemTitle className="block w-full">{line.label}</ItemTitle>
-        {line.reference && <ItemDescription>{line.reference}</ItemDescription>}
-        {line.fee && !purchase.invoice_only && (
-          <ItemDescription>
-            Frais : payés sur la quantité commandée
-          </ItemDescription>
-        )}
-        {priceChanged ? (
-          <ItemDescription
-            className={flagged("prix") ? "text-destructive" : undefined}
-          >
-            Prix {formatAmount(line.order_price)} commandé,{" "}
-            {formatAmount(line.invoice_price)} facturé
-          </ItemDescription>
-        ) : (
-          purchase.invoice_only &&
-          price != null && (
-            <ItemDescription>{formatAmount(price)} HT l'unité</ItemDescription>
-          )
-        )}
-        {extra.map((text) => (
-          <ItemDescription
-            key={text}
-            className={issues.includes(text) ? "text-destructive" : undefined}
-          >
-            {afterLabel(text)}
-          </ItemDescription>
-        ))}
-      </ItemContent>
-      <ItemFooter className="gap-4">
-        {(purchase.orders?.length ?? 0) > 0 && (
-          <Figure
-            label="Commandé"
-            value={formatQuantity(line.ordered)}
-            flagged={flagged("commandé")}
-          />
-        )}
-        {(purchase.deliveries?.length ?? 0) > 0 && (
-          <Figure
-            label="Livré"
-            value={line.fee ? "—" : formatQuantity(line.delivered)}
-            flagged={flagged("livré")}
-          />
-        )}
-        {(purchase.invoices?.length ?? 0) > 0 && (
-          <Figure
-            label="Facturé"
-            value={formatQuantity(line.invoiced)}
-            flagged={flagged("facturé")}
-          />
-        )}
-      </ItemFooter>
-    </Item>
+    <section className="flex flex-col gap-2">
+      <h2 className="px-1 text-sm font-semibold">Articles</h2>
+      <Card size="sm" className="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-9 text-xs text-muted-foreground">
+                Article
+              </TableHead>
+              {columns.map((column) => (
+                <TableHead
+                  key={column.label}
+                  className="h-9 px-2 text-right text-xs text-muted-foreground"
+                >
+                  <span className="sm:hidden">{column.short}</span>
+                  <span className="hidden sm:inline">{column.label}</span>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {purchase.lines?.map((line) => {
+              const issues = settled ? [] : (line.issues ?? [])
+              const notes = settled
+                ? [...(line.issues ?? []), ...(line.notes ?? [])]
+                : (line.notes ?? [])
+              const flagged = (word: string) =>
+                issues.some((issue) => issue.includes(word))
+              const priceChanged =
+                line.invoice_price != null &&
+                line.order_price != null &&
+                Number(line.invoice_price) !== Number(line.order_price)
+              const price = line.invoice_price ?? line.order_price
+              const details: { text: string; alert: boolean }[] = []
+              if (line.reference)
+                details.push({ text: line.reference, alert: false })
+              if (priceChanged)
+                details.push({
+                  text: `prix ${formatAmount(line.order_price)} commandé, ${formatAmount(line.invoice_price)} facturé`,
+                  alert: flagged("prix"),
+                })
+              else if (purchase.invoice_only && price != null)
+                details.push({
+                  text: `${formatAmount(price)} HT l'unité`,
+                  alert: false,
+                })
+              if (line.fee && !purchase.invoice_only)
+                details.push({
+                  text: "frais, sur la quantité commandée",
+                  alert: false,
+                })
+              for (const text of [...issues, ...notes])
+                if (!text.includes("prix") && !REPEATS_FIGURES.test(text))
+                  details.push({
+                    text: afterLabel(text),
+                    alert: issues.includes(text),
+                  })
+              return (
+                <TableRow
+                  key={`${line.reference}-${line.label}`}
+                  className="hover:bg-transparent"
+                >
+                  <TableCell className="py-2 whitespace-normal">
+                    <p className="font-medium">{line.label}</p>
+                    {details.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {details.map((detail, index) => (
+                          <span
+                            key={detail.text}
+                            className={
+                              detail.alert ? "text-destructive" : undefined
+                            }
+                          >
+                            {index > 0 && " · "}
+                            {detail.text}
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                  </TableCell>
+                  {columns.map((column) => (
+                    <TableCell
+                      key={column.label}
+                      className={
+                        flagged(column.word)
+                          ? "px-2 py-2 text-right font-medium text-destructive tabular-nums"
+                          : "px-2 py-2 text-right tabular-nums"
+                      }
+                    >
+                      {column.value(line)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </section>
   )
 }
 
-function DocumentLink({ document }: { document: DocumentRef }) {
+// The PDFs, one thin row each.
+function Documents({ documents }: { documents: DocumentRef[] }) {
   const { showErrorToast } = useCustomToast()
-  const kind = document.kind as keyof typeof KIND_ICON
   return (
-    <ListRow
-      icon={KIND_ICON[kind] ?? Receipt}
-      title={`${KIND_LONG[document.kind]} ${document.number ?? ""}`}
-      subtitle={formatDate(document.document_date)}
-      chevron
-      onClick={() =>
-        openPdf(document.id).catch(() =>
-          showErrorToast("Impossible d'ouvrir le document"),
-        )
-      }
-    />
+    <section className="flex flex-col gap-2">
+      <h2 className="px-1 text-sm font-semibold">Documents</h2>
+      <Card size="sm" className="gap-0 py-1">
+        <ItemGroup className="gap-0">
+          {documents.map((document) => {
+            const Icon =
+              KIND_ICON[document.kind as keyof typeof KIND_ICON] ?? Receipt
+            return (
+              <Item key={document.id} size="sm" asChild>
+                <button
+                  type="button"
+                  className="text-left active:bg-muted"
+                  onClick={() =>
+                    openPdf(document.id).catch(() =>
+                      showErrorToast("Impossible d'ouvrir le document"),
+                    )
+                  }
+                >
+                  <ItemMedia variant="icon" className="text-muted-foreground">
+                    <Icon />
+                  </ItemMedia>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="block w-full truncate font-normal">
+                      {KIND_LONG[document.kind]} {document.number ?? ""}
+                    </ItemTitle>
+                  </ItemContent>
+                  <ItemActions className="text-sm text-muted-foreground">
+                    {formatDate(document.document_date)}
+                    <ChevronRight className="size-4" />
+                  </ItemActions>
+                </button>
+              </Item>
+            )
+          })}
+        </ItemGroup>
+      </Card>
+    </section>
   )
 }
 
@@ -300,6 +402,52 @@ function useRefresh() {
     queryClient.invalidateQueries({ queryKey: ["purchases"] })
     queryClient.invalidateQueries({ queryKey: ["documents"] })
   }
+}
+
+// The fraud small firms meet most: a supplier who "changes bank". Nothing is
+// paid until someone has called them on a number they already know.
+function IbanWarning({ purchase }: { purchase: Purchase }) {
+  const refresh = useRefresh()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const confirm = useMutation({
+    mutationFn: (id: string) => DocumentsService.confirmIban({ path: { id } }),
+    onSuccess: () => showSuccessToast("IBAN confirmé : la facture est à payer"),
+    onError: handleError.bind(showErrorToast),
+    onSettled: refresh,
+  })
+  if (!purchase.iban_warning || !purchase.iban_document_id) return null
+  const id = purchase.iban_document_id
+  return (
+    <Alert variant="destructive">
+      <ShieldAlert />
+      <AlertTitle>Nouvel IBAN : ne payez pas sans appeler</AlertTitle>
+      <AlertDescription>
+        <p>
+          {
+            purchase.iban_warning
+              .replace(/^Nouvel IBAN : /, "Il ")
+              .split(". Appelez")[0]
+          }
+          .
+        </p>
+        <p>
+          Appelez le fournisseur à un numéro que vous aviez déjà, pas celui de
+          cette facture : un faux changement de RIB est l'arnaque la plus
+          courante.
+        </p>
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={confirm.isPending}
+            onClick={() => confirm.mutate(id)}
+          >
+            J'ai appelé, l'IBAN est bon
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
+  )
 }
 
 // A delivery note or an invoice left aside, that may be this purchase's:
@@ -326,19 +474,18 @@ function LinkProposals({
   const proposals = unlinked.filter((document) =>
     document.suggestions?.some((s) => s.key === purchase.key),
   )
-  if (proposals.length === 0) return null
   return (
     <>
       {proposals.map((document) => (
         <Alert key={document.id}>
           <Link2 />
           <AlertTitle>
-            {KIND_LONG[document.kind]} {document.number} à ranger
+            {KIND_LONG[document.kind]} {document.number} à ranger ici ?
           </AlertTitle>
           <AlertDescription>
             <p>
-              Du même fournisseur, daté du {formatDate(document.document_date)}{" "}
-              et sans numéro de commande. Est-ce celui de cet achat ?
+              Même fournisseur, daté du {formatDate(document.document_date)},
+              sans numéro de commande.
             </p>
             <div className="flex flex-wrap gap-2 pt-2">
               <Button
@@ -378,6 +525,38 @@ function usePurchaseAction(call: () => Promise<unknown>, message: string) {
   })
 }
 
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  pending,
+  disabled,
+  main,
+}: {
+  icon: typeof Check
+  label: string
+  onClick: () => void
+  pending?: boolean
+  disabled?: boolean
+  main?: boolean
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={main ? "default" : "secondary"}
+      disabled={disabled || pending}
+      onClick={onClick}
+    >
+      {pending ? (
+        <Spinner data-icon="inline-start" />
+      ) : (
+        <Icon data-icon="inline-start" />
+      )}
+      {label}
+    </Button>
+  )
+}
+
 // What to do now: pay, write to the supplier, settle, or undo.
 function Actions({
   purchase,
@@ -388,7 +567,7 @@ function Actions({
   writing: boolean
   onWrite: () => void
 }) {
-  const { showErrorToast } = useCustomToast()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
   const path = { path: { key: purchase.key } }
   const credit = isCredit(purchase)
   const pay = usePurchaseAction(
@@ -410,76 +589,90 @@ function Actions({
     "Le litige est de nouveau ouvert",
   )
   const invoice = purchase.invoices?.[0]
-  const openInvoice = () =>
-    invoice &&
-    openPdf(invoice.id).catch(() =>
-      showErrorToast("Impossible d'ouvrir la facture"),
-    )
-  const write = (label: string) => (
-    <QuickAction
+  const seeInvoice = invoice && (
+    <ActionButton
+      icon={Receipt}
+      label={credit ? "Voir l'avoir" : "Voir la facture"}
+      onClick={() =>
+        openPdf(invoice.id).catch(() =>
+          showErrorToast("Impossible d'ouvrir la facture"),
+        )
+      }
+    />
+  )
+  const write = (label: string, main = false) => (
+    <ActionButton
       icon={Mail}
       label={label}
+      main={main}
       disabled={writing}
       onClick={onWrite}
     />
   )
 
-  if (purchase.status === "paid")
-    return (
-      <QuickActions>
-        {invoice && (
-          <QuickAction icon={Receipt} label="Facture" onClick={openInvoice} />
-        )}
-        <QuickAction
-          icon={RotateCcw}
-          label="Pas payé"
-          pending={unpay.isPending}
-          onClick={() => unpay.mutate()}
-        />
-      </QuickActions>
-    )
-  if (purchase.status === "to_pay")
-    return (
-      <QuickActions>
-        <QuickAction
-          icon={Check}
-          label={credit ? "Déduit" : "Payé"}
-          pending={pay.isPending}
-          onClick={() => pay.mutate()}
-        />
-        {invoice && (
-          <QuickAction
-            icon={Receipt}
-            label={credit ? "Avoir" : "Facture"}
-            onClick={openInvoice}
-          />
-        )}
-        {purchase.settled_at && (
-          <QuickAction
+  switch (purchase.status) {
+    case "paid":
+      return (
+        <>
+          {seeInvoice}
+          <ActionButton
             icon={RotateCcw}
-            label="Rouvrir"
-            pending={reopen.isPending}
-            onClick={() => reopen.mutate()}
+            label="Annuler le paiement"
+            pending={unpay.isPending}
+            onClick={() => unpay.mutate()}
           />
-        )}
-      </QuickActions>
-    )
-  if (purchase.status === "dispute")
-    return (
-      <QuickActions>
-        {write("Écrire")}
-        {!purchase.paid_at && (
-          <QuickAction
+        </>
+      )
+    case "to_pay":
+      return (
+        <>
+          <ActionButton
             icon={Check}
-            label="Réglé"
-            pending={settle.isPending}
-            onClick={() => settle.mutate()}
+            label={credit ? "Marquer déduit" : "Marquer payé"}
+            main
+            pending={pay.isPending}
+            onClick={() => pay.mutate()}
           />
-        )}
-      </QuickActions>
-    )
-  if (purchase.late) return <QuickActions>{write("Relancer")}</QuickActions>
-  return null
+          {purchase.iban && !credit && (
+            <ActionButton
+              icon={Copy}
+              label="Copier l'IBAN"
+              onClick={() =>
+                navigator.clipboard
+                  .writeText(purchase.iban ?? "")
+                  .then(() => showSuccessToast("IBAN copié"))
+                  .catch(() => showErrorToast("Impossible de copier l'IBAN"))
+              }
+            />
+          )}
+          {seeInvoice}
+          {purchase.settled_at && (
+            <ActionButton
+              icon={RotateCcw}
+              label="Rouvrir le litige"
+              pending={reopen.isPending}
+              onClick={() => reopen.mutate()}
+            />
+          )}
+        </>
+      )
+    case "dispute":
+      return (
+        <>
+          {write("Écrire au fournisseur", true)}
+          {!purchase.paid_at && (
+            <ActionButton
+              icon={Check}
+              label="Litige réglé"
+              pending={settle.isPending}
+              onClick={() => settle.mutate()}
+            />
+          )}
+        </>
+      )
+    default:
+      return purchase.late ? write("Relancer le fournisseur", true) : null
+  }
 }
 
 export function PurchaseSheet({
@@ -513,40 +706,22 @@ export function PurchaseSheet({
       title={purchaseTitle(purchase)}
       description={purchaseSubtitle(purchase)}
     >
-      <div className="flex flex-col gap-6">
-        <Verdict purchase={purchase} />
-        <Actions
-          purchase={purchase}
-          writing={writing === purchase.key}
-          onWrite={() => setWriting(purchase.key)}
-        />
+      <div className="flex flex-col gap-5">
+        <Summary purchase={purchase}>
+          <Actions
+            purchase={purchase}
+            writing={writing === purchase.key}
+            onWrite={() => setWriting(purchase.key)}
+          />
+        </Summary>
+        <IbanWarning purchase={purchase} />
         <LinkProposals purchase={purchase} unlinked={unlinked} />
         <Reasons purchase={purchase} />
         {writing === purchase.key && canWrite && (
           <SupplierEmailSection purchaseKey={purchase.key} />
         )}
-
-        {(purchase.lines?.length ?? 0) > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="px-1 text-base font-semibold">Articles</h2>
-            <Card size="sm" className="gap-0 py-1.5">
-              <ItemGroup className="gap-0">
-                {purchase.lines?.map((line, index) => (
-                  <Fragment key={`${line.reference}-${line.label}`}>
-                    {index > 0 && <ItemSeparator className="my-0" />}
-                    <LineRow line={line} purchase={purchase} />
-                  </Fragment>
-                ))}
-              </ItemGroup>
-            </Card>
-          </section>
-        )}
-
-        <ListGroup title="Documents">
-          {documents.map((document) => (
-            <DocumentLink key={document.id} document={document} />
-          ))}
-        </ListGroup>
+        {(purchase.lines?.length ?? 0) > 0 && <Articles purchase={purchase} />}
+        <Documents documents={documents} />
       </div>
     </ResponsiveSheet>
   )

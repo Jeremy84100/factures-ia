@@ -8,6 +8,7 @@ from typing import Any
 from app.core.config import settings
 from app.models import Document, DocumentStatus
 from app.services.checks import check_document, review_extraction
+from app.services.demo import check_ibans
 from app.services.extraction import ExtractionError, GeminiExtractor
 from app.services.pdf_reader import DoclingReader
 from app.services.processing import apply_extraction
@@ -50,6 +51,8 @@ def main() -> None:
         "lignes": 0,
         "livraison": 0,
         "échéance": 0,
+        "iban": 0,
+        "e-mail": 0,
     }
     for case in expected["documents"]:
         path = FIXTURES / case["filename"]
@@ -87,6 +90,8 @@ def main() -> None:
             checks["échéance"] = str(document.due_date or "") == (
                 case["due_date"] or ""
             )
+            checks["iban"] = document.iban == case["iban"]
+            checks["e-mail"] = document.supplier_email == case["supplier_email"]
         for name, ok in checks.items():
             scores[name] += ok
         wrong = [name for name, ok in checks.items() if not ok]
@@ -98,9 +103,10 @@ def main() -> None:
     totals["livraison"] = sum(
         case["kind"] in DELIVERY_KINDS for case in expected["documents"]
     )
-    totals["échéance"] = sum(
-        case["kind"] == "invoice" for case in expected["documents"]
-    )
+    invoices = sum(case["kind"] == "invoice" for case in expected["documents"])
+    totals["échéance"] = totals["iban"] = totals["e-mail"] = invoices
+    # The bank account check a real upload does against earlier invoices.
+    check_ibans(documents)
     print(f"\nModèle : {settings.GEMINI_MODEL} — {total} documents")
     for name, hits in scores.items():
         print(f"  {name:<12} {hits}/{totals[name]}")

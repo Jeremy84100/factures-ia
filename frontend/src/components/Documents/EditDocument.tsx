@@ -71,6 +71,8 @@ const formSchema = z.object({
   expected_delivery_date: z.string(),
   payment_terms: z.string().max(100),
   due_date: z.string(),
+  iban: z.string().max(42),
+  supplier_email: z.string().max(255),
   delivery_mode: z.enum(["none", "pickup", "standard", "express"]),
   is_credit_note: z.boolean(),
   lines: z.array(lineSchema),
@@ -97,7 +99,13 @@ const MODE_OPTIONS: { value: DeliveryMode | "none"; label: string }[] = [
   { value: "pickup", label: "Retrait par le client" },
 ]
 
-const WIDE: TextField[] = ["supplier", "vat_exemption", "due_date"]
+const WIDE: TextField[] = [
+  "supplier",
+  "vat_exemption",
+  "due_date",
+  "iban",
+  "supplier_email",
+]
 const NUMERIC = new Set([
   "amount_excl_tax",
   "vat_amount",
@@ -140,6 +148,8 @@ const FIELDS: {
     type: "date",
     kinds: ["invoice"],
   },
+  { name: "iban", label: "IBAN du fournisseur", kinds: ["invoice"] },
+  { name: "supplier_email", label: "E-mail du fournisseur" },
   {
     name: "delivery_method",
     label: "Mode de livraison écrit",
@@ -245,7 +255,7 @@ const EditDocument = ({ document, open, onOpenChange }: EditDocumentProps) => {
       DocumentsService.updateDocument({
         path: { id: document.id },
         body: {
-          ...toValues(text),
+          ...toValues({ ...text, iban: text.iban.replace(/\s/g, "") }),
           kind,
           delivery_mode: delivery_mode === "none" ? null : delivery_mode,
           is_credit_note,

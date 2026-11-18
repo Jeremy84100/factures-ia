@@ -150,6 +150,8 @@ class Document(DocumentFields, table=True):
     issues: list[str] = Field(default_factory=list, sa_type=JSON)
     # Read from the e-invoice data inside the PDF (Factur-X), not by the AI.
     from_einvoice: bool = False
+    # The user called the supplier: a new IBAN on this invoice is genuine.
+    iban_checked: bool = False
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     started_at: datetime | None = None
     processed_at: datetime | None = None
@@ -185,6 +187,7 @@ class DocumentPublic(DocumentFields):
     status: DocumentStatus
     issues: list[str]
     from_einvoice: bool = False
+    iban_checked: bool = False
     lines: list[LineFields] = []
     created_at: datetime | None = None
     processed_at: datetime | None = None
@@ -291,6 +294,9 @@ class Purchase(SQLModel):
     # Where to pay and whom to write to, from the latest invoice.
     iban: str | None = None
     supplier_email: str | None = None
+    # An invoice asks to be paid on a new IBAN: call before paying.
+    iban_warning: str | None = None
+    iban_document_id: uuid.UUID | None = None
     settled_at: datetime | None = None
     paid_at: datetime | None = None
 

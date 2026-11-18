@@ -7,6 +7,7 @@ import {
   Hourglass,
   Link2,
   Plus,
+  ShieldAlert,
   TriangleAlert,
   Upload,
 } from "lucide-react"
@@ -129,7 +130,9 @@ function Home() {
   // Sorted by the server: the soonest due first.
   const toPay = list.filter((p) => p.status === "to_pay")
   const disputes = list.filter((p) => p.status === "dispute")
-  const waiting = list.filter((p) => p.status === "waiting" && !p.late)
+  const waiting = list.filter(
+    (p) => p.status === "waiting" && !p.late && !p.iban_warning,
+  )
   const late = list.filter((p) => p.late)
   const reading = documents.data.filter(isBusy).length
   // A document only waiting to be filed is counted once, among those to file.
@@ -154,7 +157,19 @@ function Home() {
   const go = (filter: "dispute" | "waiting" | "to_pay") =>
     navigate({ to: "/reconciliations", search: { filter } })
 
+  const ibans = list.filter((p) => p.iban_warning)
   const todo = [
+    ibans.length > 0 && (
+      <ListRow
+        key="iban"
+        icon={ShieldAlert}
+        title={plural(ibans.length, "nouvel IBAN", "nouveaux IBAN")}
+        subtitle="Appelez le fournisseur avant de payer"
+        alert
+        chevron
+        onClick={() => (ibans.length === 1 ? open(ibans[0]) : go("waiting"))}
+      />
+    ),
     disputes.length > 0 && (
       <ListRow
         key="dispute"
@@ -255,7 +270,8 @@ function Home() {
             L'IA lit {plural(reading, "document", "documents")}
           </AlertTitle>
           <AlertDescription>
-            La page se met à jour toute seule.
+            Comptez 20 à 60 secondes par document. La page se met à jour toute
+            seule.
           </AlertDescription>
         </Alert>
       )}

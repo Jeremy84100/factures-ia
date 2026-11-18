@@ -116,6 +116,14 @@ export type DocumentPublic = {
      */
     payment_terms?: string | null;
     /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Supplier Email
+     */
+    supplier_email?: string | null;
+    /**
      * Id
      */
     id: string;
@@ -137,6 +145,10 @@ export type DocumentPublic = {
      * From Einvoice
      */
     from_einvoice?: boolean;
+    /**
+     * Iban Checked
+     */
+    iban_checked?: boolean;
     /**
      * Lines
      */
@@ -241,6 +253,14 @@ export type DocumentUpdate = {
      * Payment Terms
      */
     payment_terms?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Supplier Email
+     */
+    supplier_email?: string | null;
     kind?: DocumentKind | null;
     /**
      * Lines
@@ -400,6 +420,10 @@ export type LinkSuggestion = {
      * Order Reference
      */
     order_reference: string;
+    /**
+     * Order Date
+     */
+    order_date?: string | null;
 };
 
 /**
@@ -530,6 +554,22 @@ export type Purchase = {
      */
     due_date_assumed?: boolean;
     /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Supplier Email
+     */
+    supplier_email?: string | null;
+    /**
+     * Iban Warning
+     */
+    iban_warning?: string | null;
+    /**
+     * Iban Document Id
+     */
+    iban_document_id?: string | null;
+    /**
      * Settled At
      */
     settled_at?: string | null;
@@ -566,6 +606,10 @@ export type Purchases = {
  * SupplierEmail
  */
 export type SupplierEmail = {
+    /**
+     * To
+     */
+    to?: string | null;
     /**
      * Subject
      */
@@ -1540,6 +1584,36 @@ export type documentsReadDocumentFileResponses = {
      */
     200: unknown;
 };
+
+export type documentsConfirmIbanData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{id}/confirm-iban';
+};
+
+export type documentsConfirmIbanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type documentsConfirmIbanError = documentsConfirmIbanErrors[keyof documentsConfirmIbanErrors];
+
+export type documentsConfirmIbanResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentPublic;
+};
+
+export type documentsConfirmIbanResponse = documentsConfirmIbanResponses[keyof documentsConfirmIbanResponses];
 
 export type documentsRetryDocumentData = {
     body?: never;

@@ -24,6 +24,7 @@ from app.models import (
     UnlinkedDocument,
 )
 from app.services.checks import NO_ORDER_REFERENCE
+from app.services.iban import IBAN_CHANGED
 from app.services.payment_terms import legal_due_date
 
 QTY_TOLERANCE_PCT = Decimal(0)
@@ -454,8 +455,19 @@ def doubts(documents: Sequence[Document]) -> list[str]:
         for d in documents
         if d.status == DocumentStatus.to_check
         for issue in d.issues
-        if issue != NO_ORDER_REFERENCE
+        if issue != NO_ORDER_REFERENCE and not issue.startswith(IBAN_CHANGED)
     ]
+
+
+def iban_warning(invoices: Sequence[Document]) -> tuple[str, Document] | None:
+    """A new IBAN not confirmed yet: the purchase waits for a phone call."""
+    for invoice in invoices:
+        if invoice.status != DocumentStatus.to_check:
+            continue
+        for issue in invoice.issues:
+            if issue.startswith(IBAN_CHANGED):
+                return issue, invoice
+    return None
 
 
 def due_of(invoices: Sequence[Document]) -> tuple[date | None, bool]:
@@ -517,8 +529,9 @@ def reconcile(
         line_issues += len(issues)
         matches.append(item.to_match(issues, item_notes))
 
-    unsure = doubts(documents)
-    notes = list(unsure)
+    warning = iban_warning(invoices)
+    unsure = doubts(documents) + ([warning[0]] if warning else [])
+    notes = doubts(documents)
     issues = check_documents(documents) + check_delivery_mode(orders, deliveries)
     notes += late_deliveries(orders, deliveries)
     total = invoiced_total(invoices)
@@ -591,6 +604,8 @@ def reconcile(
         due_date_assumed=assumed,
         iban=latest(invoices, "iban"),
         supplier_email=latest(documents, "supplier_email"),
+        iban_warning=warning[0] if warning else None,
+        iban_document_id=warning[1].id if warning else None,
     )
     disputed = all_issues(purchase)
     if disputed and settles(settlement, disputed):

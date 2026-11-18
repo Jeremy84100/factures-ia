@@ -25,6 +25,7 @@ from app.models import (
     get_datetime_utc,
 )
 from app.services.export import build_export
+from app.services.iban import clean_iban
 from app.services.images import ImageError, image_to_pdf, is_image
 from app.services.payment_terms import due_from_terms
 from app.services.processing import (
@@ -265,16 +266,35 @@ def update_document(
     if document.status in BUSY:
         raise HTTPException(status_code=409, detail="Document en cours de lecture")
     changes = document_in.model_dump(exclude_unset=True, exclude={"lines"})
+    if "iban" in changes and clean_iban(changes["iban"]) != document.iban:
+        document.iban_checked = False
     if changes.get("kind") is None:
         changes.pop("kind", None)
     document.sqlmodel_update(changes)
     if document_in.lines is not None:
         document.lines = to_lines(document_in.lines)
+    document.iban = clean_iban(document.iban)
     if document.due_date is None:
         document.due_date = due_from_terms(
             document.payment_terms, document.document_date
         )
     sign_credit_note(document)
+    run_checks(session, document)
+    session.add(document)
+    session.commit()
+    session.refresh(document)
+    return to_public(document)
+
+
+@router.post("/{id}/confirm-iban", response_model=DocumentPublic)
+def confirm_iban(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+    """
+    The supplier was called and confirmed the new IBAN of this invoice.
+    """
+    document = get_owned_document(session, current_user, id)
+    if document.status in BUSY:
+        raise HTTPException(status_code=409, detail="Document en cours de lecture")
+    document.iban_checked = True
     run_checks(session, document)
     session.add(document)
     session.commit()

@@ -93,6 +93,16 @@ export function daysUntil(value: string, today = new Date()) {
   return Math.round((day.getTime() - startOfDay(today).getTime()) / DAY_MS)
 }
 
+// "FR76 3000 6000 0112 3456 7890 189", as on a bank form.
+export const groupIban = (iban: string) => iban.replace(/(.{4})(?=.)/g, "$1 ")
+
+// Plain letters, for a search that ignores accents and case.
+export const fold = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
 export const days = (count: number) => plural(count, "jour", "jours")
 
 // "avant le 20/11", "aujourd'hui", "en retard de 3 jours".

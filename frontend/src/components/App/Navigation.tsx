@@ -271,10 +271,10 @@ export function TabBar() {
         (to === "/reconciliations" && pathname.startsWith("/documents"))
   const tab = (active: boolean) =>
     active
-      ? "h-auto flex-1 flex-col gap-1 py-2 text-xs"
-      : "h-auto flex-1 flex-col gap-1 py-2 text-xs text-muted-foreground"
+      ? "h-auto flex-1 flex-col gap-0.5 rounded-full bg-muted py-1.5 text-xs"
+      : "h-auto flex-1 flex-col gap-0.5 rounded-full py-1.5 text-xs text-muted-foreground"
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background px-2 pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex gap-1 rounded-full border bg-background/90 p-1.5 shadow-lg backdrop-blur md:hidden">
       {NAV.map(({ to, label, icon: Icon }) => (
         <Button key={to} variant="ghost" className={tab(isActive(to))} asChild>
           <Link to={to} aria-current={isActive(to) ? "page" : undefined}>

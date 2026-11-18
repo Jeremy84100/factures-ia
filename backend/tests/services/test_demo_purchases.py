@@ -153,5 +153,6 @@ def test_demo_changed_iban_waits_for_a_call() -> None:
     assert usual.iban and usual.supplier_email
     changed = purchases["LMV-2611-131"]
     assert changed.status == PurchaseStatus.waiting
-    assert changed.notes[0].startswith("Facture LMV-2611-131 à vérifier : Nouvel IBAN")
-    assert "Appelez le fournisseur" in changed.notes[0]
+    assert changed.iban_warning is not None
+    assert changed.iban_warning.startswith("Nouvel IBAN : finit par 0241")
+    assert "Appelez le fournisseur" in changed.iban_warning

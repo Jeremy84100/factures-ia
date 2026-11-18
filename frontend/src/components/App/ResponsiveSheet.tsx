@@ -42,7 +42,7 @@ export function ResponsiveSheet({
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent onOpenAutoFocus={(event) => event.preventDefault()}>
-          <DrawerHeader>
+          <DrawerHeader className="pb-0 group-data-[vaul-drawer-direction=bottom]/drawer-content:text-left">
             <DrawerTitle>{title}</DrawerTitle>
             {description && (
               <DrawerDescription>{description}</DrawerDescription>
@@ -58,7 +58,7 @@ export function ResponsiveSheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className={wide ? "sm:max-w-4xl" : "sm:max-w-2xl"}
+        className={wide ? "sm:max-w-4xl" : "sm:max-w-lg"}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

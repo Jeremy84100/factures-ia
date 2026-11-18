@@ -86,7 +86,7 @@ class ExtractedDocument(BaseModel):
     )
     delivery_mode: DeliveryModeName | None = Field(
         default=None,
-        description="Le même mode de livraison rangé dans une catégorie : retrait (le client vient chercher la marchandise), express (livraison urgente, express, 24 h, chronopost), standard (toute autre livraison par le fournisseur ou un transporteur). null si le document n'en parle pas.",
+        description="Le même mode de livraison rangé dans une catégorie : retrait (le client vient lui-même chercher la marchandise : retrait, enlèvement, comptoir, click and collect), express (livraison urgente, express, 24 h, chronopost), standard (toute autre livraison faite par le fournisseur ou un transporteur, y compris « livraison dépôt », « livraison chantier » ou « livraison au dépôt » : le mot livraison veut dire que le fournisseur apporte). null si le document n'en parle pas.",
     )
     expected_delivery_date: str | None = Field(
         default=None,

@@ -15,12 +15,19 @@ import {
 import { EmptyState } from "@/components/App/EmptyState"
 import { type Chip, FilterChips } from "@/components/App/FilterChips"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
+import { SearchBox } from "@/components/App/SearchBox"
 import { DocumentSheet } from "@/components/Documents/DocumentSheet"
 import { PurchaseRow } from "@/components/Purchases/PurchaseRow"
 import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
 import { Button } from "@/components/ui/button"
 import useCustomToast from "@/hooks/useCustomToast"
-import { formatDate, KIND_LONG } from "@/lib/documents"
+import {
+  fold,
+  formatAmount,
+  formatDate,
+  KIND_LONG,
+  plural,
+} from "@/lib/documents"
 import { documentsQuery, purchasesQuery, useLiveOptions } from "@/lib/queries"
 import { handleError } from "@/utils"
 
@@ -98,16 +105,18 @@ function ToFileRow({
     },
   })
   const first = document.suggestions?.[0]
+  const missing = document.kind === "invoice" ? "sa facture" : "sa livraison"
+  // Why this order: same supplier, and it is still waiting for this document.
+  const reason = first
+    ? `${document.supplier ?? "Même fournisseur"}, sans n° de commande. La commande ${first.order_reference}${first.order_date ? ` du ${formatDate(first.order_date)}` : ""} attend ${missing} : c'est elle ?`
+    : `${formatDate(document.document_date)}, sans n° de commande : touchez pour le saisir`
   return (
     <>
       <ListRow
         icon={Link2}
         title={`${KIND_LONG[document.kind]} ${document.number ?? ""}`}
-        subtitle={
-          first
-            ? `${document.supplier ?? ""} · c'est la commande ${first.order_reference} ?`
-            : `${formatDate(document.document_date)} · sans numéro de commande`
-        }
+        subtitle={reason}
+        wrap
         chevron={!first}
         onClick={onOpen}
       />
@@ -124,7 +133,7 @@ function ToFileRow({
             </Button>
           ))}
           <Button size="sm" variant="secondary" onClick={onOpen}>
-            Autre
+            Non
           </Button>
         </div>
       )}
@@ -142,6 +151,7 @@ function Purchases() {
   const [purchaseOpen, setPurchaseOpen] = useState(false)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [documentOpen, setDocumentOpen] = useState(false)
+  const [query, setQuery] = useState("")
 
   const chips: Chip<Filter>[] = FILTERS.map((value) => ({
     value,
@@ -153,22 +163,53 @@ function Purchases() {
           (value === "waiting" ? data.unlinked.length : 0),
   }))
 
-  const purchases = data.data.filter(MATCH[filter])
-  const toFile = SHOWS_UNLINKED.includes(filter) ? data.unlinked : []
+  const found = (texts: (string | null | undefined)[]) =>
+    !query.trim() ||
+    fold(texts.filter(Boolean).join(" ")).includes(fold(query.trim()))
+  const purchases = data.data.filter(
+    (p) =>
+      MATCH[filter](p) &&
+      found([
+        p.supplier,
+        p.order_reference,
+        ...[
+          ...(p.orders ?? []),
+          ...(p.deliveries ?? []),
+          ...(p.invoices ?? []),
+        ].map((d) => d.number),
+      ]),
+  )
+  const toFile = SHOWS_UNLINKED.includes(filter)
+    ? data.unlinked.filter((d) => found([d.supplier, d.number, d.filename]))
+    : []
+  // What this search comes to: "combien je dois à Point P".
+  const owed = purchases
+    .filter((p) => p.status === "to_pay")
+    .reduce((total, p) => total + Number(p.to_pay_incl_tax ?? 0), 0)
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Commande, livraison et facture comparées ligne par ligne.
-        </p>
-        <Button variant="link" size="sm" className="shrink-0" asChild>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <SearchBox
+            value={query}
+            onChange={setQuery}
+            placeholder="Fournisseur ou n° de facture"
+          />
+        </div>
+        <Button variant="secondary" size="sm" asChild>
           <Link to="/documents">
             <FileText data-icon="inline-start" />
             Documents
           </Link>
         </Button>
       </div>
+      {query.trim() && (
+        <p className="px-1 text-sm text-muted-foreground">
+          {plural(purchases.length, "achat", "achats")}
+          {owed !== 0 && ` · ${formatAmount(owed)} TTC à payer`}
+        </p>
+      )}
 
       <FilterChips
         chips={chips}
@@ -197,7 +238,13 @@ function Purchases() {
       )}
 
       {purchases.length === 0 && toFile.length === 0 ? (
-        <Nothing filter={filter} />
+        query.trim() ? (
+          <p className="px-1 text-sm text-muted-foreground">
+            Aucun achat ne correspond à « {query.trim()} ».
+          </p>
+        ) : (
+          <Nothing filter={filter} />
+        )
       ) : (
         purchases.length > 0 && (
           <ListGroup title={toFile.length > 0 ? "Achats" : undefined}>

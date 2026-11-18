@@ -7,10 +7,11 @@ import type { DocumentPublic } from "@/client"
 import { EmptyState } from "@/components/App/EmptyState"
 import { type Chip, FilterChips } from "@/components/App/FilterChips"
 import { ListGroup } from "@/components/App/ListRow"
+import { SearchBox } from "@/components/App/SearchBox"
 import { UploadButton } from "@/components/App/UploadButton"
 import { DocumentRow } from "@/components/Documents/DocumentRow"
 import { DocumentSheet } from "@/components/Documents/DocumentSheet"
-import { needsReview, plural } from "@/lib/documents"
+import { fold, needsReview, plural } from "@/lib/documents"
 import { documentsQuery, useLiveOptions } from "@/lib/queries"
 
 const FILTERS = ["all", "invoice", "order", "delivery", "review"] as const
@@ -67,19 +68,32 @@ function Documents() {
   const { data } = useSuspenseQuery(live.documents)
   const [selected, setSelected] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [query, setQuery] = useState("")
 
   const chips: Chip<Filter>[] = FILTERS.map((value) => ({
     value,
     label: LABELS[value],
     count: value === "all" ? undefined : data.data.filter(MATCH[value]).length,
   }))
-  const shown = data.data.filter(MATCH[filter])
+  const term = fold(query.trim())
+  const shown = data.data.filter(
+    (d) =>
+      MATCH[filter](d) &&
+      (!term ||
+        fold(
+          [d.supplier, d.number, d.order_reference, d.filename]
+            .filter(Boolean)
+            .join(" "),
+        ).includes(term)),
+  )
 
   return (
-    <div className="flex flex-col gap-6">
-      <p className="text-sm text-muted-foreground">
-        {plural(data.count, "document", "documents")}, triés et lus par l'IA
-      </p>
+    <div className="flex flex-col gap-4">
+      <SearchBox
+        value={query}
+        onChange={setQuery}
+        placeholder={`Chercher dans ${plural(data.count, "document", "documents")}`}
+      />
 
       <FilterChips
         chips={chips}

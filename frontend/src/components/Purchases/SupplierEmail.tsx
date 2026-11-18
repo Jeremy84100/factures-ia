@@ -11,12 +11,13 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
 
-const mailto = ({ subject, body }: SupplierEmail) =>
-  `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
-    body.replace(/\n/g, "\r\n"),
-  )}`
+const mailto = (to: string, subject: string, body: string) =>
+  `mailto:${encodeURIComponent(to.trim())}?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(body.replace(/\n/g, "\r\n"))}`
 
 function EmailForm({ email }: { email: SupplierEmail }) {
+  const [to, setTo] = useState(email.to ?? "")
   const [subject, setSubject] = useState(email.subject)
   const [body, setBody] = useState(email.body)
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -33,6 +34,16 @@ function EmailForm({ email }: { email: SupplierEmail }) {
     <Card size="sm">
       <CardContent>
         <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="email-to">À</FieldLabel>
+            <Input
+              id="email-to"
+              type="email"
+              placeholder="Adresse du fournisseur"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </Field>
           <Field>
             <FieldLabel htmlFor="email-subject">Objet</FieldLabel>
             <Input
@@ -53,7 +64,7 @@ function EmailForm({ email }: { email: SupplierEmail }) {
       </CardContent>
       <CardFooter className="flex-wrap gap-2">
         <Button asChild>
-          <a href={mailto({ subject, body })}>
+          <a href={mailto(to, subject, body)}>
             <Mail data-icon="inline-start" />
             Ouvrir ma messagerie
           </a>

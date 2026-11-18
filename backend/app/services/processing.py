@@ -141,6 +141,7 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
         document.payment_terms, document.document_date
     )
     document.iban = clean_iban(extracted.iban)
+    document.iban_checked = False
     document.supplier_email = to_email(extracted.supplier_email)
     document.lines = to_lines(extracted.lines)
     sign_credit_note(document)
