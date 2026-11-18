@@ -42,7 +42,7 @@ function Layout() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 bg-background px-4 md:h-16 md:border-b">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 bg-background px-4 md:static md:h-14 md:rounded-t-2xl md:border-b">
           <div className="hidden items-center gap-2 md:flex">
             <SidebarTrigger className="-ml-1" />
             <Separator

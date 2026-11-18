@@ -166,10 +166,13 @@ function UploadMenuItem() {
   return (
     <SidebarMenuItem>
       {picker}
+      {/* The one action of the app, in the primary colour, like the
+          "Quick Create" button of the shadcn dashboard. */}
       <SidebarMenuButton
         onClick={open}
         disabled={isPending}
         tooltip="Ajouter des documents"
+        className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
       >
         {isPending ? <Spinner /> : <Upload />}
         <span>{isPending ? "Envoi…" : "Ajouter des documents"}</span>
@@ -183,7 +186,7 @@ export function AppSidebar() {
   const { setOpenMobile } = useSidebar()
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -205,7 +208,10 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="flex flex-col gap-2">
+            <SidebarMenu>
+              <UploadMenuItem />
+            </SidebarMenu>
             <SidebarMenu>
               {NAV.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
@@ -223,7 +229,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              <UploadMenuItem />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
