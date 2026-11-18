@@ -190,3 +190,25 @@ def test_a_credit_note_title_overrules_the_ai(db: Session) -> None:
     document = read(db, gutschrift)
     assert document.is_credit_note
     assert document.amount_incl_tax is not None and document.amount_incl_tax < 0
+
+
+def test_a_self_billed_invoice_is_not_a_credit_note(db: Session) -> None:
+    self_billed = EDF.model_copy(
+        update={
+            "supplier": "Lieferant Zwei GmbH",
+            "title": "Gutschrift (Selbst ausgestellte Rechnung)",
+            "is_credit_note": True,
+        }
+    )
+    document = read(db, self_billed)
+    assert not document.is_credit_note
+    assert document.amount_incl_tax is not None and document.amount_incl_tax > 0
+
+
+def test_a_masked_customer_iban_is_ignored(db: Session) -> None:
+    debit = EDF.model_copy(
+        update={"supplier": "Hébergeur", "iban": "DE54 5004 **** **** **** 00"}
+    )
+    document = read(db, debit)
+    assert document.iban is None
+    assert document.issues == []

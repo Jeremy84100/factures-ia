@@ -184,7 +184,7 @@ Ce que l'utilisateur a corrigé une fois est rejoué tout seul sur les documents
 
 « Corriger » dit ce qui a été retenu. La fiche montre chaque règle en français, avec un bouton pour l'oublier.
 
-Un titre « Avoir », « Facture d'avoir », « Gutschrift », « Credit note » ou « Note de crédit » fait toujours un avoir, même si l'IA a dit le contraire : sur un avoir allemand, Gemini se trompait 2 fois sur 4 avec l'ancienne lecture.
+Deux règles en code complètent la lecture. Un titre « Avoir », « Facture d'avoir », « Gutschrift », « Credit note » ou « Note de crédit » fait un avoir, même si l'IA a dit le contraire. À l'inverse, une autofacturation (« Gutschrift (selbst ausgestellt) », écrite par le client mais à payer) n'est jamais un avoir : Gemini en avait pris une pour un avoir 4 fois sur 4. Et un IBAN masqué par des étoiles est celui du client, sur une facture payée par prélèvement : il est ignoré.
 
 <table>
   <tr>
@@ -231,7 +231,7 @@ Une mesure a aussi servi à corriger la consigne : ajouter des champs l'a rendue
 
 Trois idées ont été essayées puis retirées, parce que les mesures ne les justifiaient pas :
 
-- donner à Gemini, en plus du PDF, le texte extrait par [Docling](https://github.com/docling-project/docling). Mesuré sur les 33 documents (deux fois), les 12 factures et 35 factures publiques : le PDF seul lit aussi bien, et mieux sur 3 factures (un total HT trouvé, des lignes en HT au lieu de TTC, 4 lignes au lieu d'une vide). Docling pesait 1,3 Go avec PyTorch et ses modèles ; sans lui, l'application tient en 115 Mo et lit un document en 2 secondes au lieu de 6 ;
+- donner à Gemini, en plus du PDF, le texte extrait par [Docling](https://github.com/docling-project/docling). Mesuré sur les 33 documents (deux fois), les 12 factures et 35 factures publiques : le PDF seul lit aussi bien, mieux sur 3 factures (un total HT trouvé, des lignes en HT au lieu de TTC, 4 lignes au lieu d'une vide), moins bien sur une autofacturation allemande, que la règle ci-dessus rattrape. Docling pesait 1,3 Go avec PyTorch et ses modèles ; sans lui, l'application tient en 115 Mo et lit un document en 2 secondes au lieu de 6 ;
 - préciser le format des dates dans la consigne : Gemini inverse toujours les dates américaines. Le code les lit désormais selon le pays du fournisseur, et la règle en Python attrape celles qu'il ne peut pas trancher ;
 - demander à Gemini une note de confiance par champ : il se donne 1,0 sur une date fausse.
 

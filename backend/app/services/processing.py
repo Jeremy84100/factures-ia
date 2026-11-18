@@ -43,13 +43,19 @@ STALE_AFTER = timedelta(minutes=10)
 QUEUED_TOO_LONG = timedelta(hours=1)
 INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-# A title that says credit note, in the languages of the suppliers met. Read by
-# code: the AI once took a « Gutschrift » for an invoice.
+# A title that says credit note, in the languages of the suppliers met: a
+# safety net read by code, whatever the AI said.
 CREDIT_TITLE = re.compile(
     r"\b(avoirs?|note de cr[ée]dit|credit ?notes?|credit memo|gutschrift"
     r"|nota de cr[ée]dito|nota di credito|creditnota)\b",
     re.IGNORECASE,
 )
+# A self-billed invoice (« Gutschrift (selbst ausgestellt) », autofacturation)
+# is written by the buyer but is still an invoice to pay: the AI took one,
+# with a positive total, for a credit note four times out of four.
+SELF_BILLED = re.compile(r"selbst|self[- ]?bill|autofactur|auto-factur", re.IGNORECASE)
+# The customer's own IBAN, masked, on an invoice paid by direct debit.
+MASKED_IBAN = re.compile(r"[*•]|X{4}")
 
 KINDS = {
     "facture": DocumentKind.invoice,
@@ -122,6 +128,19 @@ def is_credit_title(title: str | None) -> bool:
     return bool(CREDIT_TITLE.search(title or ""))
 
 
+def is_credit_note(extracted: ExtractedDocument) -> bool:
+    if SELF_BILLED.search(extracted.title or ""):
+        totals = (extracted.amount_incl_tax, extracted.amount_excl_tax)
+        return any(total is not None and total < 0 for total in totals)
+    return bool(extracted.is_credit_note) or is_credit_title(extracted.title)
+
+
+def to_iban(value: str | None) -> str | None:
+    if value and MASKED_IBAN.search(value):
+        return None
+    return clean_iban(value)
+
+
 def sign_credit_note(document: Document) -> None:
     if not document.is_credit_note:
         return
@@ -143,9 +162,7 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
     document.vat_amount = to_amount(extracted.vat_amount)
     document.amount_incl_tax = to_amount(extracted.amount_incl_tax)
     document.currency = (extracted.currency or "").upper()[:3] or None
-    document.is_credit_note = bool(extracted.is_credit_note) or is_credit_title(
-        extracted.title
-    )
+    document.is_credit_note = is_credit_note(extracted)
     document.vat_exemption = to_text(extracted.vat_exemption, 255)
     document.delivery_method = to_text(extracted.delivery_method, 100)
     document.delivery_mode = DELIVERY_MODES.get(extracted.delivery_mode or "")
@@ -154,7 +171,7 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
     document.due_date = to_date(extracted.due_date) or due_from_terms(
         document.payment_terms, document.document_date
     )
-    document.iban = clean_iban(extracted.iban)
+    document.iban = to_iban(extracted.iban)
     document.iban_checked = False
     document.supplier_email = to_email(extracted.supplier_email)
     document.lines = to_lines(extracted.lines)

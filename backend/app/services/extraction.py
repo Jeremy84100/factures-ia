@@ -108,7 +108,7 @@ class ExtractedDocument(BaseModel):
     )
     iban: str | None = Field(
         default=None,
-        description="Sur une facture : IBAN du fournisseur où payer, recopié tel qu'il est écrit. null s'il n'y en a pas.",
+        description="Sur une facture : IBAN du fournisseur, le compte où le payer, recopié tel qu'il est écrit. Jamais l'IBAN du client (prélèvement, mandat SEPA, « votre compte »), jamais un IBAN masqué par des étoiles. null s'il n'y en a pas.",
     )
     supplier_email: str | None = Field(
         default=None,
