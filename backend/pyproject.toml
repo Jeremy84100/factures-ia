@@ -49,6 +49,12 @@ explicit = true
 [tool.vercel.scripts]
 build = "bash scripts/vercel-build.sh"
 
+# The page, the React code and the icons go out from Vercel's CDN, without
+# waking the Python function. Vercel would otherwise keep them in the function
+# because of the CORS middleware, which only concerns the API.
+[tool.vercel.fastapi.static]
+cdn = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
