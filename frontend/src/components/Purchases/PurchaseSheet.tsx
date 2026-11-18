@@ -1,15 +1,26 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
+  Check,
+  CircleCheck,
   ClipboardList,
   Info,
+  Mail,
   Receipt,
+  RotateCcw,
   TriangleAlert,
   Truck,
 } from "lucide-react"
 
-import { Fragment } from "react"
+import { Fragment, useState } from "react"
 
-import type { DocumentRef, LineMatch, Purchase } from "@/client"
+import {
+  type DocumentRef,
+  type LineMatch,
+  type Purchase,
+  ReconciliationsService,
+} from "@/client"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
+import { QuickAction, QuickActions } from "@/components/App/QuickAction"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card } from "@/components/ui/card"
@@ -31,7 +42,9 @@ import {
   KIND_LONG,
 } from "@/lib/documents"
 import { openPdf } from "@/lib/pdf"
-import { overbilled, PurchaseBadge } from "./PurchaseRow"
+import { handleError } from "@/utils"
+import { allIssues, overbilled, PurchaseBadge } from "./PurchaseRow"
+import { SupplierEmailSection } from "./SupplierEmail"
 
 const KIND_ICON = { order: ClipboardList, delivery: Truck, invoice: Receipt }
 // "facturé 50, livré 45": the figures already show it in red.
@@ -41,19 +54,25 @@ function Verdict({ purchase }: { purchase: Purchase }) {
   const extra = overbilled(purchase)
   const invoiced = Number(purchase.invoiced_excl_tax ?? 0)
   const [label, amount, footer] =
-    purchase.status === "to_pay"
-      ? ["Vous pouvez payer", formatAmount(invoiced), "Hors taxes"]
-      : purchase.status === "dispute" && extra > 0.02
-        ? [
-            "Facturé en trop",
-            formatAmount(extra),
-            `Hors taxes, sur ${formatAmount(invoiced)} facturés`,
-          ]
-        : purchase.status === "dispute"
-          ? ["Verdict", "À ne pas payer tout de suite", null]
-          : purchase.status === "waiting"
-            ? ["Verdict", "Pas encore payable", null]
-            : ["Verdict", "Livraison et facture comparées entre elles", null]
+    purchase.status === "to_pay" && purchase.settled_at && extra > 0.02
+      ? [
+          "Vous pouvez payer",
+          formatAmount(invoiced),
+          `Hors taxes, moins l'avoir de ${formatAmount(extra)} s'il est accordé`,
+        ]
+      : purchase.status === "to_pay"
+        ? ["Vous pouvez payer", formatAmount(invoiced), "Hors taxes"]
+        : purchase.status === "dispute" && extra > 0.02
+          ? [
+              "Facturé en trop",
+              formatAmount(extra),
+              `Hors taxes, sur ${formatAmount(invoiced)} facturés`,
+            ]
+          : purchase.status === "dispute"
+            ? ["Verdict", "À ne pas payer tout de suite", null]
+            : purchase.status === "waiting"
+              ? ["Verdict", "Pas encore payable", null]
+              : ["Verdict", "Livraison et facture comparées entre elles", null]
   return (
     <section className="flex flex-col items-center gap-2 text-center">
       <PurchaseBadge purchase={purchase} />
@@ -72,12 +91,29 @@ function Verdict({ purchase }: { purchase: Purchase }) {
   )
 }
 
+const settledOn = (purchase: Purchase) =>
+  new Date(purchase.settled_at ?? "").toLocaleDateString("fr-FR")
+
 function Reasons({ purchase }: { purchase: Purchase }) {
   const issues = purchase.issues ?? []
   const notes = purchase.notes ?? []
   return (
     <>
-      {issues.length > 0 && (
+      {purchase.settled_at && (
+        <Alert>
+          <CircleCheck />
+          <AlertTitle>Litige réglé le {settledOn(purchase)}</AlertTitle>
+          <AlertDescription>
+            <p>Écarts réglés avec le fournisseur :</p>
+            <ul className="list-disc pl-4">
+              {allIssues(purchase).map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+      {issues.length > 0 && !purchase.settled_at && (
         <Alert variant="destructive">
           <TriangleAlert />
           <AlertTitle>À régler avant de payer</AlertTitle>
@@ -134,9 +170,11 @@ function Figure({
 
 // One article: its name, then ordered / delivered / invoiced side by side,
 // the figure at fault in red.
-function LineRow({ line }: { line: LineMatch }) {
-  const issues = line.issues ?? []
-  const notes = line.notes ?? []
+function LineRow({ line, settled }: { line: LineMatch; settled: boolean }) {
+  const issues = settled ? [] : (line.issues ?? [])
+  const notes = settled
+    ? [...(line.issues ?? []), ...(line.notes ?? [])]
+    : (line.notes ?? [])
   const flagged = (word: string) => issues.some((issue) => issue.includes(word))
   const priceChanged =
     line.invoice_price != null &&
@@ -211,6 +249,64 @@ function DocumentLink({ document }: { document: DocumentRef }) {
   )
 }
 
+// What to do about a dispute: write to the supplier, then mark it as settled
+// once the credit note or the agreement is there. Settling can be undone.
+function DisputeActions({
+  purchase,
+  writing,
+  onWrite,
+}: {
+  purchase: Purchase
+  writing: boolean
+  onWrite: () => void
+}) {
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const path = { path: { key: purchase.key } }
+  const settle = useMutation({
+    mutationFn: () => ReconciliationsService.settlePurchase(path),
+    onSuccess: () =>
+      showSuccessToast("Litige réglé : l'achat passe dans les bons à payer"),
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["purchases"] }),
+  })
+  const reopen = useMutation({
+    mutationFn: () => ReconciliationsService.reopenPurchase(path),
+    onSuccess: () => showSuccessToast("Le litige est de nouveau ouvert"),
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["purchases"] }),
+  })
+
+  if (purchase.settled_at)
+    return (
+      <QuickActions>
+        <QuickAction
+          icon={RotateCcw}
+          label="Rouvrir"
+          pending={reopen.isPending}
+          onClick={() => reopen.mutate()}
+        />
+      </QuickActions>
+    )
+  if (purchase.status !== "dispute") return null
+  return (
+    <QuickActions>
+      <QuickAction
+        icon={Mail}
+        label="Écrire"
+        disabled={writing}
+        onClick={onWrite}
+      />
+      <QuickAction
+        icon={Check}
+        label="Réglé"
+        pending={settle.isPending}
+        onClick={() => settle.mutate()}
+      />
+    </QuickActions>
+  )
+}
+
 export function PurchaseSheet({
   purchase,
   open,
@@ -220,6 +316,7 @@ export function PurchaseSheet({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const [writing, setWriting] = useState<string | null>(null)
   if (!purchase) return null
   const documents = [
     ...(purchase.orders ?? []),
@@ -229,13 +326,24 @@ export function PurchaseSheet({
   return (
     <ResponsiveSheet
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!next) setWriting(null)
+        onOpenChange(next)
+      }}
       title={purchase.supplier ?? `Commande ${purchase.order_reference}`}
       description={`Commande ${purchase.order_reference}`}
     >
       <div className="flex flex-col gap-6">
         <Verdict purchase={purchase} />
+        <DisputeActions
+          purchase={purchase}
+          writing={writing === purchase.key}
+          onWrite={() => setWriting(purchase.key)}
+        />
         <Reasons purchase={purchase} />
+        {writing === purchase.key && purchase.status === "dispute" && (
+          <SupplierEmailSection purchaseKey={purchase.key} />
+        )}
 
         {(purchase.lines?.length ?? 0) > 0 && (
           <section className="flex flex-col gap-3">
@@ -245,7 +353,7 @@ export function PurchaseSheet({
                 {purchase.lines?.map((line, index) => (
                   <Fragment key={`${line.reference}-${line.label}`}>
                     {index > 0 && <ItemSeparator className="my-0" />}
-                    <LineRow line={line} />
+                    <LineRow line={line} settled={!!purchase.settled_at} />
                   </Fragment>
                 ))}
               </ItemGroup>

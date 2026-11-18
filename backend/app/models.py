@@ -4,7 +4,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import EmailStr
-from sqlalchemy import JSON, LargeBinary, String
+from sqlalchemy import JSON, LargeBinary, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -184,6 +184,20 @@ class DocumentsPublic(SQLModel):
     count: int
 
 
+# A dispute the user has settled with the supplier. It only holds for the
+# issues the purchase had then: a new document that changes them reopens it.
+class Settlement(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("owner_id", "purchase_key"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    purchase_key: str = Field(max_length=100)
+    issues: list[str] = Field(default_factory=list, sa_type=JSON)
+    settled_at: datetime = Field(default_factory=get_datetime_utc)
+
+
 class PurchaseStatus(StrEnum):
     to_pay = "to_pay"
     dispute = "dispute"
@@ -227,12 +241,18 @@ class Purchase(SQLModel):
     late: bool = False
     invoiced_excl_tax: Decimal | None = None
     gap_excl_tax: Decimal | None = None
+    settled_at: datetime | None = None
 
 
 class Purchases(SQLModel):
     data: list[Purchase]
     unlinked: list[DocumentRef]
     count: int
+
+
+class SupplierEmail(SQLModel):
+    subject: str
+    body: str
 
 
 class SupplierTotal(SQLModel):

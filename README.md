@@ -134,6 +134,15 @@ Un achat est **bon à payer** quand la commande, une livraison et une facture so
 
 Le rapprochement n'est pas stocké : il est recalculé à chaque affichage par une fonction pure. Une correction ou une suppression ne laisse donc jamais de résultat périmé.
 
+### Régler un litige
+
+Dans le détail d'un litige, deux boutons :
+
+- **Écrire** prépare le mail au fournisseur : la facture et la commande concernées, la liste des écarts, le montant facturé en trop, et la demande d'un avoir ou d'une facture corrigée. Le texte est écrit à partir de la comparaison, sans l'IA : chaque chiffre est un chiffre vérifié. On peut le modifier, le copier ou l'ouvrir dans sa messagerie.
+- **Réglé** range l'achat dans les bons à payer, une fois l'avoir reçu ou l'accord trouvé. Les écarts restent affichés pour mémoire, et **Rouvrir** annule.
+
+Le règlement ne vaut que pour les écarts qu'il y avait à ce moment-là. Si un nouveau document en fait apparaître d'autres, le litige se rouvre tout seul.
+
 <table>
   <tr>
     <td><img src="docs/screenshots/rapprochements.png" alt="Liste des achats"></td>

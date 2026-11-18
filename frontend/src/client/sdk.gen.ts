@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { documentsDeleteAllDocumentsData, documentsDeleteAllDocumentsResponses, documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginLoginDemoData, loginLoginDemoResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { documentsDeleteAllDocumentsData, documentsDeleteAllDocumentsResponses, documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginLoginDemoData, loginLoginDemoResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, reconciliationsReadSupplierEmailData, reconciliationsReadSupplierEmailErrors, reconciliationsReadSupplierEmailResponses, reconciliationsReopenPurchaseData, reconciliationsReopenPurchaseErrors, reconciliationsReopenPurchaseResponses, reconciliationsSettlePurchaseData, reconciliationsSettlePurchaseErrors, reconciliationsSettlePurchaseResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -461,6 +461,48 @@ export class ReconciliationsService {
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/reconciliations/{key}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Supplier Email
+     *
+     * A letter to the supplier listing what does not match, ready to send.
+     */
+    public static readSupplierEmail<ThrowOnError extends boolean = true>(options: Options<reconciliationsReadSupplierEmailData, ThrowOnError>) {
+        return (options.client ?? client).get<reconciliationsReadSupplierEmailResponses, reconciliationsReadSupplierEmailErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reconciliations/{key}/email',
+            ...options
+        });
+    }
+    
+    /**
+     * Reopen Purchase
+     *
+     * Put a settled dispute back among the disputes.
+     */
+    public static reopenPurchase<ThrowOnError extends boolean = true>(options: Options<reconciliationsReopenPurchaseData, ThrowOnError>) {
+        return (options.client ?? client).delete<reconciliationsReopenPurchaseResponses, reconciliationsReopenPurchaseErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reconciliations/{key}/settle',
+            ...options
+        });
+    }
+    
+    /**
+     * Settle Purchase
+     *
+     * Mark a dispute as settled with the supplier, for the issues it has now.
+     */
+    public static settlePurchase<ThrowOnError extends boolean = true>(options: Options<reconciliationsSettlePurchaseData, ThrowOnError>) {
+        return (options.client ?? client).post<reconciliationsSettlePurchaseResponses, reconciliationsSettlePurchaseErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reconciliations/{key}/settle',
             ...options
         });
     }

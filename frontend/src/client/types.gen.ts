@@ -457,6 +457,10 @@ export type Purchase = {
      * Gap Excl Tax
      */
     gap_excl_tax?: string | null;
+    /**
+     * Settled At
+     */
+    settled_at?: string | null;
 };
 
 /**
@@ -480,6 +484,20 @@ export type Purchases = {
      * Count
      */
     count: number;
+};
+
+/**
+ * SupplierEmail
+ */
+export type SupplierEmail = {
+    /**
+     * Subject
+     */
+    subject: string;
+    /**
+     * Body
+     */
+    body: string;
 };
 
 /**
@@ -1460,6 +1478,96 @@ export type reconciliationsReadPurchaseResponses = {
 };
 
 export type reconciliationsReadPurchaseResponse = reconciliationsReadPurchaseResponses[keyof reconciliationsReadPurchaseResponses];
+
+export type reconciliationsReadSupplierEmailData = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/reconciliations/{key}/email';
+};
+
+export type reconciliationsReadSupplierEmailErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsReadSupplierEmailError = reconciliationsReadSupplierEmailErrors[keyof reconciliationsReadSupplierEmailErrors];
+
+export type reconciliationsReadSupplierEmailResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierEmail;
+};
+
+export type reconciliationsReadSupplierEmailResponse = reconciliationsReadSupplierEmailResponses[keyof reconciliationsReadSupplierEmailResponses];
+
+export type reconciliationsReopenPurchaseData = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/reconciliations/{key}/settle';
+};
+
+export type reconciliationsReopenPurchaseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsReopenPurchaseError = reconciliationsReopenPurchaseErrors[keyof reconciliationsReopenPurchaseErrors];
+
+export type reconciliationsReopenPurchaseResponses = {
+    /**
+     * Successful Response
+     */
+    200: Purchase;
+};
+
+export type reconciliationsReopenPurchaseResponse = reconciliationsReopenPurchaseResponses[keyof reconciliationsReopenPurchaseResponses];
+
+export type reconciliationsSettlePurchaseData = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/reconciliations/{key}/settle';
+};
+
+export type reconciliationsSettlePurchaseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsSettlePurchaseError = reconciliationsSettlePurchaseErrors[keyof reconciliationsSettlePurchaseErrors];
+
+export type reconciliationsSettlePurchaseResponses = {
+    /**
+     * Successful Response
+     */
+    200: Purchase;
+};
+
+export type reconciliationsSettlePurchaseResponse = reconciliationsSettlePurchaseResponses[keyof reconciliationsSettlePurchaseResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

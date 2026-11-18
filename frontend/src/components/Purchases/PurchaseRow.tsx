@@ -56,6 +56,7 @@ function summary(purchase: Purchase): string {
     case "no_order":
       return "Sans bon de commande"
     default:
+      if (purchase.settled_at) return "Litige réglé"
       return purchase.late ? "Livré en retard" : "Tout concorde"
   }
 }

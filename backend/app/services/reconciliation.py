@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -18,6 +18,7 @@ from app.models import (
     Purchase,
     Purchases,
     PurchaseStatus,
+    Settlement,
 )
 
 QTY_TOLERANCE_PCT = Decimal(0)
@@ -404,8 +405,19 @@ def missing_delivery(orders: Sequence[Document], today: date) -> str | None:
     )
 
 
+def all_issues(purchase: Purchase) -> list[str]:
+    return [*purchase.issues, *(i for line in purchase.lines for i in line.issues)]
+
+
+def settles(settlement: Settlement | None, issues: list[str]) -> bool:
+    return settlement is not None and sorted(settlement.issues) == sorted(issues)
+
+
 def reconcile(
-    key: str, documents: Sequence[Document], today: date | None = None
+    key: str,
+    documents: Sequence[Document],
+    today: date | None = None,
+    settlement: Settlement | None = None,
 ) -> Purchase:
     orders = [d for d in documents if d.kind == DocumentKind.order]
     deliveries = [d for d in documents if d.kind == DocumentKind.delivery]
@@ -446,9 +458,7 @@ def reconcile(
     if has_order and not has_invoice:
         notes.append("Facture pas encore reçue")
 
-    if issues or line_issues:
-        status = PurchaseStatus.dispute
-    elif not has_delivery or not has_invoice:
+    if not has_delivery or not has_invoice:
         status = PurchaseStatus.waiting
     elif not has_order:
         status = PurchaseStatus.no_order
@@ -456,7 +466,7 @@ def reconcile(
         status = PurchaseStatus.to_pay
 
     reference_doc = (orders or deliveries or invoices)[0]
-    return Purchase(
+    purchase = Purchase(
         key=key,
         order_reference=(
             reference_doc.number if orders else reference_doc.order_reference
@@ -474,6 +484,12 @@ def reconcile(
         invoiced_excl_tax=total,
         gap_excl_tax=gap,
     )
+    disputed = all_issues(purchase)
+    if disputed and settles(settlement, disputed):
+        purchase.settled_at = settlement.settled_at if settlement else None
+    elif disputed:
+        purchase.status = PurchaseStatus.dispute
+    return purchase
 
 
 def purchase_key(document: Document) -> str:
@@ -483,7 +499,9 @@ def purchase_key(document: Document) -> str:
 
 
 def build_purchases(
-    documents: Iterable[Document], today: date | None = None
+    documents: Iterable[Document],
+    today: date | None = None,
+    settlements: Mapping[str, Settlement] | None = None,
 ) -> Purchases:
     usable = [d for d in documents if d.kind in PURCHASE_KINDS and d.status in USABLE]
     order_suppliers = [
@@ -503,7 +521,7 @@ def build_purchases(
             unlinked.append(document)
 
     purchases = [
-        reconcile(key, docs, today)
+        reconcile(key, docs, today, (settlements or {}).get(key))
         for key, docs in groups.items()
         if any(d.kind != DocumentKind.invoice for d in docs)
     ]

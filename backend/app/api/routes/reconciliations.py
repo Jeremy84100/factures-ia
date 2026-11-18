@@ -5,10 +5,25 @@ from sqlalchemy.orm import defer, selectinload
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Document, Purchase, Purchases, PurchaseStatus
-from app.services.reconciliation import PURCHASE_KINDS, build_purchases
+from app.models import (
+    Document,
+    Purchase,
+    Purchases,
+    PurchaseStatus,
+    Settlement,
+    SupplierEmail,
+    get_datetime_utc,
+)
+from app.services.demo import is_demo
+from app.services.reconciliation import PURCHASE_KINDS, all_issues, build_purchases
+from app.services.supplier_email import write_email
 
 router = APIRouter(prefix="/reconciliations", tags=["reconciliations"])
+
+
+def settlements_of(session: SessionDep, user: CurrentUser) -> dict[str, Settlement]:
+    rows = session.exec(select(Settlement).where(Settlement.owner_id == user.id))
+    return {row.purchase_key: row for row in rows}
 
 
 def load_purchases(session: SessionDep, user: CurrentUser) -> Purchases:
@@ -21,7 +36,14 @@ def load_purchases(session: SessionDep, user: CurrentUser) -> Purchases:
         .options(defer(Document.file), selectinload(Document.lines))  # type: ignore[arg-type]
         .order_by(col(Document.created_at))
     ).all()
-    return build_purchases(documents)
+    return build_purchases(documents, settlements=settlements_of(session, user))
+
+
+def find_purchase(session: SessionDep, user: CurrentUser, key: str) -> Purchase:
+    for purchase in load_purchases(session, user).data:
+        if purchase.key == key:
+            return purchase
+    raise HTTPException(status_code=404, detail="Achat introuvable")
 
 
 @router.get("/", response_model=Purchases)
@@ -46,7 +68,48 @@ def read_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> A
     """
     One purchase, compared line by line.
     """
-    for purchase in load_purchases(session, current_user).data:
-        if purchase.key == key:
-            return purchase
-    raise HTTPException(status_code=404, detail="Achat introuvable")
+    return find_purchase(session, current_user, key)
+
+
+@router.get("/{key}/email", response_model=SupplierEmail)
+def read_supplier_email(
+    session: SessionDep, current_user: CurrentUser, key: str
+) -> Any:
+    """
+    A letter to the supplier listing what does not match, ready to send.
+    """
+    purchase = find_purchase(session, current_user, key)
+    if not all_issues(purchase):
+        raise HTTPException(status_code=400, detail="Aucun écart à signaler")
+    sender = None if is_demo(current_user) else current_user.full_name
+    return write_email(purchase, sender)
+
+
+@router.post("/{key}/settle", response_model=Purchase)
+def settle_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> Any:
+    """
+    Mark a dispute as settled with the supplier, for the issues it has now.
+    """
+    purchase = find_purchase(session, current_user, key)
+    if purchase.status != PurchaseStatus.dispute:
+        raise HTTPException(status_code=400, detail="Cet achat n'est pas en litige")
+    settlement = settlements_of(session, current_user).get(key) or Settlement(
+        owner_id=current_user.id, purchase_key=key
+    )
+    settlement.issues = all_issues(purchase)
+    settlement.settled_at = get_datetime_utc()
+    session.add(settlement)
+    session.commit()
+    return find_purchase(session, current_user, key)
+
+
+@router.delete("/{key}/settle", response_model=Purchase)
+def reopen_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> Any:
+    """
+    Put a settled dispute back among the disputes.
+    """
+    settlement = settlements_of(session, current_user).get(key)
+    if settlement:
+        session.delete(settlement)
+        session.commit()
+    return find_purchase(session, current_user, key)

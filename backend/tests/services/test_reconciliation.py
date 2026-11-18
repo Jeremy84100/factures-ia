@@ -7,10 +7,13 @@ from app.models import (
     Document,
     DocumentKind,
     DocumentLine,
+    DocumentRef,
     DocumentStatus,
+    Purchase,
     PurchaseStatus,
 )
 from app.services.reconciliation import build_purchases, reconcile
+from app.services.supplier_email import write_email
 
 OWNER = uuid.uuid4()
 
@@ -488,3 +491,34 @@ def test_eco_tax_is_a_fee_but_support_is_not() -> None:
         ],
     )
     assert purchase.status == PurchaseStatus.to_pay
+
+
+def test_supplier_email_without_invoice_asks_how_to_fix() -> None:
+    purchase = Purchase(
+        key="C1",
+        order_reference="C-1",
+        status=PurchaseStatus.dispute,
+        deliveries=[
+            DocumentRef(
+                id=uuid.uuid4(),
+                kind=DocumentKind.delivery,
+                filename="bl.pdf",
+                number="BL-1",
+                status=DocumentStatus.ok,
+            ),
+            DocumentRef(
+                id=uuid.uuid4(),
+                kind=DocumentKind.delivery,
+                filename="bl2.pdf",
+                number="BL-2",
+                status=DocumentStatus.ok,
+            ),
+        ],
+        issues=["Câble : livré 60, commandé 50"],
+    )
+    email = write_email(purchase, "Marie Durand")
+    assert email.subject == "Commande C-1 : écarts sur la livraison"
+    assert "vos bons de livraison n° BL-1 et BL-2, pour notre commande" in email.body
+    assert "- Câble : livré 60, commandé 50" in email.body
+    assert "avoir" not in email.body
+    assert email.body.endswith("Cordialement,\nMarie Durand")

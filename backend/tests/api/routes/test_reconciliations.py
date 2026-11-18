@@ -114,3 +114,87 @@ def test_purchases_of_other_users_stay_private(
 
 def test_needs_login(client: TestClient) -> None:
     assert client.get(URL).status_code == 401
+
+
+def deposit_dispute(
+    client: TestClient, headers: dict[str, str], number: str
+) -> tuple[ExtractedDocument, ExtractedDocument, ExtractedDocument]:
+    order, delivery, invoice = purchase_documents(number)
+    short_cable = delivery.lines[0].model_copy(update={"quantity": 45})
+    short = delivery.model_copy(update={"lines": [short_cable, delivery.lines[1]]})
+    deposit(client, headers, order, short, invoice)
+    return order, short, invoice
+
+
+def test_email_to_supplier_lists_the_gaps(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    deposit_dispute(client, normal_user_token_headers, "API-6")
+    r = client.get(f"{URL}API6/email", headers=normal_user_token_headers)
+    assert r.status_code == 200, r.text
+    email = r.json()
+    assert email["subject"] == "Commande API-6 : écarts sur votre facture n° FA-API-6"
+    body = email["body"]
+    assert "votre facture n° FA-API-6 du 06/10/2026" in body
+    assert "- Câble R2V 3G2,5 couronne 100 m : facturé 50, livré 45" in body
+    assert "facturé en trop s'élève à 5,95 € HT" in body
+    assert "avoir" in body
+
+
+def test_no_email_when_everything_matches(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    deposit(client, normal_user_token_headers, *purchase_documents("API-7"))
+    r = client.get(f"{URL}API7/email", headers=normal_user_token_headers)
+    assert r.status_code == 400
+
+
+def test_settled_dispute_can_be_paid_and_reopened(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    deposit_dispute(client, normal_user_token_headers, "API-8")
+    r = client.post(f"{URL}API8/settle", headers=normal_user_token_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "to_pay"
+    assert r.json()["settled_at"]
+    # The gaps stay visible, as a record of what was settled.
+    assert r.json()["lines"][0]["issues"]
+
+    r = client.get(URL, headers=normal_user_token_headers, params={"status": "dispute"})
+    assert "API8" not in [p["key"] for p in r.json()["data"]]
+
+    r = client.delete(f"{URL}API8/settle", headers=normal_user_token_headers)
+    assert r.json()["status"] == "dispute"
+    assert r.json()["settled_at"] is None
+
+
+def test_new_gap_reopens_a_settled_dispute(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    order, _, invoice = deposit_dispute(client, normal_user_token_headers, "API-9")
+    client.post(f"{URL}API9/settle", headers=normal_user_token_headers)
+    again = invoice.model_copy(update={"number": "FA-API-9-BIS"})
+    deposit(client, normal_user_token_headers, again)
+    purchase = find(client, normal_user_token_headers, "API9")
+    assert purchase["status"] == "dispute"
+    assert purchase["settled_at"] is None
+
+
+def test_only_disputes_can_be_settled(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    deposit(client, normal_user_token_headers, *purchase_documents("API-10"))
+    r = client.post(f"{URL}API10/settle", headers=normal_user_token_headers)
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Cet achat n'est pas en litige"
+
+
+def test_settlements_of_other_users_stay_private(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    superuser_token_headers: dict[str, str],
+) -> None:
+    deposit_dispute(client, normal_user_token_headers, "API-11")
+    r = client.post(f"{URL}API11/settle", headers=superuser_token_headers)
+    assert r.status_code == 404
+    assert find(client, normal_user_token_headers, "API11")["status"] == "dispute"
