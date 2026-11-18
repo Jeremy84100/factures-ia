@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link as RouterLink,
@@ -8,7 +9,10 @@ import { ArrowRight, Camera, GitCompareArrows, ShieldCheck } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import type { Body_login_login_access_token as AccessToken } from "@/client"
+import {
+  type Body_login_login_access_token as AccessToken,
+  UtilsService,
+} from "@/client"
 import {
   PasswordField,
   SubmitButton,
@@ -59,13 +63,13 @@ const STEPS = [
   },
   {
     icon: GitCompareArrows,
-    title: "L'IA compare ligne par ligne",
+    title: "Tout est comparé ligne par ligne",
     text: "Quantités, prix, articles, mode et date de livraison.",
   },
   {
     icon: ShieldCheck,
-    title: "Vous savez quoi payer",
-    text: "Bon à payer, litige ou en attente, avec la raison en clair.",
+    title: "Vous savez quoi payer, et quand",
+    text: "Le reste à payer TTC, les échéances, les litiges avec la raison en clair.",
   },
 ]
 
@@ -100,6 +104,12 @@ function DemoButton() {
 
 function LoginCard() {
   const { loginMutation } = useAuth()
+  // "Oublié ?" only when the server can send the e-mail.
+  const { data: features } = useQuery({
+    queryKey: ["features"],
+    queryFn: async () => (await UtilsService.readFeatures()).data,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -137,9 +147,11 @@ function LoginCard() {
               placeholder="Mot de passe"
               data-testid="password-input"
               labelEnd={
-                <Button variant="link" size="xs" asChild>
-                  <RouterLink to="/recover-password">Oublié ?</RouterLink>
-                </Button>
+                features?.password_recovery && (
+                  <Button variant="link" size="xs" asChild>
+                    <RouterLink to="/recover-password">Oublié ?</RouterLink>
+                  </Button>
+                )
               }
             />
           </FieldGroup>

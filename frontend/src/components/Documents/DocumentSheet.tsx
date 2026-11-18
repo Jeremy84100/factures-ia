@@ -1,5 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Eye, Pencil, RotateCw, Trash2, TriangleAlert } from "lucide-react"
+import {
+  BadgeCheck,
+  Eye,
+  Pencil,
+  RotateCw,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react"
 import { useState } from "react"
 
 import { type DocumentPublic, DocumentsService } from "@/client"
@@ -26,11 +33,12 @@ import {
   formatQuantity,
   isBusy,
   KIND_LONG,
+  plural,
 } from "@/lib/documents"
 import { openPdf } from "@/lib/pdf"
 import { handleError } from "@/utils"
 import DeleteDocument from "./DeleteDocument"
-import { DocumentBadge, documentAmount } from "./DocumentRow"
+import { DocumentBadge } from "./DocumentRow"
 import EditDocument from "./EditDocument"
 
 const SWITCH_MS = 280
@@ -61,6 +69,12 @@ function Details({ document }: { document: DocumentPublic }) {
     if (document.vat_amount) rows.push(["TVA", money(document.vat_amount)])
     if (document.amount_incl_tax)
       rows.push(["Total TTC", money(document.amount_incl_tax)])
+  }
+  if (document.kind === "invoice") {
+    if (document.payment_terms)
+      rows.push(["Conditions de paiement", document.payment_terms])
+    if (document.due_date)
+      rows.push(["Échéance", formatDate(document.due_date)])
   }
   rows.push(["Fichier", document.filename])
   return (
@@ -148,7 +162,17 @@ export function DocumentSheet({
 
   if (!document) return null
   const busy = isBusy(document)
-  const amount = documentAmount(document)
+  const money = (value: string) =>
+    formatAmount(value, document.currency ?? "EUR")
+  // A delivery note has no price: what counts is what came.
+  const [label, figure] =
+    document.kind === "delivery"
+      ? ["Livré", plural(document.lines?.length ?? 0, "article", "articles")]
+      : document.amount_incl_tax != null
+        ? ["Total TTC", money(document.amount_incl_tax)]
+        : document.amount_excl_tax != null
+          ? ["Total HT", money(document.amount_excl_tax)]
+          : ["Total", "—"]
   // The detail slides away first, then the next panel comes up: never two at once.
   const switchTo = (setter: (value: boolean) => void) => {
     onOpenChange(false)
@@ -171,11 +195,19 @@ export function DocumentSheet({
         <div className="flex flex-col gap-6">
           <section className="flex flex-col items-center gap-2 text-center">
             <DocumentBadge document={document} />
-            <p className="text-sm text-muted-foreground">
-              {document.kind === "invoice" ? "Total TTC" : "Total HT"}
-            </p>
-            <BigAmount text={amount ?? "—"} size="md" />
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <BigAmount text={figure} size="md" />
           </section>
+
+          {document.from_einvoice && (
+            <Alert>
+              <BadgeCheck />
+              <AlertTitle>Facture électronique</AlertTitle>
+              <AlertDescription>
+                Chiffres lus tels quels dans le fichier joint au PDF, sans IA.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {document.issues.length > 0 && (
             <Alert>

@@ -13,7 +13,7 @@ SAME_NUMBER_AS = "Même numéro que"
 NUMBER_ISSUES = (DUPLICATE_OF, SAME_NUMBER_AS)
 NOT_A_PURCHASE_DOCUMENT = "Ni facture, ni bon de commande, ni bon de livraison"
 NO_LINES = "Aucune ligne d'article trouvée"
-NO_ORDER_REFERENCE = "Numéro de commande introuvable : à relier à une commande"
+NO_ORDER_REFERENCE = "Numéro de commande introuvable : à ranger dans son achat"
 PROMISED_BEFORE_ORDER = "Date de livraison promise avant la date du document"
 DUE_BEFORE_INVOICE = "Échéance avant la date de la facture"
 

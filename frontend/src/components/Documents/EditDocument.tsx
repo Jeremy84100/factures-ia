@@ -69,6 +69,8 @@ const formSchema = z.object({
   vat_exemption: z.string().max(255),
   delivery_method: z.string().max(100),
   expected_delivery_date: z.string(),
+  payment_terms: z.string().max(100),
+  due_date: z.string(),
   delivery_mode: z.enum(["none", "pickup", "standard", "express"]),
   is_credit_note: z.boolean(),
   lines: z.array(lineSchema),
@@ -95,7 +97,7 @@ const MODE_OPTIONS: { value: DeliveryMode | "none"; label: string }[] = [
   { value: "pickup", label: "Retrait par le client" },
 ]
 
-const WIDE: TextField[] = ["supplier", "vat_exemption"]
+const WIDE: TextField[] = ["supplier", "vat_exemption", "due_date"]
 const NUMERIC = new Set([
   "amount_excl_tax",
   "vat_amount",
@@ -125,6 +127,17 @@ const FIELDS: {
   {
     name: "vat_exemption",
     label: "Mention d'exonération de TVA",
+    kinds: ["invoice"],
+  },
+  {
+    name: "payment_terms",
+    label: "Conditions de paiement",
+    kinds: ["invoice"],
+  },
+  {
+    name: "due_date",
+    label: "Échéance (vide : calculée depuis les conditions)",
+    type: "date",
     kinds: ["invoice"],
   },
   {

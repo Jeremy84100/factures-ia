@@ -8,7 +8,6 @@ import { EmptyState } from "@/components/App/EmptyState"
 import { type Chip, FilterChips } from "@/components/App/FilterChips"
 import { ListGroup } from "@/components/App/ListRow"
 import { UploadButton } from "@/components/App/UploadButton"
-import DeleteAllDocuments from "@/components/Documents/DeleteAllDocuments"
 import { DocumentRow } from "@/components/Documents/DocumentRow"
 import { DocumentSheet } from "@/components/Documents/DocumentSheet"
 import { needsReview, plural } from "@/lib/documents"
@@ -108,12 +107,6 @@ function Documents() {
             />
           ))}
         </ListGroup>
-      )}
-
-      {filter === "all" && data.count > 0 && (
-        <div className="flex justify-center">
-          <DeleteAllDocuments count={data.count} />
-        </div>
       )}
 
       <DocumentSheet

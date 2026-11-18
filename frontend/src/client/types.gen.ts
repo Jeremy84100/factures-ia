@@ -108,6 +108,14 @@ export type DocumentPublic = {
      */
     expected_delivery_date?: string | null;
     /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Payment Terms
+     */
+    payment_terms?: string | null;
+    /**
      * Id
      */
     id: string;
@@ -125,6 +133,10 @@ export type DocumentPublic = {
      * Issues
      */
     issues: Array<string>;
+    /**
+     * From Einvoice
+     */
+    from_einvoice?: boolean;
     /**
      * Lines
      */
@@ -221,6 +233,14 @@ export type DocumentUpdate = {
      * Expected Delivery Date
      */
     expected_delivery_date?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Payment Terms
+     */
+    payment_terms?: string | null;
     kind?: DocumentKind | null;
     /**
      * Lines
@@ -240,6 +260,16 @@ export type DocumentsPublic = {
      * Count
      */
     count: number;
+};
+
+/**
+ * Features
+ */
+export type Features = {
+    /**
+     * Password Recovery
+     */
+    password_recovery: boolean;
 };
 
 /**
@@ -359,6 +389,20 @@ export type LineMatch = {
 };
 
 /**
+ * LinkSuggestion
+ */
+export type LinkSuggestion = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Order Reference
+     */
+    order_reference: string;
+};
+
+/**
  * Message
  */
 export type Message = {
@@ -450,23 +494,55 @@ export type Purchase = {
      */
     late?: boolean;
     /**
+     * Expected Delivery Date
+     */
+    expected_delivery_date?: string | null;
+    /**
+     * Invoice Only
+     */
+    invoice_only?: boolean;
+    /**
      * Invoiced Excl Tax
      */
     invoiced_excl_tax?: string | null;
+    /**
+     * Invoiced Incl Tax
+     */
+    invoiced_incl_tax?: string | null;
+    /**
+     * To Pay Incl Tax
+     */
+    to_pay_incl_tax?: string | null;
     /**
      * Gap Excl Tax
      */
     gap_excl_tax?: string | null;
     /**
+     * Gap Incl Tax
+     */
+    gap_incl_tax?: string | null;
+    /**
+     * Due Date
+     */
+    due_date?: string | null;
+    /**
+     * Due Date Assumed
+     */
+    due_date_assumed?: boolean;
+    /**
      * Settled At
      */
     settled_at?: string | null;
+    /**
+     * Paid At
+     */
+    paid_at?: string | null;
 };
 
 /**
  * PurchaseStatus
  */
-export type PurchaseStatus = 'to_pay' | 'dispute' | 'waiting' | 'no_order';
+export type PurchaseStatus = 'to_pay' | 'dispute' | 'waiting' | 'paid';
 
 /**
  * Purchases
@@ -479,7 +555,7 @@ export type Purchases = {
     /**
      * Unlinked
      */
-    unlinked: Array<DocumentRef>;
+    unlinked: Array<UnlinkedDocument>;
     /**
      * Count
      */
@@ -540,6 +616,38 @@ export type Token = {
      * Token Type
      */
     token_type?: string;
+};
+
+/**
+ * UnlinkedDocument
+ */
+export type UnlinkedDocument = {
+    /**
+     * Id
+     */
+    id: string;
+    kind: DocumentKind;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Number
+     */
+    number?: string | null;
+    /**
+     * Document Date
+     */
+    document_date?: string | null;
+    status: DocumentStatus;
+    /**
+     * Supplier
+     */
+    supplier?: string | null;
+    /**
+     * Suggestions
+     */
+    suggestions?: Array<LinkSuggestion>;
 };
 
 /**
@@ -1140,6 +1248,22 @@ export type utilsTestEmailResponses = {
 
 export type utilsTestEmailResponse = utilsTestEmailResponses[keyof utilsTestEmailResponses];
 
+export type utilsReadFeaturesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/utils/features/';
+};
+
+export type utilsReadFeaturesResponses = {
+    /**
+     * Successful Response
+     */
+    200: Features;
+};
+
+export type utilsReadFeaturesResponse = utilsReadFeaturesResponses[keyof utilsReadFeaturesResponses];
+
 export type utilsHealthCheckData = {
     body?: never;
     path?: never;
@@ -1270,6 +1394,34 @@ export type documentsReadSupplierTotalsResponses = {
 };
 
 export type documentsReadSupplierTotalsResponse = documentsReadSupplierTotalsResponses[keyof documentsReadSupplierTotalsResponses];
+
+export type documentsExportInvoicesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Month
+         */
+        month?: string | null;
+    };
+    url: '/api/v1/documents/export';
+};
+
+export type documentsExportInvoicesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type documentsExportInvoicesError = documentsExportInvoicesErrors[keyof documentsExportInvoicesErrors];
+
+export type documentsExportInvoicesResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type documentsDeleteDocumentData = {
     body?: never;
@@ -1568,6 +1720,66 @@ export type reconciliationsSettlePurchaseResponses = {
 };
 
 export type reconciliationsSettlePurchaseResponse = reconciliationsSettlePurchaseResponses[keyof reconciliationsSettlePurchaseResponses];
+
+export type reconciliationsUnpayPurchaseData = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/reconciliations/{key}/pay';
+};
+
+export type reconciliationsUnpayPurchaseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsUnpayPurchaseError = reconciliationsUnpayPurchaseErrors[keyof reconciliationsUnpayPurchaseErrors];
+
+export type reconciliationsUnpayPurchaseResponses = {
+    /**
+     * Successful Response
+     */
+    200: Purchase;
+};
+
+export type reconciliationsUnpayPurchaseResponse = reconciliationsUnpayPurchaseResponses[keyof reconciliationsUnpayPurchaseResponses];
+
+export type reconciliationsPayPurchaseData = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/reconciliations/{key}/pay';
+};
+
+export type reconciliationsPayPurchaseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reconciliationsPayPurchaseError = reconciliationsPayPurchaseErrors[keyof reconciliationsPayPurchaseErrors];
+
+export type reconciliationsPayPurchaseResponses = {
+    /**
+     * Successful Response
+     */
+    200: Purchase;
+};
+
+export type reconciliationsPayPurchaseResponse = reconciliationsPayPurchaseResponses[keyof reconciliationsPayPurchaseResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   ChevronsUpDown,
   CircleUser,
-  FileText,
   House,
   LogOut,
   type LucideIcon,
@@ -52,9 +51,10 @@ import { getInitials } from "@/utils"
 
 type Path = "/" | "/documents" | "/reconciliations"
 
+// Three places only: what to pay, the purchases, the account. Documents are
+// reached from the purchases, where they are used.
 const NAV: { to: Path; label: string; icon: LucideIcon }[] = [
   { to: "/", label: "Accueil", icon: House },
-  { to: "/documents", label: "Documents", icon: FileText },
   { to: "/reconciliations", label: "Achats", icon: ShoppingBag },
 ]
 
@@ -265,7 +265,10 @@ export function DemoBanner() {
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const isActive = (to: Path) =>
-    to === "/" ? pathname === "/" : pathname.startsWith(to)
+    to === "/"
+      ? pathname === "/"
+      : pathname.startsWith(to) ||
+        (to === "/reconciliations" && pathname.startsWith("/documents"))
   const tab = (active: boolean) =>
     active
       ? "h-auto flex-1 flex-col gap-1 py-2 text-xs"

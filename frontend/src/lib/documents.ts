@@ -6,7 +6,7 @@ export const STATUS: Record<
   DocumentStatus,
   { label: string; variant: Variant }
 > = {
-  pending: { label: "En attente", variant: "outline" },
+  pending: { label: "À lire", variant: "outline" },
   processing: { label: "Lecture…", variant: "outline" },
   ok: { label: "Validé", variant: "default" },
   to_check: { label: "À vérifier", variant: "secondary" },
@@ -25,10 +25,10 @@ export const PURCHASE_STATUS: Record<
   PurchaseStatus,
   { label: string; variant: Variant }
 > = {
-  to_pay: { label: "Bon à payer", variant: "default" },
+  to_pay: { label: "À payer", variant: "default" },
   dispute: { label: "Litige", variant: "destructive" },
   waiting: { label: "En attente", variant: "outline" },
-  no_order: { label: "Sans commande", variant: "secondary" },
+  paid: { label: "Payé", variant: "secondary" },
 }
 
 export const isBusy = (document: { status: DocumentStatus }) =>
@@ -81,3 +81,29 @@ export const plural = (count: number, one: string, many: string) =>
 // "Ciment CEM II : facturé 50, livré 45" -> "facturé 50, livré 45"
 export const afterLabel = (text: string) =>
   text.includes(" : ") ? text.slice(text.indexOf(" : ") + 3) : text
+
+const DAY_MS = 86_400_000
+
+const startOfDay = (value: Date) =>
+  new Date(value.getFullYear(), value.getMonth(), value.getDate())
+
+// Days from today to a "2026-11-20" date: negative once it is past.
+export function daysUntil(value: string, today = new Date()) {
+  const day = new Date(`${value}T00:00:00`)
+  return Math.round((day.getTime() - startOfDay(today).getTime()) / DAY_MS)
+}
+
+export const days = (count: number) => plural(count, "jour", "jours")
+
+// "avant le 20/11", "aujourd'hui", "en retard de 3 jours".
+export function dueLabel(value: string | null | undefined) {
+  if (!value) return null
+  const left = daysUntil(value)
+  if (left < 0) return { text: `${-left} j de retard`, late: true }
+  if (left === 0) return { text: "aujourd'hui", late: false }
+  const short = new Date(`${value}T00:00:00`).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+  })
+  return { text: `avant le ${short}`, late: false }
+}

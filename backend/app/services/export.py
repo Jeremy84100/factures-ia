@@ -7,6 +7,7 @@ before the cents, and a BOM so the accents show.
 import csv
 import io
 import re
+import unicodedata
 import zipfile
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -36,7 +37,10 @@ def amount(value: Decimal | None) -> str:
 
 def file_name(document: Document, taken: set[str]) -> str:
     day = document.document_date.isoformat() if document.document_date else "sans-date"
-    stem = UNSAFE.sub("-", f"{day}_{document.supplier or ''}_{document.number or ''}")
+    # Plain letters: old archive tools mangle accents in file names.
+    label = f"{day}_{document.supplier or ''}_{document.number or ''}"
+    plain = unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode()
+    stem = UNSAFE.sub("-", plain)
     name, count = f"{stem.strip('-_')}.pdf", 2
     while name in taken:
         name, count = f"{stem.strip('-_')}-{count}.pdf", count + 1

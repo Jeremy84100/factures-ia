@@ -18,16 +18,15 @@ export const KIND_ICON: Record<DocumentKind, LucideIcon> = {
   unknown: File,
 }
 
+// TTC when the document gives it, else HT said so: never one for the other.
 export function documentAmount(document: DocumentPublic) {
-  const value =
-    document.kind === "invoice"
-      ? document.amount_incl_tax
-      : document.kind === "order"
-        ? document.amount_excl_tax
-        : null
-  return value === null || value === undefined
-    ? null
-    : formatAmount(value, document.currency ?? "EUR")
+  if (document.kind === "delivery" || document.kind === "unknown") return null
+  const currency = document.currency ?? "EUR"
+  if (document.amount_incl_tax != null)
+    return formatAmount(document.amount_incl_tax, currency)
+  if (document.amount_excl_tax != null)
+    return `${formatAmount(document.amount_excl_tax, currency)} HT`
+  return null
 }
 
 export function DocumentBadge({ document }: { document: DocumentPublic }) {

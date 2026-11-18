@@ -43,7 +43,14 @@ def main() -> None:
     owner = uuid.uuid4()
 
     documents: list[Document] = []
-    scores = {"type": 0, "numéro": 0, "n° commande": 0, "lignes": 0, "livraison": 0}
+    scores = {
+        "type": 0,
+        "numéro": 0,
+        "n° commande": 0,
+        "lignes": 0,
+        "livraison": 0,
+        "échéance": 0,
+    }
     for case in expected["documents"]:
         path = FIXTURES / case["filename"]
         data = path.read_bytes()
@@ -74,6 +81,12 @@ def main() -> None:
             ] and str(document.expected_delivery_date or "") == (
                 case["expected_delivery_date"] or ""
             )
+        # The due date as the app stores it: printed, or worked out from the
+        # payment terms the AI copied.
+        if case["kind"] == "invoice":
+            checks["échéance"] = str(document.due_date or "") == (
+                case["due_date"] or ""
+            )
         for name, ok in checks.items():
             scores[name] += ok
         wrong = [name for name, ok in checks.items() if not ok]
@@ -85,12 +98,15 @@ def main() -> None:
     totals["livraison"] = sum(
         case["kind"] in DELIVERY_KINDS for case in expected["documents"]
     )
+    totals["échéance"] = sum(
+        case["kind"] == "invoice" for case in expected["documents"]
+    )
     print(f"\nModèle : {settings.GEMINI_MODEL} — {total} documents")
     for name, hits in scores.items():
         print(f"  {name:<12} {hits}/{totals[name]}")
 
     result = build_purchases(documents)
-    verdicts = {p.key: p for p in result.data}
+    verdicts = {reference_key(p.order_reference): p for p in result.data}
     unlinked = {ref.number for ref in result.unlinked}
     good = 0
     print(f"\n{len(expected['purchases'])} achats")

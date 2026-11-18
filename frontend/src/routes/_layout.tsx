@@ -54,9 +54,12 @@ function Layout() {
           <h1 className="text-lg font-semibold md:text-sm md:font-medium">
             {TITLES[pathname] ?? ""}
           </h1>
-          <UploadButton size="sm" className="ml-auto">
-            Ajouter
-          </UploadButton>
+          {/* The home screen has its own round "Ajouter" button. */}
+          {pathname !== "/" && (
+            <UploadButton size="sm" className="ml-auto">
+              Ajouter
+            </UploadButton>
+          )}
         </header>
         <div className="flex flex-1 flex-col gap-6 px-4 pt-2 pb-28 md:p-8">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">

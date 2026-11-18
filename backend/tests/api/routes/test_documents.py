@@ -318,7 +318,7 @@ def test_kind_and_order_number_can_be_corrected(
     r = client.put(url, headers=normal_user_token_headers, json={"kind": "delivery"})
     assert r.json()["kind"] == "delivery"
     assert r.json()["issues"] == [
-        "Numéro de commande introuvable : à relier à une commande"
+        "Numéro de commande introuvable : à ranger dans son achat"
     ]
 
     r = client.put(

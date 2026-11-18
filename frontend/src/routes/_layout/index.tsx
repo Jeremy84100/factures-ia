@@ -15,24 +15,30 @@ import { type DragEvent, type ReactNode, useState } from "react"
 import type { Purchase } from "@/client"
 import { EmptyState } from "@/components/App/EmptyState"
 import { ListGroup, ListRow } from "@/components/App/ListRow"
-import {
-  DemoBanner,
-  displayName,
-  isDemoUser,
-} from "@/components/App/Navigation"
+import { DemoBanner, isDemoUser } from "@/components/App/Navigation"
 import {
   BigAmount,
   QuickAction,
   QuickActions,
 } from "@/components/App/QuickAction"
 import { UploadButton, useFilePicker } from "@/components/App/UploadButton"
-import { overbilled, PurchaseRow } from "@/components/Purchases/PurchaseRow"
+import {
+  overbilled,
+  PurchaseRow,
+  shortReason,
+} from "@/components/Purchases/PurchaseRow"
 import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import useAuth from "@/hooks/useAuth"
-import { formatAmount, isBusy, needsReview, plural } from "@/lib/documents"
+import {
+  daysUntil,
+  formatAmount,
+  isBusy,
+  needsReview,
+  plural,
+} from "@/lib/documents"
 import { documentsQuery, purchasesQuery, useLiveOptions } from "@/lib/queries"
 
 export const Route = createFileRoute("/_layout/")({
@@ -120,26 +126,32 @@ function Home() {
   if (documents.count === 0) return <FirstVisit />
 
   const list = purchases.data
+  // Sorted by the server: the soonest due first.
   const toPay = list.filter((p) => p.status === "to_pay")
   const disputes = list.filter((p) => p.status === "dispute")
-  const waiting = list.filter((p) => p.status === "waiting")
+  const waiting = list.filter((p) => p.status === "waiting" && !p.late)
   const late = list.filter((p) => p.late)
   const reading = documents.data.filter(isBusy).length
-  const review = documents.data.filter(needsReview).length
-  const payable = toPay.reduce(
-    (sum, p) => sum + Number(p.invoiced_excl_tax ?? 0),
-    0,
+  // A document only waiting to be filed is counted once, among those to file.
+  const toFile = new Set(purchases.unlinked.map((d) => d.id))
+  const review = documents.data.filter(
+    (d) => needsReview(d) && !toFile.has(d.id),
+  ).length
+  const sum = (items: Purchase[]) =>
+    items.reduce((total, p) => total + Number(p.to_pay_incl_tax ?? 0), 0)
+  const payable = sum(toPay)
+  const overdue = toPay.filter(
+    (p) =>
+      p.due_date && daysUntil(p.due_date) < 0 && Number(p.to_pay_incl_tax) > 0,
   )
-  const extra = disputes.reduce((sum, p) => sum + overbilled(p), 0)
-  const name = isDemoUser(user)
-    ? ""
-    : displayName(user ?? undefined).split(" ")[0]
+  const extra = disputes.reduce((total, p) => total + overbilled(p), 0)
+  const name = isDemoUser(user) ? "" : (user?.full_name ?? "").split(" ")[0]
 
   const open = (purchase: Purchase) => {
     setSelected(purchase.key)
     setSheetOpen(true)
   }
-  const go = (filter: "dispute" | "waiting" | "late" | "unlinked") =>
+  const go = (filter: "dispute" | "waiting" | "to_pay") =>
     navigate({ to: "/reconciliations", search: { filter } })
 
   const todo = [
@@ -166,9 +178,9 @@ function Home() {
           "livraison en retard",
           "livraisons en retard",
         )}
-        subtitle="Après la date promise"
+        subtitle="Pas encore reçues : relancez le fournisseur"
         chevron
-        onClick={() => go("late")}
+        onClick={() => go("waiting")}
       />
     ),
     purchases.unlinked.length > 0 && (
@@ -177,12 +189,12 @@ function Home() {
         icon={Link2}
         title={plural(
           purchases.unlinked.length,
-          "document à relier",
-          "documents à relier",
+          "document à ranger",
+          "documents à ranger",
         )}
-        subtitle="Sans numéro de commande"
+        subtitle="Sans numéro de commande : touchez pour les ranger"
         chevron
-        onClick={() => go("unlinked")}
+        onClick={() => go("waiting")}
       />
     ),
     waiting.length > 0 && (
@@ -190,7 +202,11 @@ function Home() {
         key="waiting"
         icon={Hourglass}
         title={plural(waiting.length, "achat en attente", "achats en attente")}
-        subtitle="Livraison ou facture manquante"
+        subtitle={
+          waiting.length === 1
+            ? shortReason(waiting[0].notes?.[0] ?? "Il manque un document")
+            : "Il manque une livraison, une facture ou une vérification"
+        }
         chevron
         onClick={() => go("waiting")}
       />
@@ -214,15 +230,20 @@ function Home() {
       <DemoBanner />
       <section className="flex flex-col items-center gap-2 pt-2 text-center">
         <p className="text-sm text-muted-foreground">
-          {name ? `Bonjour ${name}, vous` : "Vous"} pouvez payer
+          {name ? `Bonjour ${name}, il reste à payer` : "Reste à payer"}
         </p>
         <BigAmount text={formatAmount(payable)} />
         <p className="text-sm text-muted-foreground">
-          Hors taxes ·{" "}
+          TTC ·{" "}
           {toPay.length > 0
             ? plural(toPay.length, "achat vérifié", "achats vérifiés")
-            : "aucun achat complet"}
+            : "rien de prêt à payer"}
         </p>
+        {overdue.length > 0 && (
+          <p className="text-sm text-destructive">
+            Dont {formatAmount(sum(overdue))} en retard de paiement
+          </p>
+        )}
       </section>
 
       <HomeActions disputes={disputes.length} />
@@ -243,7 +264,7 @@ function Home() {
 
       {toPay.length > 0 && (
         <ListGroup
-          title="Bons à payer"
+          title="Prochains paiements"
           action={
             <Button variant="link" size="sm" asChild>
               <Link to="/reconciliations" search={{ filter: "to_pay" }}>
@@ -252,7 +273,7 @@ function Home() {
             </Button>
           }
         >
-          {toPay.slice(0, 4).map((purchase) => (
+          {toPay.slice(0, 5).map((purchase) => (
             <PurchaseRow
               key={purchase.key}
               purchase={purchase}
@@ -264,6 +285,7 @@ function Home() {
 
       <PurchaseSheet
         purchase={list.find((p) => p.key === selected)}
+        unlinked={purchases.unlinked}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       />
