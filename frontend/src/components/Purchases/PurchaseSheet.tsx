@@ -694,11 +694,14 @@ export function PurchaseSheet({
   unlinked = [],
   open,
   onOpenChange,
+  fromSupplier = false,
 }: {
   purchase: Purchase | undefined
   unlinked?: UnlinkedDocument[]
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Opened from the supplier's page: no link back to it. */
+  fromSupplier?: boolean
 }) {
   const [writing, setWriting] = useState<string | null>(null)
   if (!purchase) return null
@@ -738,7 +741,8 @@ export function PurchaseSheet({
         <DocumentList
           documents={documents}
           action={
-            purchase.supplier_id && (
+            purchase.supplier_id &&
+            !fromSupplier && (
               <Button variant="link" size="sm" className="h-auto p-0" asChild>
                 <Link to="/suppliers" search={{ id: purchase.supplier_id }}>
                   Fiche fournisseur

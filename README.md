@@ -171,7 +171,8 @@ Chaque document est rangé chez son fournisseur, retrouvé quelle que soit l'éc
 - son **pays**, lu sur son adresse, ou à défaut sur son IBAN ;
 - la façon dont il écrit les **dates**. 08/01/2026 est lu par le code, pas par l'IA : le 8 janvier pour un fournisseur français, le 1er août pour un américain ;
 - ses **conditions de paiement** et son **e-mail**, qui complètent les factures qui ne les donnent pas ;
-- son **IBAN** : le premier lu sur ses factures, puis celui confirmé par « J'ai appelé, l'IBAN est bon ».
+- son **IBAN** : le premier lu sur ses factures, puis celui confirmé par « J'ai appelé, l'IBAN est bon », avec les anciens et le nouveau pas encore confirmé ;
+- son **historique** : facturé, payé, reste dû, et tous ses achats du plus récent au plus ancien, chacun ouvrable depuis la fiche.
 
 Ce que l'utilisateur a corrigé une fois est rejoué tout seul sur les documents suivants, comme les règles de paperless-ngx :
 
@@ -279,7 +280,7 @@ frontend/src/
   components/UserSettings/            compte, export pour le comptable
 ```
 
-Gemini est derrière une interface (`DocumentExtractor`). Les 282 tests la remplacent par une fausse version et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Gemini est derrière une interface (`DocumentExtractor`). Les 284 tests la remplacent par une fausse version et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
 Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Gemini (`google-genai`), pypdfium2, RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 

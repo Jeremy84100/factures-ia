@@ -468,6 +468,28 @@ export type NewPassword = {
 };
 
 /**
+ * OtherIban
+ */
+export type OtherIban = {
+    /**
+     * Iban
+     */
+    iban: string;
+    /**
+     * Last Seen
+     */
+    last_seen?: string | null;
+    /**
+     * Number
+     */
+    number?: string | null;
+    /**
+     * Newer
+     */
+    newer?: boolean;
+};
+
+/**
  * PrivateUserCreate
  */
 export type PrivateUserCreate = {
@@ -678,9 +700,9 @@ export type SupplierDetail = {
      */
     rules?: Array<SupplierRule>;
     /**
-     * Recent
+     * Other Ibans
      */
-    recent?: Array<DocumentRef>;
+    other_ibans?: Array<OtherIban>;
 };
 
 /**

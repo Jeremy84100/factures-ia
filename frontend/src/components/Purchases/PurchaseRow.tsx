@@ -124,16 +124,19 @@ function meta(purchase: Purchase): { text: string; alert: boolean } {
 
 export function PurchaseRow({
   purchase,
+  title,
   onClick,
 }: {
   purchase: Purchase
+  /** On a supplier's page, the order number rather than its name again. */
+  title?: string
   onClick: () => void
 }) {
   const { text, alert } = meta(purchase)
   return (
     <ListRow
       icon={PURCHASE_ICON[purchase.status]}
-      title={purchaseTitle(purchase)}
+      title={title ?? purchaseTitle(purchase)}
       subtitle={summary(purchase)}
       value={purchaseAmount(purchase)}
       meta={text}

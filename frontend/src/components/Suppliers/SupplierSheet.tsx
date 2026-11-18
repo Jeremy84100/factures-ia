@@ -2,9 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Lightbulb, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 
-import { type SupplierDetail, SuppliersService } from "@/client"
+import { type Purchase, type SupplierDetail, SuppliersService } from "@/client"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
-import { DocumentList } from "@/components/Purchases/PurchaseSheet"
+import {
+  PurchaseRow,
+  purchaseSubtitle,
+} from "@/components/Purchases/PurchaseRow"
+import { PurchaseSheet } from "@/components/Purchases/PurchaseSheet"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -18,9 +22,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatAmount, formatDate, groupIban, plural } from "@/lib/documents"
-import { supplierQuery } from "@/lib/queries"
+import { purchasesQuery, supplierQuery } from "@/lib/queries"
 import { handleError } from "@/utils"
 import { EditSupplier } from "./EditSupplier"
+
+// Shown before "Tout voir": enough for a phone screen.
+const FIRST_PURCHASES = 5
 
 const REGIONS = new Intl.DisplayNames(["fr"], { type: "region" })
 
@@ -48,27 +55,49 @@ export function dateOrderLabel(supplier: SupplierDetail) {
     : "Mois/jour (08/01 = 1er août)"
 }
 
+// The account on file, then the others its invoices gave: the old ones, and
+// a new one nobody has confirmed yet.
+function Iban({ supplier }: { supplier: SupplierDetail }) {
+  if (!supplier.iban) return "—"
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="flex flex-col">
+        <span className="tabular-nums">{groupIban(supplier.iban)}</span>
+        <span className="text-xs text-muted-foreground">
+          {supplier.iban_confirmed_at
+            ? `Confirmé le ${new Date(supplier.iban_confirmed_at).toLocaleDateString("fr-FR")}`
+            : "Lu sur ses factures, pas encore confirmé"}
+        </span>
+      </span>
+      {supplier.other_ibans?.map((other) => (
+        <span key={other.iban} className="flex flex-col">
+          <span className="tabular-nums text-muted-foreground">
+            {groupIban(other.iban)}
+          </span>
+          <span
+            className={
+              other.newer
+                ? "text-xs text-destructive"
+                : "text-xs text-muted-foreground"
+            }
+          >
+            {other.newer ? "Nouveau, pas encore confirmé" : "Ancien"}
+            {other.number && ` · facture ${other.number}`}
+            {other.last_seen && ` du ${formatDate(other.last_seen)}`}
+          </span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function Details({ supplier }: { supplier: SupplierDetail }) {
   const rows: [string, React.ReactNode][] = [
     ["Pays", countryName(supplier.country) ?? "Inconnu"],
     ["Dates", dateOrderLabel(supplier)],
     ["Paiement", supplier.payment_terms ?? "30 jours (délai légal)"],
     ["E-mail", supplier.email ?? "—"],
-    [
-      "IBAN",
-      supplier.iban ? (
-        <span key="iban" className="flex flex-col">
-          <span className="tabular-nums">{groupIban(supplier.iban)}</span>
-          <span className="text-xs text-muted-foreground">
-            {supplier.iban_confirmed_at
-              ? `Confirmé le ${new Date(supplier.iban_confirmed_at).toLocaleDateString("fr-FR")}`
-              : "Lu sur ses factures, pas encore confirmé"}
-          </span>
-        </span>
-      ) : (
-        "—"
-      ),
-    ],
+    ["IBAN", <Iban key="iban" supplier={supplier} />],
   ]
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -79,6 +108,94 @@ function Details({ supplier }: { supplier: SupplierDetail }) {
         </div>
       ))}
     </dl>
+  )
+}
+
+const sum = (purchases: Purchase[], amount: (p: Purchase) => unknown) =>
+  purchases.reduce((total, p) => total + Number(amount(p) ?? 0), 0)
+
+// Its whole story with you, in three figures, incl. tax.
+function Totals({ purchases }: { purchases: Purchase[] }) {
+  const billed = purchases.filter((p) => p.invoices?.length)
+  const paid = billed.filter((p) => p.status === "paid")
+  const unpaid = billed.filter((p) => p.status !== "paid")
+  const figures: [string, number][] = [
+    ["Facturé", sum(billed, (p) => p.invoiced_incl_tax)],
+    ["Payé", sum(paid, (p) => p.invoiced_incl_tax)],
+    ["Reste dû", sum(unpaid, (p) => p.to_pay_incl_tax)],
+  ]
+  return (
+    <Card size="sm" className="grid grid-cols-3 gap-0 py-3">
+      {figures.map(([label, value]) => (
+        <div
+          key={label}
+          className="flex min-w-0 flex-col px-3 not-first:border-l"
+        >
+          <span className="text-xs text-muted-foreground">{label}</span>
+          <span className="truncate font-semibold tabular-nums">
+            {formatAmount(value)}
+          </span>
+        </div>
+      ))}
+    </Card>
+  )
+}
+
+// The latest document of a purchase, to show the newest first.
+const lastDate = (purchase: Purchase) =>
+  [
+    ...(purchase.orders ?? []),
+    ...(purchase.deliveries ?? []),
+    ...(purchase.invoices ?? []),
+  ]
+    .map((d) => d.document_date ?? "")
+    .sort()
+    .reverse()[0] ?? ""
+
+function History({
+  purchases,
+  onOpen,
+}: {
+  purchases: Purchase[]
+  onOpen: (key: string) => void
+}) {
+  const [all, setAll] = useState(false)
+  const disputes = purchases.filter((p) => p.status === "dispute").length
+  const shown = all ? purchases : purchases.slice(0, FIRST_PURCHASES)
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="px-1 text-sm font-semibold">
+        {plural(purchases.length, "achat", "achats")}
+        {disputes > 0 && (
+          <span className="font-normal text-destructive">
+            {" · "}
+            {plural(disputes, "litige", "litiges")}
+          </span>
+        )}
+      </h2>
+      <Card size="sm" className="gap-0 py-1">
+        <ItemGroup className="gap-0">
+          {shown.map((purchase) => (
+            <PurchaseRow
+              key={purchase.key}
+              purchase={purchase}
+              title={purchaseSubtitle(purchase)}
+              onClick={() => onOpen(purchase.key)}
+            />
+          ))}
+        </ItemGroup>
+        {!all && purchases.length > FIRST_PURCHASES && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mx-2 mb-1"
+            onClick={() => setAll(true)}
+          >
+            Tout voir ({purchases.length})
+          </Button>
+        )}
+      </Card>
+    </section>
   )
 }
 
@@ -149,13 +266,18 @@ export function SupplierSheet({
     ...supplierQuery(id ?? ""),
     enabled: !!id,
   })
+  const { data: allPurchases } = useQuery({ ...purchasesQuery, enabled: !!id })
   const [editing, setEditing] = useState(false)
+  const [purchaseKey, setPurchaseKey] = useState<string | null>(null)
+  const [purchaseOpen, setPurchaseOpen] = useState(false)
+
+  const purchases = (allPurchases?.data ?? [])
+    .filter((p) => p.supplier_id === id)
+    .sort((a, b) => lastDate(b).localeCompare(lastDate(a)))
 
   const subtitle = supplier
     ? [
         plural(supplier.documents ?? 0, "document", "documents"),
-        Number(supplier.invoiced_incl_tax) !== 0 &&
-          `${formatAmount(supplier.invoiced_incl_tax)} facturés`,
         supplier.last_document_date &&
           `dernier le ${formatDate(supplier.last_document_date)}`,
       ]
@@ -179,6 +301,7 @@ export function SupplierSheet({
           </div>
         ) : (
           <div className="flex flex-col gap-5">
+            {purchases.length > 0 && <Totals purchases={purchases} />}
             <section className="flex flex-col gap-3">
               <Details supplier={supplier} />
               <div>
@@ -192,16 +315,26 @@ export function SupplierSheet({
                 </Button>
               </div>
             </section>
-            <Rules supplier={supplier} />
-            {(supplier.recent?.length ?? 0) > 0 && (
-              <DocumentList
-                documents={supplier.recent ?? []}
-                title="Derniers documents"
+            {purchases.length > 0 && (
+              <History
+                purchases={purchases}
+                onOpen={(key) => {
+                  setPurchaseKey(key)
+                  setPurchaseOpen(true)
+                }}
               />
             )}
+            <Rules supplier={supplier} />
           </div>
         )}
       </ResponsiveSheet>
+      <PurchaseSheet
+        purchase={purchases.find((p) => p.key === purchaseKey)}
+        unlinked={allPurchases?.unlinked}
+        open={purchaseOpen}
+        onOpenChange={setPurchaseOpen}
+        fromSupplier
+      />
       {supplier && (
         <EditSupplier
           supplier={supplier}
