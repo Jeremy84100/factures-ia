@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from pydantic.networks import EmailStr
 
 from app.api.deps import get_current_active_superuser
-from app.models import Message
+from app.core.config import settings
+from app.models import Features, Message
 from app.utils import generate_test_email, send_email
 
 router = APIRouter(prefix="/utils", tags=["utils"])
@@ -24,6 +25,14 @@ def test_email(email_to: EmailStr) -> Message:
         html_content=email_data.html_content,
     )
     return Message(message="E-mail de test envoyé")
+
+
+@router.get("/features/", response_model=Features)
+def read_features() -> Features:
+    """
+    What this server can do, for the screens to show only what works.
+    """
+    return Features(password_recovery=settings.emails_enabled)
 
 
 @router.get("/health-check/")

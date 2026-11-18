@@ -206,3 +206,12 @@ def test_demo_login_opens_a_filled_account(client: TestClient) -> None:
         f"{settings.API_V1_STR}/reconciliations/", headers=headers
     ).json()
     assert purchases["count"] == 11
+
+
+def test_recovery_without_emails_says_so(client: TestClient) -> None:
+    with patch("app.core.config.settings.SMTP_HOST", None):
+        r = client.post(f"{settings.API_V1_STR}/password-recovery/a@example.com")
+        assert r.status_code == 503
+        assert "administrateur" in r.json()["detail"]
+        features = client.get(f"{settings.API_V1_STR}/utils/features/").json()
+        assert features == {"password_recovery": False}

@@ -13,7 +13,7 @@ from datetime import date, timedelta
 # Code de commerce, art. L441-10: 30 days when nothing was agreed.
 LEGAL_DAYS = 30
 
-DAYS = re.compile(r"(\d{1,3})\s*(?:j|jours?|days?)\b")
+DAYS = re.compile(r"(\d{1,3})\s*(?:j|jours?|days?|tagen?)\b")
 END_OF_MONTH = re.compile(r"fin de mois|f\.?\s?d\.?\s?m\b|end of month")
 AT_ONCE = re.compile(r"reception|comptant|immediat|a vue|upon receipt|on receipt")
 

@@ -22,6 +22,7 @@ from app.services.checks import (
     number_issue,
     review_extraction,
 )
+from app.services.einvoice import merge_lines, read_einvoice
 from app.services.extraction import (
     DocumentExtractor,
     ExtractedDocument,
@@ -248,19 +249,27 @@ def _read(
     reader: PdfReader,
     extractor: DocumentExtractor,
 ) -> None:
-    try:
-        text = reader.read(document.file, document.filename)
-    except Exception:
-        logger.exception("Lecture OCR impossible de %s", document.filename)
-        text = ""
+    # An e-invoice carries its own figures: no OCR, no AI.
+    einvoice = read_einvoice(document.file)
+    if einvoice is not None and einvoice.lines:
+        extracted = einvoice
+    else:
+        try:
+            text = reader.read(document.file, document.filename)
+        except Exception:
+            logger.exception("Lecture OCR impossible de %s", document.filename)
+            text = ""
 
-    try:
-        extracted = extractor.extract(text, document.file)
-    except ExtractionError as e:
-        _finish(session, document, DocumentStatus.failed, str(e))
-        return
+        try:
+            extracted = extractor.extract(text, document.file)
+        except ExtractionError as e:
+            _finish(session, document, DocumentStatus.failed, str(e))
+            return
+        if einvoice is not None:
+            extracted = merge_lines(einvoice, extracted)
 
     apply_extraction(document, extracted)
+    document.from_einvoice = einvoice is not None
     run_checks(session, document, review_extraction(extracted))
     document.processed_at = get_datetime_utc()
     session.add(document)

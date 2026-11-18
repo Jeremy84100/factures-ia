@@ -29,8 +29,7 @@ def write_reminder(purchase: Purchase, sender: str | None = None) -> SupplierEma
     lines = [
         "Bonjour,",
         "",
-        f"Sauf erreur de notre part, {ordered}{when} ne nous est pas encore"
-        " parvenue.",
+        f"Sauf erreur de notre part, {ordered}{when} ne nous est pas encore parvenue.",
         "",
         "Pourriez-vous nous indiquer la date de livraison ?",
         "",

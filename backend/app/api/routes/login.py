@@ -20,6 +20,11 @@ from app.utils import (
 
 router = APIRouter(tags=["login"])
 
+NO_EMAILS = (
+    "L'envoi de mails n'est pas encore en service : demandez un nouveau mot de"
+    " passe à l'administrateur du site"
+)
+
 
 @router.post("/login/access-token")
 def login_access_token(
@@ -72,6 +77,8 @@ def recover_password(email: str, session: SessionDep) -> Message:
     """
     Password Recovery
     """
+    if not settings.emails_enabled:
+        raise HTTPException(status_code=503, detail=NO_EMAILS)
     user = crud.get_user_by_email(session=session, email=email)
 
     # Always return the same response to prevent email enumeration attacks

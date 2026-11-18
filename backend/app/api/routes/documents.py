@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -17,11 +18,13 @@ from app.models import (
     DocumentUpdate,
     LineFields,
     Message,
+    Payment,
     SupplierTotal,
     SupplierTotals,
     User,
     get_datetime_utc,
 )
+from app.services.export import build_export
 from app.services.images import ImageError, image_to_pdf, is_image
 from app.services.payment_terms import due_from_terms
 from app.services.processing import (
@@ -36,6 +39,9 @@ from app.services.processing import (
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
+# Vercel functions answer 4.5 MB at most.
+MAX_EXPORT_SIZE = 4 * 1024 * 1024
+EXPORTED = (DocumentStatus.ok, DocumentStatus.to_check)
 MAX_FILES = 50
 BUSY = (DocumentStatus.pending, DocumentStatus.processing)
 
@@ -172,6 +178,52 @@ def read_supplier_totals(
             for supplier, count, amount in rows
             if supplier is not None and amount is not None
         ]
+    )
+
+
+@router.get("/export", response_class=Response)
+def export_invoices(
+    session: SessionDep, current_user: CurrentUser, month: str | None = None
+) -> Response:
+    """
+    The invoices and credit notes for the accountant: a spreadsheet and the
+    PDFs in one zip. `month` (2026-11) keeps one month only.
+    """
+    statement = (
+        select(Document)
+        .where(
+            Document.owner_id == current_user.id,
+            Document.kind == DocumentKind.invoice,
+            col(Document.status).in_(EXPORTED),
+        )
+        .order_by(col(Document.document_date), col(Document.created_at))
+    )
+    if month:
+        try:
+            year, number = (int(part) for part in month.split("-"))
+            first = date(year, number, 1)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Mois invalide (2026-11)")
+        after = date(year + number // 12, number % 12 + 1, 1)
+        statement = statement.where(
+            col(Document.document_date) >= first, col(Document.document_date) < after
+        )
+    invoices = session.exec(statement).all()
+    if not invoices:
+        raise HTTPException(status_code=404, detail="Aucune facture à exporter")
+    payments = session.exec(select(Payment).where(Payment.owner_id == current_user.id))
+    paid_on = {id: p.paid_at for p in payments for id in p.invoice_ids}
+    content = build_export(invoices, paid_on)
+    if len(content) > MAX_EXPORT_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Trop de factures pour un seul fichier : exportez mois par mois",
+        )
+    name = f"factures-{month or 'toutes'}.zip"
+    return Response(
+        content=content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
 
 

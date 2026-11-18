@@ -66,6 +66,10 @@ class UserPublic(UserBase):
     created_at: datetime | None = None
 
 
+class Features(SQLModel):
+    password_recovery: bool
+
+
 class UsersPublic(SQLModel):
     data: list[UserPublic]
     count: int
