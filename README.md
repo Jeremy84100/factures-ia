@@ -29,7 +29,7 @@ Le cas d'usage visé : une PME du bâtiment ou un grossiste qui reçoit des cent
 
 https://factures-ia.vercel.app
 
-Le bouton **Essayer la démo** ouvre, sans inscription, un compte rempli avec les 31 documents de [`backend/app/demo/purchases`](backend/app/demo/purchases), déjà lus : 11 achats avec chacun un piège. Chaque visiteur a son propre compte de démo, effacé au bout de 24 heures. Les documents y sont chargés tels que Gemini les lit (31 sur 31, mesuré plus bas), puis passent les vrais contrôles et le vrai rapprochement : le verdict affiché sort du même code qu'un vrai dépôt.
+Le bouton **Essayer la démo** ouvre, sans inscription, un compte rempli avec les 33 documents de [`backend/app/demo/purchases`](backend/app/demo/purchases), déjà lus : 13 achats avec chacun un piège. Chaque visiteur a son propre compte de démo, effacé au bout de 24 heures. Les documents y sont chargés tels que Gemini les lit (33 sur 33, mesuré plus bas), puis passent les vrais contrôles et le vrai rapprochement : le verdict affiché sort du même code qu'un vrai dépôt.
 
 Pour voir l'IA lire, créez un compte et déposez ces PDF en vrac, ou prenez un bon de livraison en photo avec votre téléphone : les photos JPEG, PNG et WebP sont réduites dans le navigateur, puis converties en PDF par le serveur. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
 
@@ -59,9 +59,9 @@ flowchart LR
 ```
 
 1. Le fichier est contrôlé (signature `%PDF` ou photo, 10 Mo au plus ; une photo devient un PDF d'une page) puis stocké en base, sans type. Le traitement part en arrière-plan et l'interface se met à jour toute seule.
-1. Une **facture électronique** (Factur-X, ZUGFeRD) porte ses chiffres dans un fichier XML joint au PDF. Depuis le 1er septembre 2026, toutes les entreprises françaises doivent pouvoir en recevoir. Ce XML est lu tel quel, en quelques millisecondes, sans OCR ni IA : fournisseur, numéro, dates, échéance, totaux, numéro de commande et lignes sont exacts. Si le XML n'a pas de lignes (profils MINIMUM et BASIC WL), seule la lecture des lignes est confiée à l'IA. Testé sur les 20 exemples officiels Factur-X et ZUGFeRD cités plus bas.
+1. Une **facture électronique** (Factur-X, ZUGFeRD) porte ses chiffres dans un fichier XML joint au PDF. Depuis le 1er septembre 2026, toutes les entreprises françaises doivent pouvoir en recevoir. Ce XML est lu tel quel, en quelques millisecondes, sans OCR ni IA : fournisseur, numéro, dates, échéance, totaux, IBAN, e-mail du fournisseur, numéro de commande et lignes sont exacts. Si le XML n'a pas de lignes (profils MINIMUM et BASIC WL), seule la lecture des lignes est confiée à l'IA. Testé sur les 20 exemples officiels Factur-X et ZUGFeRD cités plus bas.
 2. [Docling](https://github.com/docling-project/docling) extrait le texte et les tableaux des 5 premières pages.
-3. Gemini reçoit le PDF complet et le texte de Docling. Il voit les logos et la mise en page, le texte l'aide à lire les chiffres. En un seul appel, il renvoie le type (facture, avoir, bon de commande, bon de livraison), le fournisseur, le numéro, la date, le numéro de commande de l'acheteur, les totaux, la mention d'exonération de TVA, la date d'échéance et les conditions de paiement recopiées telles quelles (« 45 jours fin de mois »), et chaque ligne d'article (référence, désignation, quantité, prix). La date d'échéance n'est jamais calculée par l'IA : si elle n'est pas imprimée, le code la déduit des conditions ; s'il n'y a rien, l'appli compte les 30 jours du délai légal (code de commerce, art. L441-10) et le dit.
+3. Gemini reçoit le PDF complet et le texte de Docling. Il voit les logos et la mise en page, le texte l'aide à lire les chiffres. En un seul appel, il renvoie le type (facture, avoir, bon de commande, bon de livraison), le fournisseur, le numéro, la date, le numéro de commande de l'acheteur, les totaux, la mention d'exonération de TVA, la date d'échéance et les conditions de paiement recopiées telles quelles (« 45 jours fin de mois »), l'IBAN et l'e-mail du fournisseur, et chaque ligne d'article (référence, désignation, quantité, prix). La date d'échéance n'est jamais calculée par l'IA : si elle n'est pas imprimée, le code la déduit des conditions ; s'il n'y a rien, l'appli compte les 30 jours du délai légal (code de commerce, art. L441-10) et le dit.
 4. Les règles de [`checks.py`](backend/app/services/checks.py) décident du statut, avec des règles propres à chaque type. Elles ne font pas appel à l'IA et sont testées seules.
 5. [`reconciliation.py`](backend/app/services/reconciliation.py) regroupe les documents par numéro de commande et les compare ligne par ligne.
 6. Un document corrigé à la main (type, champs, numéro de commande, lignes) repasse les contrôles, et son achat est recalculé. On peut aussi relancer la lecture par l'IA.
@@ -73,7 +73,7 @@ L'accueil donne en gros le **reste à payer, TTC** (ce qui sort vraiment du comp
 ## Interface
 
 - [shadcn/ui](https://ui.shadcn.com) avec le preset `radix-luma`, couleur de base taupe, sur Tailwind CSS 4. Les composants sont ceux du registre, sans retouche : `Sidebar` pour la navigation sur ordinateur, `Item` pour les listes, `Tabs` pour les filtres, `Card`, `Badge`, `Alert`, `Table`, `Empty`, `Field` et `InputGroup` pour les formulaires, `AlertDialog` pour les suppressions, `Dialog` sur ordinateur et `Drawer` sur téléphone pour les détails.
-- Sur téléphone, une présentation d'appli bancaire : le montant à payer en grand, des boutons ronds (Ajouter, Photo qui ouvre l'appareil photo, Litiges), des listes regroupées dans un seul bloc avec le montant TTC et l'échéance à droite, trois onglets en bas de l'écran (Accueil, Achats, Compte), et les détails qui montent du bas. La liste brute des documents s'ouvre depuis les achats, là où elle sert.
+- Sur téléphone, une présentation d'appli bancaire : le montant à payer en grand, des boutons ronds (Ajouter, Photo qui ouvre l'appareil photo, Litiges), des listes regroupées dans un seul bloc avec le montant TTC et l'échéance à droite, trois onglets en bas de l'écran (Accueil, Achats, Compte), et les détails qui montent du bas. La liste brute des documents s'ouvre depuis les achats, là où elle sert. Les détails tiennent en peu de place : le montant et les boutons en trois lignes, les articles en tableau (une ligne par article, commandé, livré et facturé côte à côte, le chiffre en cause en rouge). Achats et documents ont une recherche ; chercher un fournisseur donne aussi ce qu'on lui doit.
 - Aucun écran qui clignote : chaque page charge ses données avant de s'afficher (préchargées dès que le doigt ou la souris touche le lien), les onglets filtrent dans le navigateur sans recharger, et le thème clair ou sombre est appliqué avant le premier affichage.
 
 ## Vérifications
@@ -153,13 +153,15 @@ Le rapprochement n'est pas stocké : il est recalculé à chaque affichage par u
 
 Dans le détail d'un litige, deux boutons :
 
-- **Écrire** prépare le mail au fournisseur : la facture et la commande concernées, la liste des écarts, le montant facturé en trop, et la demande d'un avoir ou d'une facture corrigée. Le texte est écrit à partir de la comparaison, sans l'IA : chaque chiffre est un chiffre vérifié. On peut le modifier, le copier ou l'ouvrir dans sa messagerie.
+- **Écrire au fournisseur** prépare le mail, adressé à l'e-mail lu sur ses documents : la facture et la commande concernées, la liste des écarts, le montant facturé en trop, et la demande d'un avoir ou d'une facture corrigée. Le texte est écrit à partir de la comparaison, sans l'IA : chaque chiffre est un chiffre vérifié. On peut le modifier, le copier ou l'ouvrir dans sa messagerie.
 - **Réglé** range l'achat dans les achats à payer, une fois l'accord trouvé. Les écarts restent affichés pour mémoire, et **Rouvrir** annule. L'avoir, une fois déposé, est déduit du montant à payer.
 
 Le règlement ne vaut que pour les écarts qu'il y avait à ce moment-là. Si un nouveau document en fait apparaître d'autres, le litige se rouvre tout seul.
 
 ### Payer, et envoyer au comptable
 
+- Un achat à payer montre l'**IBAN** de la facture, avec un bouton **Copier l'IBAN** pour le virement. Une facture en retard de paiement rappelle que le fournisseur peut réclamer 40 € d'indemnité (code de commerce, art. L441-10).
+- **Changement de RIB** : c'est l'arnaque qui vise le plus les PME, un faux fournisseur qui « change de banque ». L'IBAN est vérifié (clé ISO 13616) puis comparé à celui de la facture précédente du même fournisseur. S'il a changé, l'achat est bloqué en attente, avec une alerte rouge en haut et sur l'accueil : appeler le fournisseur à un numéro déjà connu, pas celui de la facture. Le bouton **J'ai appelé, l'IBAN est bon** débloque la facture.
 - **Payé** range l'achat dans les payés, avec la date ; **Pas payé** annule. Le reste à payer de l'accueil baisse d'autant. Pour un avoir seul, le bouton devient **Déduit**.
 - Dans **Compte, Mes données**, **Pour le comptable** télécharge un zip : un tableau des factures et avoirs (date, fournisseur, numéro, HT, TVA, TTC, échéance, date de paiement) qui s'ouvre tel quel dans Excel en français, et les PDF nommés par date, fournisseur et numéro. Tout, ou un mois choisi.
 
@@ -191,18 +193,20 @@ Le projet a aussi été passé sur 42 factures publiques :
 
 (*) La facture AWS porte la phrase « This is not a VAT invoice ». Selon les passages, Gemini la recopie comme mention d'exonération ou non : la facture est alors validée ou signalée.
 
-Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 11 achats de grossistes, d'entreprises du bâtiment et d'un opérateur télécom, soit 31 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande, livraison en retard, express commandé mais livré en standard, facture d'abonnement seule. Les factures portent des conditions de paiement variées : « 45 jours », « 30 jours fin de mois », « à réception », une date imprimée, ou rien. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les passe dans Docling et Gemini :
+Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 13 achats de grossistes, d'entreprises du bâtiment, d'un opérateur télécom et d'un loueur de matériel, soit 33 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande, livraison en retard, express commandé mais livré en standard, facture d'abonnement seule, IBAN changé d'un mois sur l'autre. Les IBAN sont fictifs (code banque 99999, qu'aucune banque n'utilise). Les factures portent des conditions de paiement variées : « 45 jours », « 30 jours fin de mois », « à réception », une date imprimée, ou rien. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les passe dans Docling et Gemini :
 
 | | Résultat |
 |---|---|
-| Type de document reconnu | 31 / 31 |
-| Numéro et numéro de commande | 31 / 31 |
-| Lignes lues (nombre, quantités, prix) | 31 / 31 |
+| Type de document reconnu | 33 / 33 |
+| Numéro et numéro de commande | 33 / 33 |
+| Lignes lues (nombre, quantités, prix) | 33 / 33 |
 | Mode et date de livraison (commandes et bons de livraison) | 20 / 20 |
-| Échéance (factures) | 11 / 11 |
-| Verdict de l'achat | 11 / 11 |
+| Échéance, IBAN et e-mail du fournisseur (factures) | 13 / 13 chacun |
+| Verdict de l'achat | 13 / 13 |
 
 Ces PDF sont propres et générés : ce score montre que la chaîne marche de bout en bout, pas qu'elle résiste à un bon de livraison scanné et froissé. C'est le prochain jeu de test à constituer.
+
+Une mesure a aussi servi à corriger la consigne : ajouter des champs l'a rendue instable sur « Livraison dépôt », rangé une fois sur deux en retrait. Préciser que le mot livraison veut dire que le fournisseur apporte a ramené le résultat à 4 sur 4 à chaque passage.
 
 Deux idées ont été essayées puis retirées, parce que les mesures ne les justifiaient pas :
 
@@ -235,11 +239,12 @@ backend/app/
   services/payment_terms.py      échéance tirée des conditions de paiement
   services/supplier_email.py     mail de litige ou de relance, sans IA
   services/export.py             zip pour le comptable (tableau et PDF)
+  services/iban.py               IBAN vérifié, changement de RIB repéré
   services/processing.py         enchaîne lecture, extraction et contrôles
 backend/scripts/
   create_admin.py          crée un administrateur, mot de passe saisi au clavier
   evaluate.py              score sur les 12 factures de test
-  generate_purchases.py    11 achats de démonstration (31 PDF)
+  generate_purchases.py    13 achats de démonstration (33 PDF)
   evaluate_purchases.py    score de lecture et de rapprochement sur ces achats
   vercel-build.sh          build de l'interface, modèles Docling, migrations
 frontend/src/
@@ -251,7 +256,7 @@ frontend/src/
   components/UserSettings/            compte, export pour le comptable
 ```
 
-Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 253 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 261 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
 Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 

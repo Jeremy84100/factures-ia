@@ -54,6 +54,7 @@ import {
   formatDate,
   formatQuantity,
   groupIban,
+  KIND,
   KIND_LONG,
   PURCHASE_STATUS,
 } from "@/lib/documents"
@@ -379,7 +380,7 @@ function Documents({ documents }: { documents: DocumentRef[] }) {
                   </ItemMedia>
                   <ItemContent className="min-w-0">
                     <ItemTitle className="block w-full truncate font-normal">
-                      {KIND_LONG[document.kind]} {document.number ?? ""}
+                      {KIND[document.kind]} {document.number ?? ""}
                     </ItemTitle>
                   </ItemContent>
                   <ItemActions className="text-sm text-muted-foreground">
