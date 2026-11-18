@@ -42,6 +42,7 @@ def upgrade():
     sa.Column('supplier_id', sa.Uuid(), nullable=False),
     sa.Column('field', sa.String(length=30), nullable=False),
     sa.Column('seen', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
+    sa.Column('written', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
     sa.Column('value', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
     sa.Column('created_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=True),
     sa.ForeignKeyConstraint(['owner_id'], ['user.id'], ondelete='CASCADE'),

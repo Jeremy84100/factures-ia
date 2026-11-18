@@ -97,7 +97,7 @@ def test_a_delivery_method_once_corrected_is_understood(
     assert second["delivery_mode"] == "standard"
     rules = supplier_of(client, headers, second)["rules"]
     assert [r["label"] for r in rules] == [
-        "« livraison depot » veut dire livraison standard"
+        "« Livraison dépôt » veut dire livraison standard"
     ]
 
 
@@ -206,7 +206,7 @@ def test_editing_a_supplier_updates_its_documents(
     assert supplier["country"] == "FR"
     assert supplier["payment_terms"] == "30 jours"
     assert [rule["label"] for rule in supplier["rules"]] == [
-        "Un nom lu « acme » est rangé chez Acme Industrie"
+        "Un nom lu « ACME » est rangé chez Acme Industrie"
     ]
     document = client.get(f"{DOCUMENTS}{document['id']}", headers=headers).json()
     assert document["supplier"] == "Acme Industrie"
@@ -287,3 +287,31 @@ def test_documents_read_before_suppliers_existed_are_filed(
     assert purchases[0]["supplier_id"] is not None
     names = [s["name"] for s in client.get(SUPPLIERS, headers=headers).json()["data"]]
     assert names == ["Ancien Fournisseur"]
+
+
+def test_the_supplier_page_is_filled_from_its_invoices(
+    client: TestClient, headers: dict[str, str]
+) -> None:
+    first = deposit(
+        client,
+        headers,
+        EDF.model_copy(
+            update={
+                "iban": OTHER_IBAN,
+                "payment_terms": "30 jours fin de mois",
+                "supplier_email": "factures@edf.fr",
+            }
+        ),
+    )
+    deposit(
+        client,
+        headers,
+        EDF.model_copy(update={"number": "2", "date": "2026-04-04", "iban": IBAN}),
+    )
+    supplier = supplier_of(client, headers, first)
+    assert supplier["email"] == "factures@edf.fr"
+    assert supplier["payment_terms"] == "30 jours fin de mois"
+    # The first IBAN met: the new one waits for a call.
+    assert supplier["iban"] == OTHER_IBAN
+    assert supplier["iban_confirmed_at"] is None
+    assert supplier["country"] == "FR"

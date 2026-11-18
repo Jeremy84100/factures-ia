@@ -196,8 +196,10 @@ class LearnedRule(SQLModel, table=True):
         foreign_key="supplier.id", nullable=False, ondelete="CASCADE", index=True
     )
     field: RuleField = Field(sa_type=String(30))
-    # What the document says, folded (no accents, lower case).
+    # What the document says, folded (no accents, lower case) to compare,
+    # and as written, to show.
     seen: str = Field(max_length=255)
+    written: str = Field(max_length=255)
     value: str = Field(max_length=255)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
 

@@ -19,6 +19,7 @@ import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutDocumentsRouteImport } from './routes/_layout/documents'
 import { Route as LayoutReconciliationsRouteImport } from './routes/_layout/reconciliations'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutSuppliersRouteImport } from './routes/_layout/suppliers'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -69,6 +70,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSuppliersRoute = LayoutSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => LayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/documents': typeof LayoutDocumentsRoute
   '/reconciliations': typeof LayoutReconciliationsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/suppliers': typeof LayoutSuppliersRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/documents': typeof LayoutDocumentsRoute
   '/reconciliations': typeof LayoutReconciliationsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/suppliers': typeof LayoutSuppliersRoute
   '/': typeof LayoutIndexRoute
 }
 export interface FileRoutesById {
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_layout/documents': typeof LayoutDocumentsRoute
   '/_layout/reconciliations': typeof LayoutReconciliationsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/suppliers': typeof LayoutSuppliersRoute
   '/_layout/': typeof LayoutIndexRoute
 }
 export interface FileRouteTypes {
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/reconciliations'
     | '/settings'
+    | '/suppliers'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/reconciliations'
     | '/settings'
+    | '/suppliers'
     | '/'
   id:
     | '__root__'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_layout/documents'
     | '/_layout/reconciliations'
     | '/_layout/settings'
+    | '/_layout/suppliers'
     | '/_layout/'
   fileRoutesById: FileRoutesById
 }
@@ -222,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/suppliers': {
+      id: '/_layout/suppliers'
+      path: '/suppliers'
+      fullPath: '/suppliers'
+      preLoaderRoute: typeof LayoutSuppliersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
@@ -230,6 +249,7 @@ interface LayoutRouteChildren {
   LayoutDocumentsRoute: typeof LayoutDocumentsRoute
   LayoutReconciliationsRoute: typeof LayoutReconciliationsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutSuppliersRoute: typeof LayoutSuppliersRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
 }
 
@@ -238,6 +258,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutDocumentsRoute: LayoutDocumentsRoute,
   LayoutReconciliationsRoute: LayoutReconciliationsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutSuppliersRoute: LayoutSuppliersRoute,
   LayoutIndexRoute: LayoutIndexRoute,
 }
 

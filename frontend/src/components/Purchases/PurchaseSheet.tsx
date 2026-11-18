@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import {
   Check,
   ChevronRight,
@@ -354,11 +355,22 @@ function Articles({ purchase }: { purchase: Purchase }) {
 }
 
 // The PDFs, one thin row each.
-function Documents({ documents }: { documents: DocumentRef[] }) {
+export function DocumentList({
+  documents,
+  title = "Documents",
+  action,
+}: {
+  documents: DocumentRef[]
+  title?: string
+  action?: ReactNode
+}) {
   const { showErrorToast } = useCustomToast()
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="px-1 text-sm font-semibold">Documents</h2>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {action}
+      </div>
       <Card size="sm" className="gap-0 py-1">
         <ItemGroup className="gap-0">
           {documents.map((document) => {
@@ -402,6 +414,7 @@ function useRefresh() {
   return () => {
     queryClient.invalidateQueries({ queryKey: ["purchases"] })
     queryClient.invalidateQueries({ queryKey: ["documents"] })
+    queryClient.invalidateQueries({ queryKey: ["suppliers"] })
   }
 }
 
@@ -722,7 +735,19 @@ export function PurchaseSheet({
           <SupplierEmailSection purchaseKey={purchase.key} />
         )}
         {(purchase.lines?.length ?? 0) > 0 && <Articles purchase={purchase} />}
-        <Documents documents={documents} />
+        <DocumentList
+          documents={documents}
+          action={
+            purchase.supplier_id && (
+              <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                <Link to="/suppliers" search={{ id: purchase.supplier_id }}>
+                  Fiche fournisseur
+                  <ChevronRight data-icon="inline-end" />
+                </Link>
+              </Button>
+            )
+          }
+        />
       </div>
     </ResponsiveSheet>
   )

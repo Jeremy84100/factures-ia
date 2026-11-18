@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { documentsConfirmIbanData, documentsConfirmIbanErrors, documentsConfirmIbanResponses, documentsDeleteAllDocumentsData, documentsDeleteAllDocumentsResponses, documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsExportInvoicesData, documentsExportInvoicesErrors, documentsExportInvoicesResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginLoginDemoData, loginLoginDemoResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsPayPurchaseData, reconciliationsPayPurchaseErrors, reconciliationsPayPurchaseResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, reconciliationsReadSupplierEmailData, reconciliationsReadSupplierEmailErrors, reconciliationsReadSupplierEmailResponses, reconciliationsReopenPurchaseData, reconciliationsReopenPurchaseErrors, reconciliationsReopenPurchaseResponses, reconciliationsSettlePurchaseData, reconciliationsSettlePurchaseErrors, reconciliationsSettlePurchaseResponses, reconciliationsUnpayPurchaseData, reconciliationsUnpayPurchaseErrors, reconciliationsUnpayPurchaseResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsReadFeaturesData, utilsReadFeaturesResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { documentsConfirmIbanData, documentsConfirmIbanErrors, documentsConfirmIbanResponses, documentsDeleteAllDocumentsData, documentsDeleteAllDocumentsResponses, documentsDeleteDocumentData, documentsDeleteDocumentErrors, documentsDeleteDocumentResponses, documentsExportInvoicesData, documentsExportInvoicesErrors, documentsExportInvoicesResponses, documentsReadDocumentData, documentsReadDocumentErrors, documentsReadDocumentFileData, documentsReadDocumentFileErrors, documentsReadDocumentFileResponses, documentsReadDocumentResponses, documentsReadDocumentsData, documentsReadDocumentsErrors, documentsReadDocumentsResponses, documentsReadSupplierTotalsData, documentsReadSupplierTotalsErrors, documentsReadSupplierTotalsResponses, documentsRetryDocumentData, documentsRetryDocumentErrors, documentsRetryDocumentResponses, documentsUpdateDocumentData, documentsUpdateDocumentErrors, documentsUpdateDocumentResponses, documentsUploadDocumentsData, documentsUploadDocumentsErrors, documentsUploadDocumentsResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginLoginDemoData, loginLoginDemoResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, reconciliationsPayPurchaseData, reconciliationsPayPurchaseErrors, reconciliationsPayPurchaseResponses, reconciliationsReadPurchaseData, reconciliationsReadPurchaseErrors, reconciliationsReadPurchaseResponses, reconciliationsReadPurchasesData, reconciliationsReadPurchasesErrors, reconciliationsReadPurchasesResponses, reconciliationsReadSupplierEmailData, reconciliationsReadSupplierEmailErrors, reconciliationsReadSupplierEmailResponses, reconciliationsReopenPurchaseData, reconciliationsReopenPurchaseErrors, reconciliationsReopenPurchaseResponses, reconciliationsSettlePurchaseData, reconciliationsSettlePurchaseErrors, reconciliationsSettlePurchaseResponses, reconciliationsUnpayPurchaseData, reconciliationsUnpayPurchaseErrors, reconciliationsUnpayPurchaseResponses, suppliersForgetRuleData, suppliersForgetRuleErrors, suppliersForgetRuleResponses, suppliersReadSupplierData, suppliersReadSupplierErrors, suppliersReadSupplierResponses, suppliersReadSuppliersData, suppliersReadSuppliersResponses, suppliersUpdateSupplierData, suppliersUpdateSupplierErrors, suppliersUpdateSupplierResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsReadFeaturesData, utilsReadFeaturesResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -573,6 +573,68 @@ export class ReconciliationsService {
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/reconciliations/{key}/pay',
+            ...options
+        });
+    }
+}
+
+export class SuppliersService {
+    /**
+     * Read Suppliers
+     *
+     * The suppliers of the user's documents, by name.
+     */
+    public static readSuppliers<ThrowOnError extends boolean = true>(options?: Options<suppliersReadSuppliersData, ThrowOnError>) {
+        return (options?.client ?? client).get<suppliersReadSuppliersResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/suppliers/',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Supplier
+     *
+     * A supplier, what the app has learned about it and its latest documents.
+     */
+    public static readSupplier<ThrowOnError extends boolean = true>(options: Options<suppliersReadSupplierData, ThrowOnError>) {
+        return (options.client ?? client).get<suppliersReadSupplierResponses, suppliersReadSupplierErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/suppliers/{id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Supplier
+     *
+     * Correct a supplier. Its documents follow: new name, dates read again.
+     */
+    public static updateSupplier<ThrowOnError extends boolean = true>(options: Options<suppliersUpdateSupplierData, ThrowOnError>) {
+        return (options.client ?? client).put<suppliersUpdateSupplierResponses, suppliersUpdateSupplierErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/suppliers/{id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Forget Rule
+     *
+     * Forget something the app learned from a correction.
+     */
+    public static forgetRule<ThrowOnError extends boolean = true>(options: Options<suppliersForgetRuleData, ThrowOnError>) {
+        return (options.client ?? client).delete<suppliersForgetRuleResponses, suppliersForgetRuleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/suppliers/{id}/rules/{rule_id}',
             ...options
         });
     }

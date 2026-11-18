@@ -58,10 +58,22 @@ const NAV: { to: Path; label: string; icon: LucideIcon }[] = [
   { to: "/reconciliations", label: "Achats", icon: ShoppingBag },
 ]
 
+// Documents and suppliers are reached from the purchases: the Achats tab
+// stays lit there.
+const UNDER_PURCHASES = ["/reconciliations", "/documents", "/suppliers"]
+
+function isActive(pathname: string, to: Path) {
+  if (to === "/") return pathname === "/"
+  if (to === "/reconciliations")
+    return UNDER_PURCHASES.some((path) => pathname.startsWith(path))
+  return pathname.startsWith(to)
+}
+
 export const TITLES: Record<string, string> = {
   "/": "Accueil",
   "/documents": "Documents",
   "/reconciliations": "Achats",
+  "/suppliers": "Fournisseurs",
   "/settings": "Mon compte",
   "/admin": "Utilisateurs",
 }
@@ -217,9 +229,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={to}>
                   <SidebarMenuButton
                     asChild
-                    isActive={
-                      to === "/" ? pathname === "/" : pathname.startsWith(to)
-                    }
+                    isActive={isActive(pathname, to)}
                     tooltip={label}
                   >
                     <Link to={to} onClick={() => setOpenMobile(false)}>
@@ -269,11 +279,7 @@ export function DemoBanner() {
 // Phone navigation: tabs at the bottom, within reach of the thumb.
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const isActive = (to: Path) =>
-    to === "/"
-      ? pathname === "/"
-      : pathname.startsWith(to) ||
-        (to === "/reconciliations" && pathname.startsWith("/documents"))
+  const active = (to: Path) => isActive(pathname, to)
   const tab = (active: boolean) =>
     active
       ? "h-auto flex-1 flex-col gap-0.5 rounded-full bg-muted py-1.5 text-xs"
@@ -281,8 +287,8 @@ export function TabBar() {
   return (
     <nav className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex gap-1 rounded-full border bg-background/90 p-1.5 shadow-lg backdrop-blur md:hidden">
       {NAV.map(({ to, label, icon: Icon }) => (
-        <Button key={to} variant="ghost" className={tab(isActive(to))} asChild>
-          <Link to={to} aria-current={isActive(to) ? "page" : undefined}>
+        <Button key={to} variant="ghost" className={tab(active(to))} asChild>
+          <Link to={to} aria-current={active(to) ? "page" : undefined}>
             <Icon className="size-5" />
             {label}
           </Link>

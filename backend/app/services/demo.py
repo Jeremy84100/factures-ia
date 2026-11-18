@@ -29,7 +29,7 @@ from app.models import (
 )
 from app.services.checks import check_document
 from app.services.iban import iban_change
-from app.services.suppliers import link_supplier
+from app.services.suppliers import fill_from, link_supplier
 
 DEMO_DIR = Path(__file__).parent.parent / "demo" / "purchases"
 DEMO_DOMAIN = "demo.example.com"
@@ -152,8 +152,9 @@ def create_demo_user(session: Session, today: date | None = None) -> User:
     ]
     check_ibans(documents)
     session.add_all(documents)
-    for document in documents:
-        link_supplier(session, document)
+    for document in sorted(documents, key=lambda d: d.document_date or date.min):
+        if supplier := link_supplier(session, document):
+            fill_from(supplier, document)
     session.commit()
     session.refresh(user)
     return user

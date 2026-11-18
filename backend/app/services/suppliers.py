@@ -237,26 +237,35 @@ def remember(
         return None
     knowledge = knowledge_of(session, supplier)
     apply_knowledge(document, knowledge, due_printed)
-    if not supplier.email and document.supplier_email:
-        supplier.email = document.supplier_email
-    if (
-        not supplier.iban
-        and document.kind == DocumentKind.invoice
-        and document.iban
-        and valid_iban(document.iban)
-    ):
-        supplier.iban = document.iban
+    fill_from(supplier, document)
     session.add(supplier)
     return knowledge.date_order
+
+
+def fill_from(supplier: Supplier, document: Document) -> None:
+    """What the supplier's page does not know yet, from one of its documents.
+
+    The IBAN is the first one met: a later, different one is the change the
+    IBAN check warns about, until someone confirms it.
+    """
+    if not supplier.email and document.supplier_email:
+        supplier.email = document.supplier_email
+    if document.kind != DocumentKind.invoice:
+        return
+    if not supplier.payment_terms and document.payment_terms:
+        supplier.payment_terms = document.payment_terms
+    if not supplier.iban and document.iban and valid_iban(document.iban):
+        supplier.iban = document.iban
 
 
 def save_rule(
     session: Session,
     supplier: Supplier,
     rule_field: RuleField,
-    seen: str,
+    written: str,
     value: str,
 ) -> None:
+    seen = fold(written)
     query = select(LearnedRule).where(
         LearnedRule.owner_id == supplier.owner_id,
         LearnedRule.field == rule_field,
@@ -274,6 +283,7 @@ def save_rule(
             supplier_id=supplier.id,
             field=rule_field,
             seen=seen,
+            written=written[:255],
             value=value,
         )
     )
@@ -312,9 +322,7 @@ def learn(session: Session, document: Document, before: Before) -> list[str]:
     if supplier is None:
         return learned
     if renamed and before.supplier:
-        save_rule(
-            session, supplier, RuleField.supplier, fold(before.supplier), supplier.name
-        )
+        save_rule(session, supplier, RuleField.supplier, before.supplier, supplier.name)
         learned.append(f"« {before.supplier} » sera rangé chez {supplier.name}")
 
     if (
@@ -326,7 +334,7 @@ def learn(session: Session, document: Document, before: Before) -> list[str]:
             session,
             supplier,
             RuleField.delivery_mode,
-            fold(document.delivery_method),
+            document.delivery_method,
             document.delivery_mode.value,
         )
         learned.append(
@@ -361,9 +369,9 @@ def learn(session: Session, document: Document, before: Before) -> list[str]:
 
 def rule_label(rule: LearnedRule, supplier: Supplier) -> str:
     if rule.field == RuleField.supplier:
-        return f"Un nom lu « {rule.seen} » est rangé chez {supplier.name}"
+        return f"Un nom lu « {rule.written} » est rangé chez {supplier.name}"
     mode = DeliveryMode(rule.value)
-    return f"« {rule.seen} » veut dire {DELIVERY_LABELS[mode]}"
+    return f"« {rule.written} » veut dire {DELIVERY_LABELS[mode]}"
 
 
 def ensure_suppliers(session: Session, owner_id: uuid.UUID) -> None:
@@ -377,8 +385,10 @@ def ensure_suppliers(session: Session, owner_id: uuid.UUID) -> None:
         )
         .options(defer(Document.file))  # type: ignore[arg-type]
     ).all()
+    unfiled = sorted(unfiled, key=lambda d: d.document_date or date.min)
     for document in unfiled:
-        link_supplier(session, document)
+        if supplier := link_supplier(session, document):
+            fill_from(supplier, document)
         session.add(document)
     if unfiled:
         session.commit()

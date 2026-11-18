@@ -4,6 +4,7 @@ import {
   type DocumentsPublic,
   DocumentsService,
   ReconciliationsService,
+  SuppliersService,
   UsersService,
 } from "@/client"
 import { isBusy } from "@/lib/documents"
@@ -29,6 +30,18 @@ export const purchasesQuery = queryOptions({
   queryKey: ["purchases"],
   queryFn: async () => (await ReconciliationsService.readPurchases()).data,
 })
+
+export const suppliersQuery = queryOptions({
+  queryKey: ["suppliers"],
+  queryFn: async () => (await SuppliersService.readSuppliers()).data,
+})
+
+export const supplierQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["suppliers", id],
+    queryFn: async () =>
+      (await SuppliersService.readSupplier({ path: { id } })).data,
+  })
 
 const reading = (data: DocumentsPublic | undefined) =>
   data?.data.some(isBusy) ?? false

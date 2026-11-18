@@ -45,6 +45,11 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * DateOrder
+ */
+export type DateOrder = 'day_first' | 'month_first';
+
+/**
  * DeliveryMode
  */
 export type DeliveryMode = 'pickup' | 'standard' | 'express';
@@ -150,6 +155,14 @@ export type DocumentPublic = {
      */
     iban_checked?: boolean;
     /**
+     * Date Raw
+     */
+    date_raw?: string | null;
+    /**
+     * Supplier Id
+     */
+    supplier_id?: string | null;
+    /**
      * Lines
      */
     lines?: Array<LineFields_Output>;
@@ -161,6 +174,10 @@ export type DocumentPublic = {
      * Processed At
      */
     processed_at?: string | null;
+    /**
+     * Learned
+     */
+    learned?: Array<string>;
 };
 
 /**
@@ -488,6 +505,10 @@ export type Purchase = {
      * Supplier
      */
     supplier?: string | null;
+    /**
+     * Supplier Id
+     */
+    supplier_id?: string | null;
     status: PurchaseStatus;
     /**
      * Orders
@@ -603,6 +624,66 @@ export type Purchases = {
 };
 
 /**
+ * RuleField
+ */
+export type RuleField = 'supplier' | 'delivery_mode';
+
+/**
+ * SupplierDetail
+ */
+export type SupplierDetail = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Country
+     */
+    country?: string | null;
+    date_order?: DateOrder | null;
+    /**
+     * Payment Terms
+     */
+    payment_terms?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Iban Confirmed At
+     */
+    iban_confirmed_at?: string | null;
+    /**
+     * Documents
+     */
+    documents?: number;
+    /**
+     * Invoiced Incl Tax
+     */
+    invoiced_incl_tax?: string;
+    /**
+     * Last Document Date
+     */
+    last_document_date?: string | null;
+    /**
+     * Rules
+     */
+    rules?: Array<SupplierRule>;
+    /**
+     * Recent
+     */
+    recent?: Array<DocumentRef>;
+};
+
+/**
  * SupplierEmail
  */
 export type SupplierEmail = {
@@ -618,6 +699,68 @@ export type SupplierEmail = {
      * Body
      */
     body: string;
+};
+
+/**
+ * SupplierRule
+ */
+export type SupplierRule = {
+    /**
+     * Id
+     */
+    id: string;
+    field: RuleField;
+    /**
+     * Label
+     */
+    label: string;
+};
+
+/**
+ * SupplierSummary
+ */
+export type SupplierSummary = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Country
+     */
+    country?: string | null;
+    date_order?: DateOrder | null;
+    /**
+     * Payment Terms
+     */
+    payment_terms?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Iban Confirmed At
+     */
+    iban_confirmed_at?: string | null;
+    /**
+     * Documents
+     */
+    documents?: number;
+    /**
+     * Invoiced Incl Tax
+     */
+    invoiced_incl_tax?: string;
+    /**
+     * Last Document Date
+     */
+    last_document_date?: string | null;
 };
 
 /**
@@ -646,6 +789,47 @@ export type SupplierTotals = {
      * Data
      */
     data: Array<SupplierTotal>;
+};
+
+/**
+ * SupplierUpdate
+ */
+export type SupplierUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Country
+     */
+    country?: string | null;
+    date_order?: DateOrder | null;
+    /**
+     * Payment Terms
+     */
+    payment_terms?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Iban
+     */
+    iban?: string | null;
+};
+
+/**
+ * Suppliers
+ */
+export type Suppliers = {
+    /**
+     * Data
+     */
+    data: Array<SupplierSummary>;
+    /**
+     * Count
+     */
+    count: number;
 };
 
 /**
@@ -1854,6 +2038,116 @@ export type reconciliationsPayPurchaseResponses = {
 };
 
 export type reconciliationsPayPurchaseResponse = reconciliationsPayPurchaseResponses[keyof reconciliationsPayPurchaseResponses];
+
+export type suppliersReadSuppliersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/suppliers/';
+};
+
+export type suppliersReadSuppliersResponses = {
+    /**
+     * Successful Response
+     */
+    200: Suppliers;
+};
+
+export type suppliersReadSuppliersResponse = suppliersReadSuppliersResponses[keyof suppliersReadSuppliersResponses];
+
+export type suppliersReadSupplierData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{id}';
+};
+
+export type suppliersReadSupplierErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersReadSupplierError = suppliersReadSupplierErrors[keyof suppliersReadSupplierErrors];
+
+export type suppliersReadSupplierResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierDetail;
+};
+
+export type suppliersReadSupplierResponse = suppliersReadSupplierResponses[keyof suppliersReadSupplierResponses];
+
+export type suppliersUpdateSupplierData = {
+    body: SupplierUpdate;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{id}';
+};
+
+export type suppliersUpdateSupplierErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersUpdateSupplierError = suppliersUpdateSupplierErrors[keyof suppliersUpdateSupplierErrors];
+
+export type suppliersUpdateSupplierResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupplierDetail;
+};
+
+export type suppliersUpdateSupplierResponse = suppliersUpdateSupplierResponses[keyof suppliersUpdateSupplierResponses];
+
+export type suppliersForgetRuleData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Rule Id
+         */
+        rule_id: string;
+    };
+    query?: never;
+    url: '/api/v1/suppliers/{id}/rules/{rule_id}';
+};
+
+export type suppliersForgetRuleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type suppliersForgetRuleError = suppliersForgetRuleErrors[keyof suppliersForgetRuleErrors];
+
+export type suppliersForgetRuleResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type suppliersForgetRuleResponse = suppliersForgetRuleResponses[keyof suppliersForgetRuleResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Plus, Trash2, TriangleAlert } from "lucide-react"
 import { Controller, useFieldArray, useForm } from "react-hook-form"
+import { toast } from "sonner"
 import { z } from "zod"
 
 import {
@@ -268,12 +269,20 @@ const EditDocument = ({ document, open, onOpenChange }: EditDocumentProps) => {
           ? "Document corrigé et validé"
           : "Document corrigé, il reste des points à vérifier",
       )
+      // What the correction taught the app, so the user knows the next
+      // documents of this supplier will be read right.
+      if (data.learned?.length) {
+        toast.info("Retenu pour les prochains documents", {
+          description: data.learned.join(" · "),
+        })
+      }
       onOpenChange(false)
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] })
       queryClient.invalidateQueries({ queryKey: ["purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] })
     },
   })
 

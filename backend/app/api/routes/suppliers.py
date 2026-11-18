@@ -202,7 +202,7 @@ def update_supplier(
         # The names its documents gave are remembered as this supplier.
         for written in {d.supplier for d in documents if d.supplier} | {supplier.name}:
             if fold(written) != fold(name):
-                save_rule(session, supplier, RuleField.supplier, fold(written), name)
+                save_rule(session, supplier, RuleField.supplier, written, name)
         supplier.name, supplier.key = name, key
         for document in documents:
             document.supplier = name

@@ -4,7 +4,12 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { FileText, Link2, ShoppingBag } from "lucide-react"
+import {
+  Building2,
+  FileText,
+  Link2,
+  ShoppingBag,
+} from "lucide-react"
 import { useState } from "react"
 
 import {
@@ -197,10 +202,17 @@ function Purchases() {
             placeholder="Fournisseur ou n° de facture"
           />
         </div>
+        {/* Icons only on a phone, so the search keeps its room. */}
         <Button variant="secondary" size="sm" asChild>
-          <Link to="/documents">
+          <Link to="/suppliers" aria-label="Fournisseurs">
+            <Building2 data-icon="inline-start" />
+            <span className="hidden sm:inline">Fournisseurs</span>
+          </Link>
+        </Button>
+        <Button variant="secondary" size="sm" asChild>
+          <Link to="/documents" aria-label="Documents">
             <FileText data-icon="inline-start" />
-            Documents
+            <span className="hidden sm:inline">Documents</span>
           </Link>
         </Button>
       </div>
