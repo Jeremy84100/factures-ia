@@ -405,9 +405,19 @@ class SupplierSummary(SupplierFields):
     last_document_date: date | None = None
 
 
+class OtherIban(SQLModel):
+    # An account the supplier's invoices gave, other than the one on file.
+    iban: str
+    # The last invoice that gave it.
+    last_seen: date | None = None
+    number: str | None = None
+    # Given after the one on file and not confirmed yet: maybe a fraud.
+    newer: bool = False
+
+
 class SupplierDetail(SupplierSummary):
     rules: list[SupplierRule] = []
-    recent: list[DocumentRef] = []
+    other_ibans: list[OtherIban] = []
 
 
 class Suppliers(SQLModel):

@@ -9,10 +9,10 @@ from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Document,
     DocumentKind,
-    DocumentRef,
     DocumentStatus,
     LearnedRule,
     Message,
+    OtherIban,
     RuleField,
     Supplier,
     SupplierDetail,
@@ -39,7 +39,6 @@ from app.services.suppliers import (
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
 
 COUNTED = (DocumentStatus.ok, DocumentStatus.to_check)
-RECENT = 8
 
 
 def get_owned_supplier(
@@ -103,18 +102,6 @@ def detail(session: SessionDep, supplier: Supplier) -> SupplierDetail:
         .where(LearnedRule.supplier_id == supplier.id)
         .order_by(col(LearnedRule.created_at))
     ).all()
-    recent = session.exec(
-        select(Document)
-        .where(
-            Document.owner_id == supplier.owner_id,
-            Document.supplier_id == supplier.id,
-        )
-        .order_by(
-            col(Document.document_date).desc().nulls_last(),
-            col(Document.created_at).desc(),
-        )
-        .limit(RECENT)
-    ).all()
     return SupplierDetail.model_validate(
         summary,
         update={
@@ -122,9 +109,38 @@ def detail(session: SessionDep, supplier: Supplier) -> SupplierDetail:
                 SupplierRule(id=r.id, field=r.field, label=rule_label(r, supplier))
                 for r in rules
             ],
-            "recent": [DocumentRef.model_validate(d) for d in recent],
+            "other_ibans": other_ibans(session, supplier),
         },
     )
+
+
+def other_ibans(session: SessionDep, supplier: Supplier) -> list[OtherIban]:
+    """
+    The accounts its invoices gave besides the one on file, latest first:
+    the old ones, and a new one nobody has confirmed yet.
+    """
+    invoices = session.exec(
+        select(Document.iban, Document.document_date, Document.number)
+        .where(
+            Document.owner_id == supplier.owner_id,
+            Document.supplier_id == supplier.id,
+            Document.kind == DocumentKind.invoice,
+            col(Document.iban).is_not(None),
+        )
+        .order_by(
+            col(Document.document_date).desc().nulls_last(),
+            col(Document.created_at).desc(),
+        )
+    ).all()
+    current = next((d for iban, d, _ in invoices if iban == supplier.iban), None)
+    seen: dict[str, OtherIban] = {}
+    for iban, last_seen, number in invoices:
+        if iban and iban != supplier.iban and iban not in seen:
+            newer = bool(current and last_seen and last_seen > current)
+            seen[iban] = OtherIban(
+                iban=iban, last_seen=last_seen, number=number, newer=newer
+            )
+    return list(seen.values())
 
 
 @router.get("/", response_model=Suppliers)

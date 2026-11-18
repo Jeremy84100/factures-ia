@@ -176,12 +176,21 @@ def test_a_confirmed_iban_is_kept_on_the_supplier(
         EDF.model_copy(update={"number": "2", "date": "2026-04-04", "iban": IBAN}),
     )
     assert any(issue.startswith("Nouvel IBAN") for issue in new["issues"])
-    assert supplier_of(client, headers, new)["iban"] == OTHER_IBAN
+    supplier = supplier_of(client, headers, new)
+    assert supplier["iban"] == OTHER_IBAN
+    # The page shows the new account as not confirmed yet.
+    assert supplier["other_ibans"] == [
+        {"iban": IBAN, "last_seen": "2026-04-04", "number": "2", "newer": True}
+    ]
     r = client.post(f"{DOCUMENTS}{new['id']}/confirm-iban", headers=headers)
     assert r.status_code == 200
     supplier = supplier_of(client, headers, new)
     assert supplier["iban"] == IBAN
     assert supplier["iban_confirmed_at"] is not None
+    # Once confirmed, the old account is history.
+    [old] = supplier["other_ibans"]
+    assert old["iban"] == OTHER_IBAN
+    assert old["newer"] is False
 
 
 def test_editing_a_supplier_updates_its_documents(
