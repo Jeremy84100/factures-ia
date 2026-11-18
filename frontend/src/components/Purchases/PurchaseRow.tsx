@@ -41,10 +41,10 @@ export const paidOn = (purchase: Purchase) =>
 // What is to pay (or was paid), incl. tax. Null while no invoice came.
 export function purchaseAmount(purchase: Purchase): string | null {
   if (!purchase.invoices?.length) return null
-  const incl =
-    purchase.status === "paid"
-      ? purchase.invoiced_incl_tax
-      : purchase.to_pay_incl_tax
+  // Once paid, what was paid; before, what is left to pay.
+  const incl = purchase.paid_at
+    ? purchase.invoiced_incl_tax
+    : purchase.to_pay_incl_tax
   if (incl !== null && incl !== undefined) return formatAmount(incl)
   if (purchase.invoiced_excl_tax)
     return `${formatAmount(purchase.invoiced_excl_tax)} HT`

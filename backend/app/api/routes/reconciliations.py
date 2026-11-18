@@ -27,9 +27,8 @@ def settlements_of(session: SessionDep, user: CurrentUser) -> dict[str, Settleme
     return {row.purchase_key: row for row in rows}
 
 
-def payments_of(session: SessionDep, user: CurrentUser) -> dict[str, Payment]:
-    rows = session.exec(select(Payment).where(Payment.owner_id == user.id))
-    return {row.purchase_key: row for row in rows}
+def payments_of(session: SessionDep, user: CurrentUser) -> list[Payment]:
+    return list(session.exec(select(Payment).where(Payment.owner_id == user.id)))
 
 
 def load_purchases(session: SessionDep, user: CurrentUser) -> Purchases:
@@ -136,9 +135,10 @@ def pay_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> An
         raise HTTPException(
             status_code=400, detail="Cet achat n'est pas encore bon à payer"
         )
-    payment = payments_of(session, current_user).get(key) or Payment(
-        owner_id=current_user.id, purchase_key=key
-    )
+    payment = next(
+        (p for p in payments_of(session, current_user) if p.purchase_key == key),
+        None,
+    ) or Payment(owner_id=current_user.id, purchase_key=key)
     payment.invoice_ids = [str(invoice.id) for invoice in purchase.invoices]
     payment.paid_at = get_datetime_utc()
     session.add(payment)
@@ -151,8 +151,18 @@ def unpay_purchase(session: SessionDep, current_user: CurrentUser, key: str) -> 
     """
     Undo « Payé »: the invoices are to pay again.
     """
-    payment = payments_of(session, current_user).get(key)
-    if payment:
-        session.delete(payment)
-        session.commit()
+    invoices = {
+        str(invoice.id)
+        for invoice in find_purchase(session, current_user, key).invoices
+    }
+    for payment in payments_of(session, current_user):
+        if not invoices & set(payment.invoice_ids):
+            continue
+        kept = [id for id in payment.invoice_ids if id not in invoices]
+        if kept:
+            payment.invoice_ids = kept
+            session.add(payment)
+        else:
+            session.delete(payment)
+    session.commit()
     return find_purchase(session, current_user, key)

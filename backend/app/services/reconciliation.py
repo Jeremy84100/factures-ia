@@ -2,7 +2,7 @@ import re
 import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from rapidfuzz import fuzz
@@ -487,7 +487,7 @@ def reconcile(
     documents: Sequence[Document],
     today: date | None = None,
     settlement: Settlement | None = None,
-    payment: Payment | None = None,
+    paid_on: Mapping[str, datetime] | None = None,
 ) -> Purchase:
     today = today or date.today()
     orders = [d for d in documents if d.kind == DocumentKind.order]
@@ -543,12 +543,14 @@ def reconcile(
         PurchaseStatus.to_pay if complete and not unsure else PurchaseStatus.waiting
     )
 
-    paid_ids = set(payment.invoice_ids) if payment else set()
-    unpaid = [i for i in invoices if str(i.id) not in paid_ids]
-    paid = [i for i in invoices if str(i.id) in paid_ids]
-    if paid and unpaid and payment:
+    # Payments follow the invoices, not the purchase: an invoice filed in
+    # another purchase later stays paid.
+    paid_on = paid_on or {}
+    unpaid = [i for i in invoices if str(i.id) not in paid_on]
+    paid = [i for i in invoices if str(i.id) in paid_on]
+    if paid and unpaid:
         notes += [
-            f"Facture {name(i)} déjà payée le {day(payment.paid_at.date())}"
+            f"Facture {name(i)} déjà payée le {day(paid_on[str(i.id)].date())}"
             for i in paid
         ]
     due_date, assumed = due_of(unpaid)
@@ -587,11 +589,11 @@ def reconcile(
         purchase.settled_at = settlement.settled_at if settlement else None
     elif disputed:
         purchase.status = PurchaseStatus.dispute
-    if invoices and not unpaid and payment:
-        purchase.paid_at = payment.paid_at
+    if invoices and not unpaid:
+        purchase.paid_at = max(paid_on[str(i.id)] for i in invoices)
         if purchase.status == PurchaseStatus.dispute:
             purchase.notes.insert(
-                0, f"Déjà payé le {day(payment.paid_at.date())} : demandez un avoir"
+                0, f"Déjà payé le {day(purchase.paid_at.date())} : demandez un avoir"
             )
         else:
             purchase.status = PurchaseStatus.paid
@@ -633,8 +635,9 @@ def build_purchases(
     documents: Iterable[Document],
     today: date | None = None,
     settlements: Mapping[str, Settlement] | None = None,
-    payments: Mapping[str, Payment] | None = None,
+    payments: Iterable[Payment] = (),
 ) -> Purchases:
+    paid_on = {id: p.paid_at for p in payments for id in p.invoice_ids}
     usable = [d for d in documents if d.kind in PURCHASE_KINDS and d.status in USABLE]
     order_suppliers = [
         d.supplier for d in usable if d.kind == DocumentKind.order and d.supplier
@@ -660,7 +663,7 @@ def build_purchases(
             docs,
             today,
             (settlements or {}).get(key),
-            (payments or {}).get(key),
+            paid_on,
         )
         for key, docs in groups.items()
     ]

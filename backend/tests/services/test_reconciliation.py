@@ -561,13 +561,9 @@ def test_supplier_email_without_invoice_asks_how_to_fix() -> None:
     assert email.body.endswith("Cordialement,\nMarie Durand")
 
 
-def payment(*invoices: Document, day: date = date(2026, 11, 3)) -> Payment:
-    return Payment(
-        owner_id=OWNER,
-        purchase_key="CMD2041",
-        invoice_ids=[str(i.id) for i in invoices],
-        paid_at=datetime(day.year, day.month, day.day, 10, tzinfo=UTC),
-    )
+def payment(*invoices: Document, day: date = date(2026, 11, 3)) -> dict[str, datetime]:
+    when = datetime(day.year, day.month, day.day, 10, tzinfo=UTC)
+    return {str(i.id): when for i in invoices}
 
 
 def test_amounts_incl_tax() -> None:
@@ -589,7 +585,7 @@ def test_overbilled_incl_tax_uses_the_invoice_rate() -> None:
 
 def test_paid_purchase() -> None:
     bill = invoice()
-    purchase = reconcile("CMD2041", [order(), delivery(), bill], payment=payment(bill))
+    purchase = reconcile("CMD2041", [order(), delivery(), bill], paid_on=payment(bill))
     assert purchase.status == PurchaseStatus.paid
     assert purchase.paid_at is not None
     assert purchase.to_pay_incl_tax == Decimal(0)
@@ -605,7 +601,7 @@ def test_an_invoice_after_payment_is_still_to_pay() -> None:
         filename="fa2.pdf",
     )
     purchase = reconcile(
-        "CMD2041", [order(), delivery(), first, second], payment=payment(first)
+        "CMD2041", [order(), delivery(), first, second], paid_on=payment(first)
     )
     assert purchase.status == PurchaseStatus.to_pay
     assert purchase.to_pay_incl_tax == Decimal("60.90")
@@ -617,7 +613,7 @@ def test_gap_found_after_payment_is_a_dispute() -> None:
     purchase = reconcile(
         "CMD2041",
         [order(), delivery(cable("45", None), gaine(price=None)), bill],
-        payment=payment(bill),
+        paid_on=payment(bill),
     )
     assert purchase.status == PurchaseStatus.dispute
     assert purchase.notes[0] == "Déjà payé le 03/11/2026 : demandez un avoir"
@@ -650,3 +646,20 @@ def test_unlinked_invoice_suggests_the_purchase_waiting_for_it() -> None:
     result = build_purchases([order(), delivery(), lost])
     (unlinked,) = result.unlinked
     assert [s.order_reference for s in unlinked.suggestions] == ["CMD-2041"]
+
+
+def test_payment_follows_the_invoice_into_another_purchase() -> None:
+    bill = invoice(order_reference=None, supplier="EDF Pro", number="EDF-11")
+    paid = [
+        Payment(
+            owner_id=OWNER,
+            purchase_key=f"FACTURE-{bill.id.hex}",
+            invoice_ids=[str(bill.id)],
+            paid_at=datetime(2026, 11, 3, tzinfo=UTC),
+        )
+    ]
+    # Filed later under an order number: still paid.
+    bill.order_reference = "CMD-77"
+    (purchase,) = build_purchases([bill], payments=paid).data
+    assert purchase.key == "CMD77"
+    assert purchase.status == PurchaseStatus.paid
