@@ -33,18 +33,17 @@ Le bouton **Essayer la démo** ouvre, sans inscription, un compte rempli avec le
 
 Pour voir l'IA lire, créez un compte et déposez ces PDF en vrac, ou prenez un bon de livraison en photo avec votre téléphone : les photos JPEG, PNG et WebP sont réduites dans le navigateur, puis converties en PDF par le serveur. Les factures de [`backend/tests/fixtures/invoices`](backend/tests/fixtures/invoices) passent toutes ; pour voir les contrôles en action, prenez un avoir ou une facture américaine dans les jeux de données cités plus bas.
 
-La première lecture prend jusqu'à une minute, le temps que le serveur gratuit démarre et charge Docling. Les suivantes prennent entre 5 et 20 secondes.
+La page s'affiche tout de suite : elle est servie par le CDN de Vercel. Après quelques minutes sans visite, les premiers chiffres attendent que le serveur Python se réveille. Un document est lu en 2 à 10 secondes.
 
 ## Fonctionnement
 
 ```mermaid
 flowchart LR
     A[PDF déposé en vrac] --> X{Facture<br>électronique ?}
-    X -->|oui : XML Factur-X| D[Règles en Python]
-    X -->|non| B[Docling<br>texte et tableaux]
-    X -->|non| C[Gemini<br>3.5 Flash-Lite]
-    B --> C
-    C -->|type, en-tête, lignes<br>validés par Pydantic| D
+    X -->|oui : XML Factur-X| K[Fiche fournisseur<br>et corrections retenues]
+    X -->|non| C[Gemini<br>3.5 Flash-Lite<br>lit le PDF]
+    C -->|type, en-tête, lignes<br>validés par Pydantic| K
+    K --> D[Règles en Python]
     D --> E{Statut}
     E --> F[Validé]
     E --> G[À vérifier]
@@ -60,11 +59,11 @@ flowchart LR
 
 1. Le fichier est contrôlé (signature `%PDF` ou photo, 10 Mo au plus ; une photo devient un PDF d'une page) puis stocké en base, sans type. Le traitement part en arrière-plan et l'interface se met à jour toute seule.
 1. Une **facture électronique** (Factur-X, ZUGFeRD) porte ses chiffres dans un fichier XML joint au PDF. Depuis le 1er septembre 2026, toutes les entreprises françaises doivent pouvoir en recevoir. Ce XML est lu tel quel, en quelques millisecondes, sans OCR ni IA : fournisseur, numéro, dates, échéance, totaux, IBAN, e-mail du fournisseur, numéro de commande et lignes sont exacts. Si le XML n'a pas de lignes (profils MINIMUM et BASIC WL), seule la lecture des lignes est confiée à l'IA. Testé sur les 20 exemples officiels Factur-X et ZUGFeRD cités plus bas.
-2. [Docling](https://github.com/docling-project/docling) extrait le texte et les tableaux des 5 premières pages.
-3. Gemini reçoit le PDF complet et le texte de Docling. Il voit les logos et la mise en page, le texte l'aide à lire les chiffres. En un seul appel, il renvoie le type (facture, avoir, bon de commande, bon de livraison), le fournisseur, le numéro, la date, le numéro de commande de l'acheteur, les totaux, la mention d'exonération de TVA, la date d'échéance et les conditions de paiement recopiées telles quelles (« 45 jours fin de mois »), l'IBAN et l'e-mail du fournisseur, et chaque ligne d'article (référence, désignation, quantité, prix). La date d'échéance n'est jamais calculée par l'IA : si elle n'est pas imprimée, le code la déduit des conditions ; s'il n'y a rien, l'appli compte les 30 jours du délai légal (code de commerce, art. L441-10) et le dit.
+2. Sinon, Gemini lit le PDF lui-même : texte, logos, tableaux et mise en page, scans et photos compris. En un seul appel, il renvoie le type (facture, avoir, bon de commande, bon de livraison), le titre imprimé, le fournisseur et son pays, le numéro, la date, le numéro de commande de l'acheteur, les totaux, la mention d'exonération de TVA, la date d'échéance et les conditions de paiement recopiées telles quelles (« 45 jours fin de mois »), l'IBAN et l'e-mail du fournisseur, et chaque ligne d'article (référence, désignation, quantité, prix). La date d'échéance n'est jamais calculée par l'IA : si elle n'est pas imprimée, le code la déduit des conditions ; s'il n'y a rien, l'appli compte les 30 jours du délai légal (code de commerce, art. L441-10) et le dit.
+3. Le document est rangé chez son **fournisseur** ([`suppliers.py`](backend/app/services/suppliers.py)), qui apporte ce que l'appli sait déjà de lui : la façon d'écrire les dates, le sens de ses modes de livraison, ses conditions de paiement. Détails plus bas.
 4. Les règles de [`checks.py`](backend/app/services/checks.py) décident du statut, avec des règles propres à chaque type. Elles ne font pas appel à l'IA et sont testées seules.
 5. [`reconciliation.py`](backend/app/services/reconciliation.py) regroupe les documents par numéro de commande et les compare ligne par ligne.
-6. Un document corrigé à la main (type, champs, numéro de commande, lignes) repasse les contrôles, et son achat est recalculé. On peut aussi relancer la lecture par l'IA.
+6. Un document corrigé à la main (type, champs, numéro de commande, lignes) repasse les contrôles, et son achat est recalculé. Ce que la correction apprend sur le fournisseur est retenu pour ses documents suivants. On peut aussi relancer la lecture par l'IA.
 
 L'accueil donne en gros le **reste à payer, TTC** (ce qui sort vraiment du compte), dont la part en retard de paiement, puis ce qu'il faut regarder, en phrases : litiges et montant facturé en trop, livraisons pas encore reçues, documents à ranger ou à vérifier. Viennent ensuite les prochains paiements, triés par échéance.
 
@@ -165,6 +164,28 @@ Le règlement ne vaut que pour les écarts qu'il y avait à ce moment-là. Si un
 - **Payé** range l'achat dans les payés, avec la date ; **Pas payé** annule. Le reste à payer de l'accueil baisse d'autant. Pour un avoir seul, le bouton devient **Déduit**.
 - Dans **Compte, Mes données**, **Pour le comptable** télécharge un zip : un tableau des factures et avoirs (date, fournisseur, numéro, HT, TVA, TTC, échéance, date de paiement) qui s'ouvre tel quel dans Excel en français, et les PDF nommés par date, fournisseur et numéro. Tout, ou un mois choisi.
 
+### Fournisseurs : ce que l'appli retient
+
+Chaque document est rangé chez son fournisseur, retrouvé quelle que soit l'écriture de son nom : « ÉLECTRO PROVENCE DISTRIBUTION SAS » et « Electro-Provence Distribution » sont le même. La fiche du fournisseur (Achats, Fournisseurs, ou « Fiche fournisseur » depuis un achat) garde, comme un partenaire dans Odoo :
+
+- son **pays**, lu sur son adresse, ou à défaut sur son IBAN ;
+- la façon dont il écrit les **dates**. 08/01/2026 est lu par le code, pas par l'IA : le 8 janvier pour un fournisseur français, le 1er août pour un américain ;
+- ses **conditions de paiement** et son **e-mail**, qui complètent les factures qui ne les donnent pas ;
+- son **IBAN** : le premier lu sur ses factures, puis celui confirmé par « J'ai appelé, l'IBAN est bon ».
+
+Ce que l'utilisateur a corrigé une fois est rejoué tout seul sur les documents suivants, comme les règles de paperless-ngx :
+
+| Correction faite une fois | Ce qui se passe ensuite |
+|---|---|
+| Fournisseur mal lu, remis au bon nom | ce nom est rangé chez le bon fournisseur |
+| « Livraison dépôt » remis en livraison standard | chez ce fournisseur, ce mode de livraison veut dire standard |
+| Date corrigée en inversant jour et mois | les dates de ce fournisseur sont lues dans ce sens |
+| Conditions de paiement ou e-mail ajoutés | ils servent pour ses factures suivantes |
+
+« Corriger » dit ce qui a été retenu. La fiche montre chaque règle en français, avec un bouton pour l'oublier.
+
+Un titre « Avoir », « Facture d'avoir », « Gutschrift », « Credit note » ou « Note de crédit » fait toujours un avoir, même si l'IA a dit le contraire : sur un avoir allemand, Gemini se trompait 2 fois sur 4 avec l'ancienne lecture.
+
 <table>
   <tr>
     <td><img src="docs/screenshots/rapprochements.png" alt="Liste des achats"></td>
@@ -193,7 +214,7 @@ Le projet a aussi été passé sur 42 factures publiques :
 
 (*) La facture AWS porte la phrase « This is not a VAT invoice ». Selon les passages, Gemini la recopie comme mention d'exonération ou non : la facture est alors validée ou signalée.
 
-Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 13 achats de grossistes, d'entreprises du bâtiment, d'un opérateur télécom et d'un loueur de matériel, soit 33 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande, livraison en retard, express commandé mais livré en standard, facture d'abonnement seule, IBAN changé d'un mois sur l'autre. Les IBAN sont fictifs (code banque 99999, qu'aucune banque n'utilise). Les factures portent des conditions de paiement variées : « 45 jours », « 30 jours fin de mois », « à réception », une date imprimée, ou rien. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les passe dans Docling et Gemini :
+Pour le rapprochement, [`scripts/generate_purchases.py`](backend/scripts/generate_purchases.py) fabrique 13 achats de grossistes, d'entreprises du bâtiment, d'un opérateur télécom et d'un loueur de matériel, soit 33 PDF, chacun avec un piège connu : quantité facturée non livrée, prix augmenté, article ajouté, livraison en deux fois, désignations réécrites, bon de livraison sans numéro de commande, facture sans commande, livraison en retard, express commandé mais livré en standard, facture d'abonnement seule, IBAN changé d'un mois sur l'autre. Les IBAN sont fictifs (code banque 99999, qu'aucune banque n'utilise). Les factures portent des conditions de paiement variées : « 45 jours », « 30 jours fin de mois », « à réception », une date imprimée, ou rien. [`scripts/evaluate_purchases.py`](backend/scripts/evaluate_purchases.py) les fait lire par Gemini :
 
 | | Résultat |
 |---|---|
@@ -208,9 +229,10 @@ Ces PDF sont propres et générés : ce score montre que la chaîne marche de bo
 
 Une mesure a aussi servi à corriger la consigne : ajouter des champs l'a rendue instable sur « Livraison dépôt », rangé une fois sur deux en retrait. Préciser que le mot livraison veut dire que le fournisseur apporte a ramené le résultat à 4 sur 4 à chaque passage.
 
-Deux idées ont été essayées puis retirées, parce que les mesures ne les justifiaient pas :
+Trois idées ont été essayées puis retirées, parce que les mesures ne les justifiaient pas :
 
-- préciser le format des dates dans la consigne : Gemini inverse toujours les dates américaines, seule la règle en Python les attrape ;
+- donner à Gemini, en plus du PDF, le texte extrait par [Docling](https://github.com/docling-project/docling). Mesuré sur les 33 documents (deux fois), les 12 factures et 35 factures publiques : le PDF seul lit aussi bien, et mieux sur 3 factures (un total HT trouvé, des lignes en HT au lieu de TTC, 4 lignes au lieu d'une vide). Docling pesait 1,3 Go avec PyTorch et ses modèles ; sans lui, l'application tient en 115 Mo et lit un document en 2 secondes au lieu de 6 ;
+- préciser le format des dates dans la consigne : Gemini inverse toujours les dates américaines. Le code les lit désormais selon le pays du fournisseur, et la règle en Python attrape celles qu'il ne peut pas trancher ;
 - demander à Gemini une note de confiance par champ : il se donne 1,0 sur une date fausse.
 
 ## Hébergement gratuit : ce qu'il a fallu régler
@@ -219,10 +241,8 @@ Le site tourne sur une fonction Python Vercel gratuite (2 Go de mémoire, 5 minu
 
 | Problème constaté en ligne | Mesure | Correction |
 |---|---|---|
-| PyTorch tire 3 Go de pilotes NVIDIA | paquet de 4 Go et plus | version CPU de PyTorch sous Linux |
-| Plusieurs lectures Docling en parallèle | serveur tué (code 137) | une seule lecture Docling à la fois |
-| OCR de Docling sur des PDF chargés d'images | 2,46 Go | OCR coupé, Gemini lit les scans : 1,41 Go |
-| PDF de 40 pages | 2,11 Go | 5 pages au plus, une par une : 1,20 Go |
+| Docling et PyTorch : mémoire, OCR, PDF de 40 pages, lectures en parallèle | jusqu'à 2,46 Go, serveur tué | Docling retiré, Gemini lit le PDF : 115 Mo |
+| Réveil après quelques minutes sans visite | 3 s de page blanche | page et code React servis par le CDN, sans réveiller Python |
 | Facture bloquée « en lecture » après un plantage | pour toujours | passe en erreur au bout de 10 minutes et se relance |
 
 ## Architecture
@@ -231,9 +251,10 @@ Le site tourne sur une fonction Python Vercel gratuite (2 Go de mémoire, 5 minu
 backend/app/
   api/routes/documents.py        dépôt en vrac, liste, correction, relecture, PDF, totaux
   api/routes/reconciliations.py  achats, payé, litige réglé, mail au fournisseur
+  api/routes/suppliers.py        fournisseurs, fiche, règles apprises
   services/einvoice.py           facture électronique : XML Factur-X lu sans IA
-  services/pdf_reader.py         PDF vers texte (Docling)
-  services/extraction.py         PDF et texte vers type, champs et lignes (Gemini)
+  services/extraction.py         PDF vers type, champs et lignes (Gemini)
+  services/suppliers.py          fiche fournisseur, dates, corrections retenues
   services/checks.py             règles de contrôle par type, sans base ni IA
   services/reconciliation.py     rapprochement ligne par ligne, sans base ni IA
   services/payment_terms.py      échéance tirée des conditions de paiement
@@ -246,19 +267,21 @@ backend/scripts/
   evaluate.py              score sur les 12 factures de test
   generate_purchases.py    13 achats de démonstration (33 PDF)
   evaluate_purchases.py    score de lecture et de rapprochement sur ces achats
-  vercel-build.sh          build de l'interface, modèles Docling, migrations
+  vercel-build.sh          build de l'interface, migrations
 frontend/src/
   routes/_layout/index.tsx            accueil : reste à payer, à regarder, échéances
   routes/_layout/reconciliations.tsx  achats par état, documents à ranger
   routes/_layout/documents.tsx        documents, filtres par type et par statut
+  routes/_layout/suppliers.tsx        fournisseurs
   components/Documents/               dépôt, correction (type, champs, lignes), actions
   components/Purchases/               détail d'un achat ligne par ligne, actions, mail
+  components/Suppliers/               fiche fournisseur, modification
   components/UserSettings/            compte, export pour le comptable
 ```
 
-Docling et Gemini sont derrière deux interfaces (`PdfReader`, `DocumentExtractor`). Les 261 tests les remplacent par de fausses versions et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
+Gemini est derrière une interface (`DocumentExtractor`). Les 282 tests la remplacent par une fausse version et tournent sans clé API ni réseau. Changer de modèle demande une seule classe.
 
-Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Docling, Gemini (`google-genai`), RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
+Stack : FastAPI, SQLModel, Pydantic, Alembic, PostgreSQL, Gemini (`google-genai`), pypdfium2, RapidFuzz, React 19, Vite, TanStack Router et Query, Tailwind, shadcn/ui, Pytest, uv, bun. Tests et lint dans GitHub Actions, déploiement continu sur Vercel.
 
 ## Lancer en local
 
@@ -288,10 +311,10 @@ cd backend && uv run python scripts/evaluate_purchases.py
 ## Crédits et licence
 
 - [Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template) (MIT, voir [`LICENSE-full-stack-fastapi-template`](LICENSE-full-stack-fastapi-template)) : base du projet, comptes, interface.
-- [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) : traitement en arrière-plan, une erreur claire par étape.
+- [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) : traitement en arrière-plan, une erreur claire par étape, règles apprises des choix de l'utilisateur et montrées dans l'interface.
 - [sparrow](https://github.com/katanaml/sparrow) : interface commune pour changer de modèle d'extraction.
 - [TaxHacker](https://github.com/vas3k/TaxHacker) : consigne par champ dans le schéma, règle « ne rien inventer », limite du nombre de pages lues.
-- [Odoo](https://github.com/odoo/odoo) et [ERPNext](https://github.com/frappe/erpnext) : règles du rapprochement (contrôle sur les quantités reçues, tolérance sur les quantités, prix facturé égal au prix commandé). [Dolibarr](https://github.com/Dolibarr/dolibarr) : vocabulaire français commande, réception, facture fournisseur. Idées seulement, aucun code repris.
+- [Odoo](https://github.com/odoo/odoo) et [ERPNext](https://github.com/frappe/erpnext) : règles du rapprochement (contrôle sur les quantités reçues, tolérance sur les quantités, prix facturé égal au prix commandé). Odoo encore pour la fiche fournisseur : pays, conditions de paiement par défaut, compte bancaire qui n'est sûr qu'une fois confirmé. [Dolibarr](https://github.com/Dolibarr/dolibarr) : vocabulaire français commande, réception, facture fournisseur. Idées seulement, aucun code repris.
 - [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz) (MIT) : comparaison des désignations d'articles.
 
 Licence GPL-3.0.
