@@ -22,6 +22,7 @@ import {
   DocumentsService,
   type LineMatch,
   type Purchase,
+  type Purchases,
   ReconciliationsService,
   type UnlinkedDocument,
 } from "@/client"
@@ -60,6 +61,7 @@ import {
   PURCHASE_STATUS,
 } from "@/lib/documents"
 import { openPdf } from "@/lib/pdf"
+import { purchasesQuery } from "@/lib/queries"
 import { handleError } from "@/utils"
 import {
   allIssues,
@@ -273,7 +275,7 @@ function Articles({ purchase }: { purchase: Purchase }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {purchase.lines?.map((line) => {
+            {purchase.lines?.map((line, lineIndex) => {
               const issues = settled ? [] : (line.issues ?? [])
               const notes = settled
                 ? [...(line.issues ?? []), ...(line.notes ?? [])]
@@ -311,7 +313,7 @@ function Articles({ purchase }: { purchase: Purchase }) {
                   })
               return (
                 <TableRow
-                  key={`${line.reference}-${line.label}`}
+                  key={`${line.reference}-${line.label}-${lineIndex}`}
                   className="hover:bg-transparent"
                 >
                   <TableCell className="py-2 whitespace-normal">
@@ -528,14 +530,29 @@ function LinkProposals({
   )
 }
 
-function usePurchaseAction(call: () => Promise<unknown>, message: string) {
-  const refresh = useRefresh()
+function usePurchaseAction(
+  call: () => Promise<{ data: Purchase }>,
+  message: string,
+) {
+  const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   return useMutation({
     mutationFn: call,
-    onSuccess: () => showSuccessToast(message),
+    onSuccess: ({ data: updated }) => {
+      queryClient.setQueryData<Purchases>(purchasesQuery.queryKey, (current) =>
+        current
+          ? {
+              ...current,
+              data: current.data.map((p) =>
+                p.key === updated.key ? updated : p,
+              ),
+            }
+          : current,
+      )
+      showSuccessToast(message)
+    },
     onError: handleError.bind(showErrorToast),
-    onSettled: refresh,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["purchases"] }),
   })
 }
 

@@ -4,12 +4,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import {
-  Building2,
-  FileText,
-  Link2,
-  ShoppingBag,
-} from "lucide-react"
+import { Building2, FileText, Link2, ShoppingBag } from "lucide-react"
 import { useState } from "react"
 
 import {

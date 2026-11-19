@@ -1,13 +1,17 @@
+import asyncio
+import unicodedata
 import uuid
 from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import quote
 
 import anyio
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
 from fastapi import File as FileParam
 from sqlalchemy.orm import defer, selectinload
-from sqlmodel import col, delete, extract, func, select
+from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
+from sqlmodel import Session, col, delete, extract, func, select
 
 from app.api.deps import CurrentUser, EngineDep, ExtractorDep, SessionDep
 from app.core.config import settings
@@ -21,6 +25,7 @@ from app.models import (
     LineFields,
     Message,
     Payment,
+    Settlement,
     Supplier,
     SupplierTotal,
     SupplierTotals,
@@ -32,10 +37,13 @@ from app.services.iban import clean_iban
 from app.services.images import ImageError, image_to_pdf, is_image
 from app.services.payment_terms import due_from_terms
 from app.services.processing import (
+    ReadOutcome,
     expire_stale,
+    extract_document,
     process_document,
     recheck_duplicates_of,
     run_checks,
+    save_outcome,
     sign_credit_note,
     to_lines,
 )
@@ -44,8 +52,10 @@ from app.services.suppliers import Before, learn
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
-# Vercel functions answer 4.5 MB at most.
-MAX_EXPORT_SIZE = 4 * 1024 * 1024
+# Cloud Run answers 32 MB at most; Vercel functions answer 4.5 MB.
+MAX_EXPORT_SIZE = 30 * 1024 * 1024
+MAX_VERCEL_EXPORT_SIZE = 4 * 1024 * 1024
+MAX_CONCURRENT_READS = 5
 EXPORTED = (DocumentStatus.ok, DocumentStatus.to_check)
 MAX_FILES = 50
 BUSY = (DocumentStatus.pending, DocumentStatus.processing)
@@ -57,8 +67,31 @@ def to_public(document: Document) -> DocumentPublic:
     return public
 
 
-def get_owned_document(session: SessionDep, user: User, id: uuid.UUID) -> Document:
-    document = session.get(Document, id)
+def content_disposition(disposition: str, filename: str) -> str:
+    plain = (
+        unicodedata.normalize("NFKD", filename)
+        .encode("ascii", "ignore")
+        .decode()
+        .replace('"', "")
+        .replace("\r", "")
+        .replace("\n", "")
+        .strip()
+        or "document.pdf"
+    )
+    encoded = quote(filename, safe="")
+    return f"{disposition}; filename=\"{plain}\"; filename*=UTF-8''{encoded}"
+
+
+def get_owned_document(
+    session: SessionDep, user: User, id: uuid.UUID, *, include_file: bool = False
+) -> Document:
+    statement = select(Document).where(Document.id == id)
+    if not include_file:
+        statement = statement.options(
+            defer(Document.file),  # type: ignore[arg-type]
+            selectinload(Document.lines),  # type: ignore[arg-type]
+        )
+    document = session.exec(statement).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document introuvable")
     if not user.is_superuser and document.owner_id != user.id:
@@ -101,6 +134,26 @@ def read_documents(
     return DocumentsPublic(data=[to_public(d) for d in documents], count=count)
 
 
+async def _extract_all(pdfs: list[bytes], extractor: ExtractorDep) -> list[ReadOutcome]:
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_READS)
+
+    async def one(pdf: bytes) -> ReadOutcome:
+        async with semaphore:
+            return await anyio.to_thread.run_sync(extract_document, pdf, extractor)
+
+    return list(await asyncio.gather(*(one(pdf) for pdf in pdfs)))
+
+
+def _load_in_order(session: Session, ids: list[uuid.UUID]) -> list[Document]:
+    rows = session.exec(
+        select(Document)
+        .where(col(Document.id).in_(ids))
+        .options(defer(Document.file), selectinload(Document.lines))  # type: ignore[arg-type]
+    ).all()
+    by_id = {row.id: row for row in rows}
+    return [by_id[id] for id in ids if id in by_id]
+
+
 @router.post("/", response_model=DocumentsPublic)
 async def upload_documents(
     session: SessionDep,
@@ -138,27 +191,49 @@ async def upload_documents(
             )
         contents.append((name, data))
 
+    now = get_datetime_utc()
     documents = [
-        Document(filename=name, file=data, owner_id=current_user.id)
+        Document(
+            filename=name,
+            file=data,
+            owner_id=current_user.id,
+            status=DocumentStatus.processing
+            if settings.READ_IN_REQUEST
+            else DocumentStatus.pending,
+            started_at=now if settings.READ_IN_REQUEST else None,
+        )
         for name, data in contents
     ]
+    ids = [document.id for document in documents]
     session.add_all(documents)
     session.commit()
-    for document in documents:
-        session.refresh(document)
-    ids = [document.id for document in documents]
-    if settings.READ_IN_REQUEST:
-        # One after the other: two readings of the same new supplier at once
-        # would both try to create it.
-        for id in ids:
-            await anyio.to_thread.run_sync(process_document, id, engine, extractor)
-        for document in documents:
-            session.refresh(document)
-    else:
-        for id in ids:
-            background_tasks.add_task(process_document, id, engine, extractor)
 
-    return DocumentsPublic(data=[to_public(d) for d in documents], count=len(documents))
+    if settings.READ_IN_REQUEST:
+        # AI readings run in parallel (network I/O), then results are saved one
+        # after the other so two documents of the same new supplier never race.
+        outcomes = await _extract_all([data for _, data in contents], extractor)
+        saved: list[DocumentPublic] = []
+        with Session(engine) as write_session:
+            for doc_id, outcome in zip(ids, outcomes, strict=True):
+                doc = write_session.exec(
+                    select(Document)
+                    .where(Document.id == doc_id)
+                    .options(defer(Document.file), selectinload(Document.lines))  # type: ignore[arg-type]
+                ).first()
+                if doc is None:
+                    continue
+                try:
+                    save_outcome(write_session, doc, outcome)
+                except StaleDataError, ObjectDeletedError:
+                    write_session.rollback()
+                    continue
+                saved.append(to_public(doc))
+        return DocumentsPublic(data=saved, count=len(saved))
+
+    for id in ids:
+        background_tasks.add_task(process_document, id, engine, extractor)
+    loaded = _load_in_order(session, ids)
+    return DocumentsPublic(data=[to_public(d) for d in loaded], count=len(loaded))
 
 
 @router.get("/totals", response_model=SupplierTotals)
@@ -226,7 +301,8 @@ def export_invoices(
     payments = session.exec(select(Payment).where(Payment.owner_id == current_user.id))
     paid_on = {id: p.paid_at for p in payments for id in p.invoice_ids}
     content = build_export(invoices, paid_on)
-    if len(content) > MAX_EXPORT_SIZE:
+    limit = MAX_EXPORT_SIZE if settings.READ_IN_REQUEST else MAX_VERCEL_EXPORT_SIZE
+    if len(content) > limit:
         raise HTTPException(
             status_code=413,
             detail="Trop de factures pour un seul fichier : exportez mois par mois",
@@ -254,11 +330,14 @@ def read_document_file(
     """
     Download the original PDF.
     """
-    document = get_owned_document(session, current_user, id)
+    document = get_owned_document(session, current_user, id, include_file=True)
     return Response(
         content=document.file,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{document.filename}"'},
+        headers={
+            "Content-Disposition": content_disposition("inline", document.filename),
+            "Cache-Control": "private, max-age=31536000, immutable",
+        },
     )
 
 
@@ -349,7 +428,8 @@ def retry_document(
     session.refresh(document)
     if settings.READ_IN_REQUEST:
         process_document(document.id, engine, extractor)
-        session.refresh(document)
+        session.expire_all()
+        document = get_owned_document(session, current_user, id)
     else:
         background_tasks.add_task(process_document, document.id, engine, extractor)
     return to_public(document)
@@ -366,6 +446,8 @@ def delete_all_documents(session: SessionDep, current_user: CurrentUser) -> Mess
         .where(Document.owner_id == current_user.id)
     ).one()
     session.exec(delete(Document).where(col(Document.owner_id) == current_user.id))
+    session.exec(delete(Payment).where(col(Payment.owner_id) == current_user.id))
+    session.exec(delete(Settlement).where(col(Settlement.owner_id) == current_user.id))
     session.commit()
     return Message(message=f"Documents supprimés : {count}")
 

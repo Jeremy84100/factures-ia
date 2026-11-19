@@ -41,8 +41,9 @@ def test_export_for_the_accountant(
     assert line.startswith(
         "06/10/2026;Rexel;FA-EXP-1;Facture;EXP-1;101,50;20,30;121,80;"
     )
-    # Paid today: the date is there.
+    # Paid today: the date is there, and the currency is included.
     assert line.split(";")[9]
+    assert line.split(";")[11] == "EUR"
     assert "factures/2026-10-06_Rexel_FA-EXP-1.pdf" in names
 
 
@@ -74,3 +75,21 @@ def test_export_holds_only_my_invoices(
         assert not any("FA-EXP-3" in row for row in rows)
     else:
         assert r.status_code == 404
+
+
+def test_export_size_limit_follows_cloud_run_setting(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.routes import documents as docs_route
+
+    deposit(client, normal_user_token_headers, *purchase_documents("EXP-4"))
+    monkeypatch.setattr(docs_route, "MAX_VERCEL_EXPORT_SIZE", 10)
+    monkeypatch.setattr(docs_route, "MAX_EXPORT_SIZE", 10 * 1024 * 1024)
+
+    monkeypatch.setattr(settings, "READ_IN_REQUEST", False)
+    assert client.get(EXPORT, headers=normal_user_token_headers).status_code == 413
+
+    monkeypatch.setattr(settings, "READ_IN_REQUEST", True)
+    assert client.get(EXPORT, headers=normal_user_token_headers).status_code == 200

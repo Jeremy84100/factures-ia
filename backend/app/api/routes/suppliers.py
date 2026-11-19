@@ -92,11 +92,33 @@ def summaries(session: SessionDep, owner_id: uuid.UUID) -> list[SupplierSummary]
     return sorted(result, key=lambda s: fold(s.name))
 
 
-def detail(session: SessionDep, supplier: Supplier) -> SupplierDetail:
-    summary = next(
-        (s for s in summaries(session, supplier.owner_id) if s.id == supplier.id),
-        SupplierSummary.model_validate(supplier),
+def summary_of(session: SessionDep, supplier: Supplier) -> SupplierSummary:
+    invoiced = func.sum(Document.amount_incl_tax).filter(
+        col(Document.kind) == DocumentKind.invoice,
+        col(Document.status).in_(COUNTED),
     )
+    count, total, last = session.exec(
+        select(
+            func.count(),
+            invoiced,
+            func.max(Document.document_date),
+        ).where(
+            Document.owner_id == supplier.owner_id,
+            Document.supplier_id == supplier.id,
+        )
+    ).one()
+    return SupplierSummary.model_validate(
+        supplier,
+        update={
+            "documents": count,
+            "invoiced_incl_tax": total or Decimal(0),
+            "last_document_date": last,
+        },
+    )
+
+
+def detail(session: SessionDep, supplier: Supplier) -> SupplierDetail:
+    summary = summary_of(session, supplier)
     rules = session.exec(
         select(LearnedRule)
         .where(LearnedRule.supplier_id == supplier.id)

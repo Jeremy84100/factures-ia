@@ -463,3 +463,98 @@ def test_other_files_are_refused(
     )
     assert r.status_code == 400
     assert "ni un PDF ni une photo" in r.json()["detail"]
+
+
+def test_download_file_caches_and_handles_special_filename(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    created = upload(
+        client,
+        normal_user_token_headers,
+        ("Facture d\u2019\u00e9t\u00e9 100\u20ac.pdf", PDF_BYTES),
+    )
+    r = client.get(f"{URL}{created[0]['id']}/file", headers=normal_user_token_headers)
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert "filename*=UTF-8''" in r.headers["content-disposition"]
+    assert r.content == PDF_BYTES
+
+
+def test_delete_all_also_clears_payments_and_settlements(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    from app.models import Payment, Settlement
+    from tests.api.routes.test_reconciliations import (
+        URL as REC_URL,
+    )
+    from tests.api.routes.test_reconciliations import (
+        deposit,
+        deposit_dispute,
+    )
+    from tests.utils.invoice import purchase_documents
+
+    # Superuser has their own paid purchase that must survive normal user's delete-all.
+    deposit(client, superuser_token_headers, *purchase_documents("KEEP-1"))
+    assert (
+        client.post(f"{REC_URL}KEEP1/pay", headers=superuser_token_headers).status_code
+        == 200
+    )
+
+    deposit(client, normal_user_token_headers, *purchase_documents("CLR-1"))
+    assert (
+        client.post(f"{REC_URL}CLR1/pay", headers=normal_user_token_headers).status_code
+        == 200
+    )
+    deposit_dispute(client, normal_user_token_headers, "CLR-2")
+    assert (
+        client.post(
+            f"{REC_URL}CLR2/settle", headers=normal_user_token_headers
+        ).status_code
+        == 200
+    )
+
+    assert client.delete(URL, headers=normal_user_token_headers).status_code == 200
+    db.expire_all()
+    me = client.get(
+        f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers
+    ).json()
+    assert db.exec(select(Payment).where(Payment.owner_id == me["id"])).all() == []
+    assert (
+        db.exec(select(Settlement).where(Settlement.owner_id == me["id"])).all() == []
+    )
+
+    # Re-uploading the same purchase starts fresh, not already paid.
+    deposit(client, normal_user_token_headers, *purchase_documents("CLR-1"))
+    fresh = client.get(f"{REC_URL}CLR1", headers=normal_user_token_headers).json()
+    assert fresh["status"] == "to_pay"
+    assert fresh["paid_at"] is None
+    # Superuser's payment was untouched.
+    kept = client.get(f"{REC_URL}KEEP1", headers=superuser_token_headers).json()
+    assert kept["status"] == "paid"
+
+
+def test_read_in_request_multi_file_upload_creates_one_supplier_and_keeps_order(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "READ_IN_REQUEST", True)
+    use_ai_result(
+        EDF.model_copy(update={"supplier": "Parallele SAS", "number": "PAR-1"})
+    )
+    created = upload(
+        client,
+        normal_user_token_headers,
+        ("first.pdf", PDF_BYTES),
+        ("second.pdf", PDF_BYTES),
+        ("third.pdf", PDF_BYTES),
+    )
+    assert [d["filename"] for d in created] == ["first.pdf", "second.pdf", "third.pdf"]
+    assert created[0]["status"] == "ok"
+    assert created[1]["status"] == "to_check"
+    assert created[1]["issues"] == ["Doublon possible de « first.pdf »"]
+    assert created[2]["status"] == "to_check"
+    assert len({d["supplier_id"] for d in created}) == 1

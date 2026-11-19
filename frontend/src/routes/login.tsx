@@ -96,7 +96,7 @@ function DemoButton() {
         )}
       </Button>
       <p className="text-sm text-muted-foreground">
-        Sans inscription · 10 achats d'exemple déjà lus
+        Sans inscription · 13 achats d'exemple déjà lus
       </p>
     </div>
   )

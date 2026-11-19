@@ -234,7 +234,7 @@ class Document(DocumentFields, table=True):
     started_at: datetime | None = None
     processed_at: datetime | None = None
     owner_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
     )
     owner: User | None = Relationship(back_populates="documents")
     lines: list[DocumentLine] = Relationship(

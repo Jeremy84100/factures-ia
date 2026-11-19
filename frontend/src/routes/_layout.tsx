@@ -5,6 +5,8 @@ import {
   useRouterState,
 } from "@tanstack/react-router"
 import { AxiosError } from "axios"
+import { Upload } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 import { AppSidebar, TabBar, TITLES } from "@/components/App/Navigation"
 import { Separator } from "@/components/ui/separator"
@@ -14,6 +16,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { useUpload } from "@/hooks/useUpload"
 import { currentUserQuery } from "@/lib/queries"
 
 export const Route = createFileRoute("/_layout")({
@@ -36,10 +39,78 @@ export const Route = createFileRoute("/_layout")({
   component: Layout,
 })
 
+function hasFiles(event: DragEvent) {
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files")
+}
+
+// Files can be dropped anywhere in the app from a computer.
+function GlobalDropZone() {
+  const { upload } = useUpload()
+  const uploadRef = useRef(upload)
+  uploadRef.current = upload
+  const [dragging, setDragging] = useState(false)
+  const dragDepth = useRef(0)
+
+  useEffect(() => {
+    const reset = () => {
+      dragDepth.current = 0
+      setDragging(false)
+    }
+    const onDragEnter = (event: DragEvent) => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      dragDepth.current += 1
+      setDragging(true)
+    }
+    const onDragOver = (event: DragEvent) => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+    }
+    const onDragLeave = (event: DragEvent) => {
+      if (!hasFiles(event)) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragging(false)
+    }
+    const onDrop = (event: DragEvent) => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      reset()
+      uploadRef.current(Array.from(event.dataTransfer?.files ?? []))
+    }
+
+    window.addEventListener("dragenter", onDragEnter)
+    window.addEventListener("dragover", onDragOver)
+    window.addEventListener("dragleave", onDragLeave)
+    window.addEventListener("drop", onDrop)
+    window.addEventListener("blur", reset)
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter)
+      window.removeEventListener("dragover", onDragOver)
+      window.removeEventListener("dragleave", onDragLeave)
+      window.removeEventListener("drop", onDrop)
+      window.removeEventListener("blur", reset)
+    }
+  }, [])
+
+  if (!dragging) return null
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-6 backdrop-blur-xs">
+      <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-primary bg-card px-10 py-8 text-center shadow-lg">
+        <Upload className="size-8 text-primary" />
+        <p className="text-base font-semibold">Déposez vos documents ici</p>
+        <p className="text-sm text-muted-foreground">
+          Commandes, bons de livraison et factures (PDF ou photo)
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function Layout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   return (
     <SidebarProvider>
+      <GlobalDropZone />
       <AppSidebar />
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 bg-background px-4 md:static md:h-14 md:rounded-t-2xl md:border-b">

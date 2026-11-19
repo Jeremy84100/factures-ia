@@ -27,6 +27,7 @@ COLUMNS = [
     "Échéance",
     "Payée le",
     "Fichier",
+    "Devise",
 ]
 UNSAFE = re.compile(r"[^\w.-]+")
 
@@ -76,6 +77,7 @@ def build_export(
                     invoice.due_date.strftime("%d/%m/%Y") if invoice.due_date else "",
                     paid.strftime("%d/%m/%Y") if paid else "",
                     name,
+                    invoice.currency or "",
                 ]
             )
         zip_file.writestr("factures.csv", "﻿" + table.getvalue())

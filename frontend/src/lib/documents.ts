@@ -38,26 +38,34 @@ export const isBusy = (document: { status: DocumentStatus }) =>
 // invisible: a normal non-breaking space keeps "1 128,00 €" readable.
 export const visibleSpaces = (text: string) => text.replace(/ /g, " ")
 
+const AMOUNT_FORMATS = new Map<string, Intl.NumberFormat>()
+const QUANTITY_FORMAT = new Intl.NumberFormat("fr-FR", {
+  maximumFractionDigits: 3,
+})
+
+function amountFormat(currency: string) {
+  let formatter = AMOUNT_FORMATS.get(currency)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency,
+    })
+    AMOUNT_FORMATS.set(currency, formatter)
+  }
+  return formatter
+}
+
 export function formatAmount(
   value: string | number | null | undefined,
   currency = "EUR",
 ) {
   if (value === null || value === undefined || value === "") return "—"
-  return visibleSpaces(
-    new Intl.NumberFormat("fr-FR", {
-      style: "currency",
-      currency: currency || "EUR",
-    }).format(Number(value)),
-  )
+  return visibleSpaces(amountFormat(currency || "EUR").format(Number(value)))
 }
 
 export function formatQuantity(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") return "—"
-  return visibleSpaces(
-    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 3 }).format(
-      Number(value),
-    ),
-  )
+  return visibleSpaces(QUANTITY_FORMAT.format(Number(value)))
 }
 
 export function formatDate(value: string | null | undefined) {

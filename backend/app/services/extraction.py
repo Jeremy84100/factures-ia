@@ -1,6 +1,10 @@
-from typing import Literal, Protocol
+from functools import cache
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from google import genai
 
 PROMPT = """Tu es un assistant comptable. Tu reçois un document d'achat en PDF : une facture, un avoir, un bon de commande ou un bon de livraison.
 Lis-le entièrement : le logo, l'en-tête, la mise en page et les tableaux.
@@ -127,6 +131,13 @@ class DocumentExtractor(Protocol):
     def extract(self, pdf: bytes) -> ExtractedDocument: ...
 
 
+@cache
+def _gemini_client(api_key: str) -> genai.Client:
+    from google import genai
+
+    return genai.Client(api_key=api_key)
+
+
 class GeminiExtractor:
     def __init__(self, api_key: str | None, model: str) -> None:
         self.api_key = api_key
@@ -136,10 +147,9 @@ class GeminiExtractor:
         if not self.api_key:
             raise ExtractionError("Clé GEMINI_API_KEY manquante dans .env")
 
-        from google import genai
         from google.genai import errors, types
 
-        client = genai.Client(api_key=self.api_key)
+        client = _gemini_client(self.api_key)
         contents: list[types.PartUnionDict] = [
             types.Part.from_bytes(data=pdf, mime_type="application/pdf"),
             PROMPT,

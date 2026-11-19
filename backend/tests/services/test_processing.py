@@ -291,3 +291,79 @@ def test_queued_document_is_not_expired_too_early(db: Session) -> None:
     expire_stale(db)
     assert reload(db, queued).status == DocumentStatus.pending
     assert reload(db, old).status == DocumentStatus.failed
+
+
+def test_pdf_with_too_many_pages_is_not_sent_to_ai(db: Session) -> None:
+    from fpdf import FPDF
+
+    from app.services.processing import MAX_PAGES
+
+    pdf = FPDF()
+    for _ in range(MAX_PAGES + 1):
+        pdf.add_page()
+    big_pdf = bytes(pdf.output())
+
+    document = create_random_document(db)
+    document.file = big_pdf
+    db.add(document)
+    db.commit()
+
+    extractor = FakeExtractor()
+    process_document(document.id, engine, extractor)
+    assert extractor.calls == []
+    document = reload(db, document)
+    assert document.status == DocumentStatus.unreadable
+    assert document.issues == [
+        f"Document trop long ({MAX_PAGES + 1} pages, {MAX_PAGES} maximum)"
+    ]
+
+
+def test_invoices_with_iban_filters_by_supplier_and_defers_file(db: Session) -> None:
+    from sqlalchemy import inspect
+
+    from app.services.processing import invoices_with_iban
+
+    iban_a = "FR7630006000011234567890189"
+    iban_b = "FR7630004000031234567890143"
+
+    first = create_random_invoice(db)
+    process_document(
+        first.id, engine, FakeExtractor(EDF.model_copy(update={"iban": iban_a}))
+    )
+    first = reload(db, first)
+
+    other_supplier = Document(
+        kind=DocumentKind.invoice,
+        filename="autre.pdf",
+        file=PDF_BYTES,
+        owner_id=first.owner_id,
+    )
+    second_same = Document(
+        kind=DocumentKind.invoice,
+        filename="edf2.pdf",
+        file=PDF_BYTES,
+        owner_id=first.owner_id,
+    )
+    db.add_all([other_supplier, second_same])
+    db.commit()
+
+    process_document(
+        other_supplier.id,
+        engine,
+        FakeExtractor(
+            EDF.model_copy(
+                update={"supplier": "Autre SAS", "number": "A-1", "iban": iban_b}
+            )
+        ),
+    )
+    process_document(
+        second_same.id,
+        engine,
+        FakeExtractor(EDF.model_copy(update={"number": "FA-2", "iban": iban_a})),
+    )
+
+    db.expire_all()
+    second_same = reload(db, second_same)
+    found = invoices_with_iban(db, second_same)
+    assert [d.id for d in found] == [first.id]
+    assert "file" in inspect(found[0]).unloaded

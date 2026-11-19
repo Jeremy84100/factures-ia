@@ -11,7 +11,7 @@ import {
   TriangleAlert,
   Upload,
 } from "lucide-react"
-import { type DragEvent, type ReactNode, useState } from "react"
+import { useState } from "react"
 
 import type { Purchase } from "@/client"
 import { EmptyState } from "@/components/App/EmptyState"
@@ -52,24 +52,6 @@ export const Route = createFileRoute("/_layout/")({
   head: () => ({ meta: [{ title: "Accueil - Factures IA" }] }),
 })
 
-// Files can be dropped anywhere on the page from a computer.
-function DropTarget({ children }: { children: ReactNode }) {
-  const { upload } = useFilePicker()
-  return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: mouse-only drop target; the buttons are the keyboard path
-    <div
-      className="flex flex-col gap-8"
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event: DragEvent) => {
-        event.preventDefault()
-        upload(Array.from(event.dataTransfer.files))
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
 function HomeActions({ disputes }: { disputes: number }) {
   const navigate = useNavigate()
   const files = useFilePicker()
@@ -103,7 +85,7 @@ function HomeActions({ disputes }: { disputes: number }) {
 
 function FirstVisit() {
   return (
-    <DropTarget>
+    <div className="flex flex-col gap-8">
       <EmptyState
         icon={Upload}
         title="Déposez vos documents"
@@ -111,7 +93,7 @@ function FirstVisit() {
       >
         <UploadButton>Choisir des fichiers</UploadButton>
       </EmptyState>
-    </DropTarget>
+    </div>
   )
 }
 
@@ -241,7 +223,7 @@ function Home() {
   ].filter(Boolean)
 
   return (
-    <DropTarget>
+    <div className="flex flex-col gap-8">
       <DemoBanner />
       <section className="flex flex-col items-center gap-2 pt-2 text-center">
         <p className="text-sm text-muted-foreground">
@@ -270,8 +252,7 @@ function Home() {
             L'IA lit {plural(reading, "document", "documents")}
           </AlertTitle>
           <AlertDescription>
-            Comptez 20 à 60 secondes par document. La page se met à jour toute
-            seule.
+            Quelques secondes par document. La page se met à jour toute seule.
           </AlertDescription>
         </Alert>
       )}
@@ -305,6 +286,6 @@ function Home() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       />
-    </DropTarget>
+    </div>
   )
 }

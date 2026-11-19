@@ -12,3 +12,6 @@ __pycache__/
 
 .agents/
 .claude/
+
+# Réglages secrets de Cloud Run (jamais dans Git)
+cloudrun.env.yaml

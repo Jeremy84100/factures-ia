@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
-import { DocumentsService } from "@/client"
+import { type DocumentPublic, DocumentsService } from "@/client"
 import useCustomToast from "@/hooks/useCustomToast"
+import { isBusy, needsReview } from "@/lib/documents"
 import { handleError } from "@/utils"
 
 export const ACCEPTED = "application/pdf,image/jpeg,image/png,image/webp"
@@ -63,22 +64,45 @@ export function useUpload() {
   const mutation = useMutation({
     mutationFn: async (files: File[]) => {
       const ready = await Promise.all(files.map(shrink))
+      const uploaded: DocumentPublic[] = []
       for (const batch of batches(ready)) {
-        await DocumentsService.uploadDocuments({ body: { files: batch } })
+        const { data } = await DocumentsService.uploadDocuments({
+          body: { files: batch },
+        })
+        uploaded.push(...data.data)
         await queryClient.invalidateQueries({ queryKey: ["documents"] })
+        await queryClient.invalidateQueries({ queryKey: ["purchases"] })
       }
-      return files.length
+      return uploaded
     },
-    onSuccess: (count) =>
+    onSuccess: (uploaded) => {
+      const count = uploaded.length
+      if (uploaded.some(isBusy)) {
+        showSuccessToast(
+          count > 1
+            ? `${count} documents reçus, l'IA les lit`
+            : "Document reçu, l'IA le lit",
+        )
+        return
+      }
+      const toReview = uploaded.filter(needsReview).length
+      if (count === 1) {
+        showSuccessToast(
+          toReview > 0 ? "Document lu, à vérifier" : "Document lu",
+        )
+        return
+      }
       showSuccessToast(
-        count > 1
-          ? `${count} documents reçus, l'IA les lit`
-          : "Document reçu, l'IA le lit",
-      ),
+        toReview > 0
+          ? `${count} documents lus (${toReview} à vérifier)`
+          : `${count} documents lus`,
+      )
+    },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] })
       queryClient.invalidateQueries({ queryKey: ["purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] })
     },
   })
 

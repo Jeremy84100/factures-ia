@@ -15,6 +15,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from rapidfuzz import fuzz
 from sqlmodel import Session, col, delete, func, select
 
 from app.core.security import get_password_hash
@@ -24,12 +25,14 @@ from app.models import (
     DocumentKind,
     DocumentLine,
     DocumentStatus,
+    Supplier,
     User,
     get_datetime_utc,
 )
 from app.services.checks import check_document
 from app.services.iban import iban_change
-from app.services.suppliers import fill_from, link_supplier
+from app.services.reconciliation import SUPPLIER_MATCH
+from app.services.suppliers import country_of, fill_from, supplier_key
 
 DEMO_DIR = Path(__file__).parent.parent / "demo" / "purchases"
 DEMO_DOMAIN = "demo.example.com"
@@ -48,6 +51,17 @@ def demo_cases() -> list[dict[str, Any]]:
     expected = json.loads((DEMO_DIR / "expected.json").read_text(encoding="utf-8"))
     documents: list[dict[str, Any]] = expected["documents"]
     return documents
+
+
+@cache
+def demo_pdf(filename: str) -> bytes:
+    return (DEMO_DIR / filename).read_bytes()
+
+
+@cache
+def demo_password_hash() -> str:
+    # Demo visitors sign in with the returned JWT, never with a password.
+    return get_password_hash(secrets.token_urlsafe(32))
 
 
 def to_decimal(value: float | None) -> Decimal | None:
@@ -77,7 +91,7 @@ def demo_document(case: dict[str, Any], owner_id: uuid.UUID, today: date) -> Doc
     document = Document(
         kind=DocumentKind(case["kind"]),
         filename=case["filename"],
-        file=(DEMO_DIR / case["filename"]).read_bytes(),
+        file=demo_pdf(case["filename"]),
         owner_id=owner_id,
         supplier=case["supplier"],
         number=case["number"],
@@ -119,13 +133,43 @@ def is_demo(user: User) -> bool:
     return user.email.endswith(f"@{DEMO_DOMAIN}")
 
 
+def _link_demo_suppliers(
+    owner_id: uuid.UUID, documents: list[Document]
+) -> list[Supplier]:
+    suppliers: list[Supplier] = []
+    for document in sorted(documents, key=lambda d: d.document_date or date.min):
+        if not document.supplier:
+            continue
+        key = supplier_key(document.supplier)
+        supplier = next((s for s in suppliers if s.key == key), None)
+        if supplier is None:
+            best = max(
+                ((fuzz.token_set_ratio(key, s.key), s) for s in suppliers),
+                key=lambda pair: pair[0],
+                default=None,
+            )
+            supplier = best[1] if best and best[0] >= SUPPLIER_MATCH else None
+        if supplier is None:
+            supplier = Supplier(owner_id=owner_id, name=document.supplier, key=key)
+            suppliers.append(supplier)
+        if not supplier.country:
+            supplier.country = country_of(None, document.iban)
+        document.supplier_id = supplier.id
+        fill_from(supplier, document)
+    return suppliers
+
+
 def remove_expired_demo_users(session: Session, now: datetime) -> None:
-    expired = select(User.id).where(
-        col(User.email).endswith(f"@{DEMO_DOMAIN}"),
-        col(User.created_at) < now - DEMO_LIFETIME,
-    )
-    session.exec(delete(Document).where(col(Document.owner_id).in_(expired)))
-    session.exec(delete(User).where(col(User.id).in_(expired)))
+    expired_ids = session.exec(
+        select(User.id).where(
+            col(User.email).endswith(f"@{DEMO_DOMAIN}"),
+            col(User.created_at) < now - DEMO_LIFETIME,
+        )
+    ).all()
+    if not expired_ids:
+        return
+    session.exec(delete(Document).where(col(Document.owner_id).in_(expired_ids)))
+    session.exec(delete(User).where(col(User.id).in_(expired_ids)))
     session.commit()
 
 
@@ -143,18 +187,18 @@ def create_demo_user(session: Session, today: date | None = None) -> User:
     user = User(
         email=f"visiteur-{secrets.token_hex(6)}@{DEMO_DOMAIN}",
         full_name="Visiteur",
-        hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+        hashed_password=demo_password_hash(),
     )
-    session.add(user)
-    session.flush()
     documents = [
         demo_document(case, user.id, today or date.today()) for case in demo_cases()
     ]
     check_ibans(documents)
+    suppliers = _link_demo_suppliers(user.id, documents)
+    session.add(user)
+    session.flush()
+    session.add_all(suppliers)
+    session.flush()
     session.add_all(documents)
-    for document in sorted(documents, key=lambda d: d.document_date or date.min):
-        if supplier := link_supplier(session, document):
-            fill_from(supplier, document)
     session.commit()
     session.refresh(user)
     return user

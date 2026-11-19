@@ -1,10 +1,13 @@
 import logging
 import re
 import uuid
+from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
+import pypdfium2 as pdfium
 from sqlalchemy import Engine, and_, func, or_
+from sqlalchemy.orm import defer
 from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 from sqlmodel import Session, col, select
 
@@ -41,6 +44,7 @@ QUANTITY_STEP = Decimal("0.001")
 PRICE_STEP = Decimal("0.0001")
 STALE_AFTER = timedelta(minutes=10)
 QUEUED_TOO_LONG = timedelta(hours=1)
+MAX_PAGES = 20
 INTERRUPTED = "Lecture interrompue par le serveur, relancez-la"
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 # A title that says credit note, in the languages of the suppliers met: a
@@ -181,12 +185,16 @@ def apply_extraction(document: Document, extracted: ExtractedDocument) -> None:
 def find_duplicate(session: Session, document: Document) -> Document | None:
     if not document.supplier or not document.number:
         return None
-    statement = select(Document).where(
-        Document.owner_id == document.owner_id,
-        Document.id != document.id,
-        Document.kind == document.kind,
-        Document.number == document.number,
-        func.lower(col(Document.supplier)) == document.supplier.lower(),
+    statement = (
+        select(Document)
+        .where(
+            Document.owner_id == document.owner_id,
+            Document.id != document.id,
+            Document.kind == document.kind,
+            Document.number == document.number,
+            func.lower(col(Document.supplier)) == document.supplier.lower(),
+        )
+        .options(defer(Document.file))  # type: ignore[arg-type]
     )
     matches = session.exec(statement).all()
     same_amount = [m for m in matches if m.amount_incl_tax == document.amount_incl_tax]
@@ -197,23 +205,32 @@ def find_duplicate(session: Session, document: Document) -> Document | None:
 def invoices_with_iban(session: Session, document: Document) -> list[Document]:
     if document.kind != DocumentKind.invoice or not document.iban:
         return []
-    return list(
-        session.exec(
-            select(Document).where(
-                Document.owner_id == document.owner_id,
-                Document.kind == DocumentKind.invoice,
-                Document.id != document.id,
-                col(Document.iban).is_not(None),
-            )
-        ).all()
+    statement = (
+        select(Document)
+        .where(
+            Document.owner_id == document.owner_id,
+            Document.kind == DocumentKind.invoice,
+            Document.id != document.id,
+            col(Document.iban).is_not(None),
+        )
+        .options(defer(Document.file))  # type: ignore[arg-type]
     )
+    if document.supplier_id is not None:
+        statement = statement.where(
+            or_(
+                col(Document.supplier_id) == document.supplier_id,
+                col(Document.supplier_id).is_(None),
+            )
+        )
+    return list(session.exec(statement).all())
 
 
 def expire_stale(session: Session) -> None:
     now = get_datetime_utc()
     since = func.coalesce(Document.started_at, Document.created_at)
     stale = session.exec(
-        select(Document).where(
+        select(Document)
+        .where(
             or_(
                 and_(
                     col(Document.status) == DocumentStatus.processing,
@@ -225,6 +242,7 @@ def expire_stale(session: Session) -> None:
                 ),
             )
         )
+        .options(defer(Document.file))  # type: ignore[arg-type]
     ).all()
     for document in stale:
         document.status = DocumentStatus.failed
@@ -238,7 +256,8 @@ def recheck_duplicates_of(session: Session, deleted: Document) -> None:
     if not deleted.supplier or not deleted.number:
         return
     flagged = session.exec(
-        select(Document).where(
+        select(Document)
+        .where(
             Document.owner_id == deleted.owner_id,
             Document.id != deleted.id,
             Document.kind == deleted.kind,
@@ -246,6 +265,7 @@ def recheck_duplicates_of(session: Session, deleted: Document) -> None:
             Document.number == deleted.number,
             func.lower(col(Document.supplier)) == deleted.supplier.lower(),
         )
+        .options(defer(Document.file))  # type: ignore[arg-type]
     ).all()
     for document in flagged:
         issues = [i for i in document.issues if not i.startswith(NUMBER_ISSUES)]
@@ -269,11 +289,79 @@ def run_checks(
     document.issues = issues
 
 
+def pdf_page_count(pdf: bytes) -> int | None:
+    try:
+        document = pdfium.PdfDocument(pdf)
+    except pdfium.PdfiumError:
+        return None
+    try:
+        return len(document)
+    finally:
+        document.close()
+
+
+@dataclass(frozen=True)
+class ReadOutcome:
+    extracted: ExtractedDocument | None = None
+    from_einvoice: bool = False
+    error_status: DocumentStatus | None = None
+    error_message: str | None = None
+
+
+def extract_document(pdf: bytes, extractor: DocumentExtractor) -> ReadOutcome:
+    """Read a PDF into structured data, without touching the database."""
+    # An e-invoice carries its own figures: no AI.
+    einvoice = read_einvoice(pdf)
+    if einvoice is not None and einvoice.lines:
+        return ReadOutcome(extracted=einvoice, from_einvoice=True)
+
+    pages = pdf_page_count(pdf)
+    if pages is not None and pages > MAX_PAGES:
+        return ReadOutcome(
+            error_status=DocumentStatus.unreadable,
+            error_message=f"Document trop long ({pages} pages, {MAX_PAGES} maximum)",
+        )
+
+    # Gemini reads the PDF itself. A text copy made beforehand (Docling)
+    # was tried and measured: it did not help, and sometimes misled it.
+    try:
+        extracted = extractor.extract(pdf)
+    except ExtractionError as e:
+        return ReadOutcome(error_status=DocumentStatus.failed, error_message=str(e))
+    if einvoice is not None:
+        extracted = merge_lines(einvoice, extracted)
+    return ReadOutcome(extracted=extracted, from_einvoice=einvoice is not None)
+
+
 def _finish(
     session: Session, document: Document, status: DocumentStatus, issue: str
 ) -> None:
     document.status = status
     document.issues = [issue]
+    document.processed_at = get_datetime_utc()
+    session.add(document)
+    session.commit()
+
+
+def save_outcome(session: Session, document: Document, outcome: ReadOutcome) -> None:
+    if outcome.extracted is None:
+        _finish(
+            session,
+            document,
+            outcome.error_status or DocumentStatus.failed,
+            outcome.error_message or "",
+        )
+        return
+
+    apply_extraction(document, outcome.extracted)
+    document.from_einvoice = outcome.from_einvoice
+    order = remember(
+        session,
+        document,
+        outcome.extracted.supplier_country,
+        due_printed=to_date(outcome.extracted.due_date) is not None,
+    )
+    run_checks(session, document, review_extraction(outcome.extracted, order))
     document.processed_at = get_datetime_utc()
     session.add(document)
     session.commit()
@@ -288,47 +376,15 @@ def process_document(
         document = session.get(Document, document_id)
         if document is None:
             return
+        pdf = document.file
         document.status = DocumentStatus.processing
         document.started_at = get_datetime_utc()
         session.add(document)
         session.commit()
 
+        outcome = extract_document(pdf, extractor)
         try:
-            _read(session, document, extractor)
+            save_outcome(session, document, outcome)
         except StaleDataError, ObjectDeletedError:
             session.rollback()
             logger.info("Document %s supprimé pendant sa lecture", document_id)
-
-
-def _read(
-    session: Session,
-    document: Document,
-    extractor: DocumentExtractor,
-) -> None:
-    # An e-invoice carries its own figures: no AI.
-    einvoice = read_einvoice(document.file)
-    if einvoice is not None and einvoice.lines:
-        extracted = einvoice
-    else:
-        # Gemini reads the PDF itself. A text copy made beforehand (Docling)
-        # was tried and measured: it did not help, and sometimes misled it.
-        try:
-            extracted = extractor.extract(document.file)
-        except ExtractionError as e:
-            _finish(session, document, DocumentStatus.failed, str(e))
-            return
-        if einvoice is not None:
-            extracted = merge_lines(einvoice, extracted)
-
-    apply_extraction(document, extracted)
-    document.from_einvoice = einvoice is not None
-    order = remember(
-        session,
-        document,
-        extracted.supplier_country,
-        due_printed=to_date(extracted.due_date) is not None,
-    )
-    run_checks(session, document, review_extraction(extracted, order))
-    document.processed_at = get_datetime_utc()
-    session.add(document)
-    session.commit()

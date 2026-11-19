@@ -62,7 +62,7 @@ export function DocumentRow({
           ? formatDate(document.document_date)
           : STATUS[document.status].label
       }
-      alert={document.status === "unreadable"}
+      alert={document.status === "unreadable" || document.status === "failed"}
       onClick={onClick}
     />
   )
