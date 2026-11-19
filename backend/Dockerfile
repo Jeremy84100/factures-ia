@@ -16,13 +16,13 @@ ARG VITE_API_URL=
 RUN bun run build
 
 
-FROM python:3.14
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1
 
 # Install uv
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.15 /uv /uvx /bin/
 
 # Compile bytecode
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
@@ -62,4 +62,5 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 WORKDIR /app/backend/
 
-CMD ["fastapi", "run", "--workers", "4"]
+# Cloud Run gives the port in $PORT and one vCPU: a single worker is enough.
+CMD ["sh", "-c", "fastapi run --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]

@@ -58,6 +58,26 @@ def test_upload_reads_invoices(
     assert second.json()["issues"] == ["Doublon possible de « a.pdf »"]
 
 
+def test_upload_can_read_before_answering(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # On Cloud Run the CPU stops after the answer: the reading is done first.
+    monkeypatch.setattr(settings, "READ_IN_REQUEST", True)
+    created = upload(
+        client, normal_user_token_headers, ("a.pdf", PDF_BYTES), ("b.pdf", PDF_BYTES)
+    )
+    # Already read: nothing is left waiting for a background task.
+    assert all(d["status"] in ("ok", "to_check") for d in created)
+    assert all(d["supplier"] == "EDF" for d in created)
+    retried = client.post(
+        f"{URL}{created[0]['id']}/retry", headers=normal_user_token_headers
+    )
+    assert retried.status_code == 200
+    assert retried.json()["status"] in ("ok", "to_check")
+
+
 def test_upload_needs_login(client: TestClient) -> None:
     r = client.post(URL, files=[("files", ("a.pdf", PDF_BYTES, "application/pdf"))])
     assert r.status_code == 401

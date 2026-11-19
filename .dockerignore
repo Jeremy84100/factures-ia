@@ -8,3 +8,8 @@ frontend/node_modules
 frontend/playwright-report
 frontend/test-results
 node_modules
+backend/app/frontend
+backend/*.pdf
+backend/noise.jpg
+backend/.env
+.env

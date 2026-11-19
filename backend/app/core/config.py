@@ -63,6 +63,9 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    # Read uploads before answering instead of in the background: on Cloud Run
+    # the CPU is almost stopped once the response is sent.
+    READ_IN_REQUEST: bool = False
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
 

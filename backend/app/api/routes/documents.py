@@ -3,12 +3,14 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
+import anyio
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
 from fastapi import File as FileParam
 from sqlalchemy.orm import defer, selectinload
 from sqlmodel import col, delete, extract, func, select
 
 from app.api.deps import CurrentUser, EngineDep, ExtractorDep, SessionDep
+from app.core.config import settings
 from app.models import (
     Document,
     DocumentKind,
@@ -110,7 +112,7 @@ async def upload_documents(
 ) -> Any:
     """
     Upload PDF documents of any kind. Each one is sorted, read and checked in
-    the background.
+    the background, or before the answer when READ_IN_REQUEST is set.
     """
     if len(files) > MAX_FILES:
         raise HTTPException(
@@ -144,7 +146,17 @@ async def upload_documents(
     session.commit()
     for document in documents:
         session.refresh(document)
-        background_tasks.add_task(process_document, document.id, engine, extractor)
+    ids = [document.id for document in documents]
+    if settings.READ_IN_REQUEST:
+        # One after the other: two readings of the same new supplier at once
+        # would both try to create it.
+        for id in ids:
+            await anyio.to_thread.run_sync(process_document, id, engine, extractor)
+        for document in documents:
+            session.refresh(document)
+    else:
+        for id in ids:
+            background_tasks.add_task(process_document, id, engine, extractor)
 
     return DocumentsPublic(data=[to_public(d) for d in documents], count=len(documents))
 
@@ -335,7 +347,11 @@ def retry_document(
     session.add(document)
     session.commit()
     session.refresh(document)
-    background_tasks.add_task(process_document, document.id, engine, extractor)
+    if settings.READ_IN_REQUEST:
+        process_document(document.id, engine, extractor)
+        session.refresh(document)
+    else:
+        background_tasks.add_task(process_document, document.id, engine, extractor)
     return to_public(document)
 
 
