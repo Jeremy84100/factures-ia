@@ -3,7 +3,8 @@
 #
 # Needs: Docker running, the gcloud CLI logged in (gcloud auth login), and
 # an env file (never committed) with DATABASE_URL, SECRET_KEY,
-# GEMINI_API_KEY and PROJECT_NAME, one KEY: "value" per line (YAML).
+# GEMINI_API_KEY, PROJECT_NAME and READ_IN_REQUEST: "true", one KEY: "value"
+# per line (YAML).
 #
 #   bash backend/scripts/deploy-cloudrun.sh <google-project-id> <env-file.yaml>
 #
@@ -45,8 +46,7 @@ gcloud run deploy "$SERVICE" \
   --max-instances 1 \
   --concurrency 20 \
   --timeout 600 \
-  --env-vars-file "$ENV_FILE" \
-  --update-env-vars READ_IN_REQUEST=true
+  --env-vars-file "$ENV_FILE"
 
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')
 gcloud run services update "$SERVICE" --region "$REGION" \
