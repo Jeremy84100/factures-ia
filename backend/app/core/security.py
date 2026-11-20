@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -21,9 +22,14 @@ ALGORITHM = "HS256"
 
 def create_access_token(subject: str | Any, expires_delta: timedelta) -> str:
     expire = datetime.now(UTC) + expires_delta
-    to_encode = {"exp": expire, "sub": str(subject)}
+    to_encode = {"exp": expire, "sub": str(subject), "purpose": "access"}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def password_fingerprint(hashed_password: str) -> str:
+    """Short digest tied to the current hash so reset tokens expire once used."""
+    return hashlib.sha256(hashed_password.encode("utf-8")).hexdigest()[:16]
 
 
 def verify_password(

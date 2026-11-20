@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Generator
 from typing import Annotated
 
@@ -34,13 +35,16 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
+        if payload.get("purpose", "access") != "access":
+            raise InvalidTokenError("Wrong token purpose")
         token_data = TokenPayload(**payload)
-    except InvalidTokenError, ValidationError:
+        user_id = uuid.UUID(token_data.sub or "")
+    except InvalidTokenError, ValidationError, ValueError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Session invalide, reconnectez-vous",
         )
-    user = session.get(User, token_data.sub)
+    user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
     if not user.is_active:

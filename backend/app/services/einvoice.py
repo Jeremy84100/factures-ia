@@ -11,6 +11,7 @@ from decimal import Decimal, InvalidOperation
 
 import pypdfium2 as pdfium
 
+from app.models import MAX_LINES
 from app.services.extraction import ExtractedDocument, ExtractedLine
 
 XML_NAMES = {"factur-x.xml", "zugferd-invoice.xml", "xrechnung.xml"}
@@ -127,6 +128,9 @@ def to_line(item: ET.Element) -> ExtractedLine:
 
 def parse_cii(xml: bytes) -> ExtractedDocument | None:
     """A Cross Industry Invoice (the XML of Factur-X) as the AI would give it."""
+    upper = xml.upper()
+    if b"<!DOCTYPE" in upper or b"<!ENTITY" in upper:
+        return None
     try:
         root = ET.fromstring(xml)
     except ET.ParseError:
@@ -189,7 +193,9 @@ def parse_cii(xml: bytes) -> ExtractedDocument | None:
         payment_terms=text(terms, "ram:Description"),
         lines=[
             to_line(item)
-            for item in trade.findall("ram:IncludedSupplyChainTradeLineItem", NS)
+            for item in trade.findall("ram:IncludedSupplyChainTradeLineItem", NS)[
+                :MAX_LINES
+            ]
         ],
     )
 

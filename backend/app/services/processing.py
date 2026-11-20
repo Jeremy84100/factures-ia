@@ -12,6 +12,7 @@ from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 from sqlmodel import Session, col, select
 
 from app.models import (
+    MAX_LINES,
     DeliveryMode,
     Document,
     DocumentKind,
@@ -124,7 +125,7 @@ def to_lines(lines: list[ExtractedLine] | list[LineFields]) -> list[DocumentLine
         line
         for line in lines
         if line.description or line.reference or line.quantity is not None
-    ]
+    ][:MAX_LINES]
     return [to_line(line, position) for position, line in enumerate(kept)]
 
 

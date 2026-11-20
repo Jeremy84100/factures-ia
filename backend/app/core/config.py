@@ -54,7 +54,8 @@ class Settings(BaseSettings):
             self.EMAILS_FROM_NAME = self.PROJECT_NAME
         return self
 
-    EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
+    EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 1
+    RATE_LIMIT_ENABLED: bool = True
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -30,6 +30,13 @@ COLUMNS = [
     "Devise",
 ]
 UNSAFE = re.compile(r"[^\w.-]+")
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def safe_cell(value: str | None) -> str:
+    """Neutralize spreadsheet formula prefixes in untrusted text fields."""
+    text = value or ""
+    return f"'{text}" if text.startswith(FORMULA_PREFIXES) else text
 
 
 def amount(value: Decimal | None) -> str:
@@ -67,17 +74,17 @@ def build_export(
                     invoice.document_date.strftime("%d/%m/%Y")
                     if invoice.document_date
                     else "",
-                    invoice.supplier or "",
-                    invoice.number or "",
+                    safe_cell(invoice.supplier),
+                    safe_cell(invoice.number),
                     "Avoir" if invoice.is_credit_note else "Facture",
-                    invoice.order_reference or "",
+                    safe_cell(invoice.order_reference),
                     amount(invoice.amount_excl_tax),
                     amount(invoice.vat_amount),
                     amount(invoice.amount_incl_tax),
                     invoice.due_date.strftime("%d/%m/%Y") if invoice.due_date else "",
                     paid.strftime("%d/%m/%Y") if paid else "",
                     name,
-                    invoice.currency or "",
+                    safe_cell(invoice.currency),
                 ]
             )
         zip_file.writestr("factures.csv", "﻿" + table.getvalue())

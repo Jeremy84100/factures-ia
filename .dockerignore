@@ -13,3 +13,7 @@ backend/*.pdf
 backend/noise.jpg
 backend/.env
 .env
+.env.*
+*.env.yaml
+cloudrun.env.yaml
+ERROR

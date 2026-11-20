@@ -22,11 +22,17 @@ client.setConfig({
 
 // A token that no longer works (expired, or demo account removed after 24 h)
 // sends the visitor back to the home page instead of an error screen.
-const isSessionGone = (error: Error) =>
-  error instanceof AxiosError &&
-  ([401, 403].includes(error.response?.status ?? 0) ||
-    (error.response?.status === 404 &&
-      (error.config?.url ?? "").endsWith("/users/me")))
+const isSessionGone = (error: Error) => {
+  if (!(error instanceof AxiosError)) return false
+  const status = error.response?.status
+  const detail = (error.response?.data as { detail?: unknown } | undefined)
+    ?.detail
+  return (
+    status === 401 ||
+    (status === 403 && detail === "Session invalide, reconnectez-vous") ||
+    (status === 404 && (error.config?.url ?? "").endsWith("/users/me"))
+  )
+}
 
 const handleApiError = (error: Error) => {
   if (isSessionGone(error) && localStorage.getItem("access_token")) {
@@ -74,6 +80,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       enableSystem
       disableTransitionOnChange
       storageKey="vite-ui-theme"
+      scriptProps={{ type: "application/json" }}
     >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>

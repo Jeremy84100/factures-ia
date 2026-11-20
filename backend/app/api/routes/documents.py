@@ -7,7 +7,14 @@ from typing import Annotated, Any
 from urllib.parse import quote
 
 import anyio
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+)
 from fastapi import File as FileParam
 from sqlalchemy.orm import defer, selectinload
 from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
@@ -15,6 +22,7 @@ from sqlmodel import Session, col, delete, extract, func, select
 
 from app.api.deps import CurrentUser, EngineDep, ExtractorDep, SessionDep
 from app.core.config import settings
+from app.core.rate_limit import check_rate_limit
 from app.models import (
     Document,
     DocumentKind,
@@ -32,6 +40,7 @@ from app.models import (
     User,
     get_datetime_utc,
 )
+from app.services.demo import is_demo
 from app.services.export import build_export
 from app.services.iban import clean_iban
 from app.services.images import ImageError, image_to_pdf, is_image
@@ -105,8 +114,8 @@ def read_documents(
     current_user: CurrentUser,
     kind: DocumentKind | None = None,
     status: DocumentStatus | None = None,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> Any:
     """
     Retrieve documents, optionally filtered by kind and status.
@@ -170,6 +179,12 @@ async def upload_documents(
     Upload PDF documents of any kind. Each one is sorted, read and checked in
     the background, or before the answer when READ_IN_REQUEST is set.
     """
+    if is_demo(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Créez votre compte gratuit pour déposer vos propres documents",
+        )
+    check_rate_limit("upload", str(current_user.id), limit=30, window_seconds=600)
     if len(files) > MAX_FILES:
         raise HTTPException(
             status_code=400, detail=f"{MAX_FILES} fichiers maximum par envoi"
@@ -288,13 +303,18 @@ def export_invoices(
         )
         .order_by(col(Document.document_date), col(Document.created_at))
     )
+    month_label = "toutes"
     if month:
+        parts = month.split("-")
         try:
-            year, number = (int(part) for part in month.split("-"))
+            if len(parts) != 2 or not all(part.isdigit() for part in parts):
+                raise ValueError
+            year, number = int(parts[0]), int(parts[1])
             first = date(year, number, 1)
+            after = date(year + number // 12, number % 12 + 1, 1)
         except ValueError:
             raise HTTPException(status_code=400, detail="Mois invalide (2026-11)")
-        after = date(year + number // 12, number % 12 + 1, 1)
+        month_label = f"{year:04d}-{number:02d}"
         statement = statement.where(
             col(Document.document_date) >= first, col(Document.document_date) < after
         )
@@ -310,7 +330,7 @@ def export_invoices(
             status_code=413,
             detail="Trop de factures pour un seul fichier : exportez mois par mois",
         )
-    name = f"factures-{month or 'toutes'}.zip"
+    name = f"factures-{month_label}.zip"
     return Response(
         content=content,
         media_type="application/zip",
@@ -340,6 +360,7 @@ def read_document_file(
         headers={
             "Content-Disposition": content_disposition("inline", document.filename),
             "Cache-Control": "private, max-age=31536000, immutable",
+            "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
         },
     )
 
@@ -419,6 +440,12 @@ def retry_document(
     """
     Read the document again with the AI.
     """
+    if is_demo(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Créez votre compte gratuit pour relire un document avec l'IA",
+        )
+    check_rate_limit("retry", str(current_user.id), limit=20, window_seconds=600)
     expire_stale(session)
     document = get_owned_document(session, current_user, id)
     if document.status in BUSY:

@@ -18,6 +18,7 @@ from tests.utils.utils import (
 
 @pytest.fixture(scope="session", autouse=True)
 def db() -> Generator[Session]:
+    settings.RATE_LIMIT_ENABLED = False
     with Session(engine) as session:
         create_superuser(session, SUPERUSER_EMAIL, SUPERUSER_PASSWORD)
         yield session

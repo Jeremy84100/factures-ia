@@ -6,7 +6,7 @@ from typing import Any
 
 import emails
 import jwt
-from jinja2 import Template
+from jinja2 import Environment
 from jwt.exceptions import InvalidTokenError
 
 from app.core import security
@@ -14,6 +14,7 @@ from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+_jinja = Environment(autoescape=True)
 
 
 @dataclass
@@ -26,7 +27,7 @@ def render_email_template(*, template_name: str, context: dict[str, Any]) -> str
     template_str = (
         Path(__file__).parent / "email-templates" / template_name
     ).read_text(encoding="utf-8")
-    template: Template = Template(template_str)
+    template = _jinja.from_string(template_str)
     html_content = template.render(context)
     return html_content
 
@@ -102,24 +103,45 @@ def generate_new_account_email(
     return EmailData(html_content=html_content, subject=subject)
 
 
-def generate_password_reset_token(email: str) -> str:
+def generate_password_reset_token(
+    email: str, password_fingerprint: str | None = None
+) -> str:
     delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
     now = datetime.now(UTC)
     expires = now + delta
     exp = expires.timestamp()
+    payload: dict[str, Any] = {
+        "exp": exp,
+        "nbf": now,
+        "sub": email,
+        "purpose": "password_reset",
+    }
+    if password_fingerprint is not None:
+        payload["pwd"] = password_fingerprint
     encoded_jwt = jwt.encode(
-        {"exp": exp, "nbf": now, "sub": email},
+        payload,
         settings.SECRET_KEY,
         algorithm=security.ALGORITHM,
     )
     return encoded_jwt
 
 
-def verify_password_reset_token(token: str) -> str | None:
+def verify_password_reset_claims(token: str) -> tuple[str, str | None] | None:
     try:
         decoded_token = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
-        return str(decoded_token["sub"])
+        if decoded_token.get("purpose") != "password_reset":
+            return None
+        sub = decoded_token.get("sub")
+        if not sub:
+            return None
+        pwd = decoded_token.get("pwd")
+        return str(sub), str(pwd) if pwd is not None else None
     except InvalidTokenError:
         return None
+
+
+def verify_password_reset_token(token: str) -> str | None:
+    claims = verify_password_reset_claims(token)
+    return claims[0] if claims else None

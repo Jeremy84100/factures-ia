@@ -60,6 +60,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --package app
 
+RUN groupadd --system appuser \
+    && useradd --system --gid appuser --no-create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
 WORKDIR /app/backend/
 
 # Cloud Run gives the port in $PORT and one vCPU: a single worker is enough.

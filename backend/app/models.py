@@ -204,9 +204,12 @@ class LearnedRule(SQLModel, table=True):
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
 
 
+MAX_LINES = 500
+
+
 class DocumentUpdate(DocumentFields):
     kind: DocumentKind | None = None
-    lines: list[LineFields] | None = None
+    lines: list[LineFields] | None = Field(default=None, max_length=MAX_LINES)
 
 
 class Document(DocumentFields, table=True):

@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import col, delete, func, select
 
 from app import crud
@@ -11,6 +11,7 @@ from app.api.deps import (
     get_current_active_superuser,
 )
 from app.core.config import settings
+from app.core.rate_limit import rate_limit
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     Document,
@@ -24,6 +25,7 @@ from app.models import (
     UserUpdate,
     UserUpdateMe,
 )
+from app.services.demo import is_demo, is_demo_email
 from app.utils import generate_new_account_email, send_email
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -34,7 +36,11 @@ router = APIRouter(prefix="/users", tags=["users"])
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersPublic,
 )
-def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+def read_users(
+    session: SessionDep,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> Any:
     """
     Retrieve users.
     """
@@ -86,13 +92,22 @@ def update_user_me(
     Update own user.
     """
 
+    if is_demo(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Créez votre compte gratuit pour modifier votre profil",
+        )
     if user_in.email:
+        if is_demo_email(user_in.email):
+            raise HTTPException(status_code=400, detail="Adresse e-mail non autorisée")
         existing_user = crud.get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=409, detail="Un compte existe déjà avec cet e-mail"
             )
     user_data = user_in.model_dump(exclude_unset=True)
+    if user_data.get("email"):
+        user_data["email"] = crud.normalize_email(user_data["email"])
     current_user.sqlmodel_update(user_data)
     session.add(current_user)
     session.commit()
@@ -145,11 +160,17 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     return Message(message="Utilisateur supprimé")
 
 
-@router.post("/signup", response_model=UserPublic)
+@router.post(
+    "/signup",
+    response_model=UserPublic,
+    dependencies=[Depends(rate_limit("signup", limit=10, window_seconds=600))],
+)
 def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     """
     Create new user without the need to be logged in.
     """
+    if is_demo_email(user_in.email):
+        raise HTTPException(status_code=400, detail="Adresse e-mail non autorisée")
     user = crud.get_user_by_email(session=session, email=user_in.email)
     if user:
         raise HTTPException(

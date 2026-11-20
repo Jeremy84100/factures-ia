@@ -44,6 +44,14 @@ class DemoUnavailable(Exception):
     pass
 
 
+def is_demo_email(email: str) -> bool:
+    return email.lower().endswith(f"@{DEMO_DOMAIN}")
+
+
+def is_demo(user: User) -> bool:
+    return is_demo_email(user.email)
+
+
 @cache
 def demo_cases() -> list[dict[str, Any]]:
     expected = json.loads((DEMO_DIR / "expected.json").read_text(encoding="utf-8"))
@@ -125,10 +133,6 @@ def check_ibans(documents: list[Document]) -> None:
         if issue:
             document.issues = [*document.issues, issue]
             document.status = DocumentStatus.to_check
-
-
-def is_demo(user: User) -> bool:
-    return user.email.endswith(f"@{DEMO_DOMAIN}")
 
 
 def _link_demo_suppliers(

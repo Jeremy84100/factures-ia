@@ -1,3 +1,4 @@
+import hmac
 from datetime import timedelta
 from typing import Annotated, Any
 
@@ -9,13 +10,14 @@ from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
+from app.core.rate_limit import rate_limit
 from app.models import Message, NewPassword, Token, UserPublic, UserUpdate
-from app.services.demo import DEMO_LIFETIME, DemoUnavailable, create_demo_user
+from app.services.demo import DEMO_LIFETIME, DemoUnavailable, create_demo_user, is_demo
 from app.utils import (
     generate_password_reset_token,
     generate_reset_password_email,
     send_email,
-    verify_password_reset_token,
+    verify_password_reset_claims,
 )
 
 router = APIRouter(tags=["login"])
@@ -26,7 +28,10 @@ NO_EMAILS = (
 )
 
 
-@router.post("/login/access-token")
+@router.post(
+    "/login/access-token",
+    dependencies=[Depends(rate_limit("login", limit=15, window_seconds=60))],
+)
 def login_access_token(
     session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
@@ -48,7 +53,10 @@ def login_access_token(
     )
 
 
-@router.post("/login/demo")
+@router.post(
+    "/login/demo",
+    dependencies=[Depends(rate_limit("demo", limit=10, window_seconds=600))],
+)
 def login_demo(session: SessionDep) -> Token:
     """
     Open a fresh demo account, filled with 30 documents already read.
@@ -72,7 +80,10 @@ def test_token(current_user: CurrentUser) -> Any:
     return current_user
 
 
-@router.post("/password-recovery/{email}")
+@router.post(
+    "/password-recovery/{email}",
+    dependencies=[Depends(rate_limit("recovery", limit=5, window_seconds=600))],
+)
 def recover_password(email: str, session: SessionDep) -> Message:
     """
     Password Recovery
@@ -83,8 +94,11 @@ def recover_password(email: str, session: SessionDep) -> Message:
 
     # Always return the same response to prevent email enumeration attacks
     # Only send email if user actually exists
-    if user:
-        password_reset_token = generate_password_reset_token(email=email)
+    if user and not is_demo(user):
+        password_reset_token = generate_password_reset_token(
+            email=email,
+            password_fingerprint=security.password_fingerprint(user.hashed_password),
+        )
         email_data = generate_reset_password_email(
             email_to=user.email, email=email, token=password_reset_token
         )
@@ -98,20 +112,28 @@ def recover_password(email: str, session: SessionDep) -> Message:
     )
 
 
-@router.post("/reset-password/")
+@router.post(
+    "/reset-password/",
+    dependencies=[Depends(rate_limit("reset", limit=10, window_seconds=600))],
+)
 def reset_password(session: SessionDep, body: NewPassword) -> Message:
     """
     Reset password
     """
-    email = verify_password_reset_token(token=body.token)
-    if not email:
+    claims = verify_password_reset_claims(token=body.token)
+    if not claims:
         raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
+    email, token_pwd = claims
     user = crud.get_user_by_email(session=session, email=email)
     if not user:
         # Don't reveal that the user doesn't exist - use same error as invalid token
         raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Compte désactivé")
+    if token_pwd is not None and not hmac.compare_digest(
+        token_pwd, security.password_fingerprint(user.hashed_password)
+    ):
+        raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
     user_in_update = UserUpdate(password=body.new_password)
     crud.update_user(
         session=session,
@@ -137,7 +159,10 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
             status_code=404,
             detail="Utilisateur introuvable",
         )
-    password_reset_token = generate_password_reset_token(email=email)
+    password_reset_token = generate_password_reset_token(
+        email=email,
+        password_fingerprint=security.password_fingerprint(user.hashed_password),
+    )
     email_data = generate_reset_password_email(
         email_to=user.email, email=email, token=password_reset_token
     )

@@ -1,14 +1,22 @@
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, func, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import User, UserCreate, UserUpdate
 
 
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
 def create_user(*, session: Session, user_create: UserCreate) -> User:
     db_obj = User.model_validate(
-        user_create, update={"hashed_password": get_password_hash(user_create.password)}
+        user_create,
+        update={
+            "email": normalize_email(user_create.email),
+            "hashed_password": get_password_hash(user_create.password),
+        },
     )
     session.add(db_obj)
     session.commit()
@@ -18,7 +26,9 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
 
 def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
     user_data = user_in.model_dump(exclude_unset=True)
-    extra_data = {}
+    extra_data: dict[str, Any] = {}
+    if user_data.get("email"):
+        user_data["email"] = normalize_email(user_data["email"])
     if "password" in user_data:
         password = user_data["password"]
         hashed_password = get_password_hash(password)
@@ -31,7 +41,9 @@ def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
 
 
 def get_user_by_email(*, session: Session, email: str) -> User | None:
-    statement = select(User).where(User.email == email)
+    statement = select(User).where(
+        func.lower(col(User.email)) == normalize_email(email)
+    )
     session_user = session.exec(statement).first()
     return session_user
 
