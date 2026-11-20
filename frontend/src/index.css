@@ -127,8 +127,20 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  a {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
   html {
     @apply font-sans;
   }
+}
+
+/* Keep Sonner toasts clickable even when a Radix Dialog locks body pointer-events. */
+[data-sonner-toaster],
+[data-sonner-toast] {
+  pointer-events: auto;
 }

@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Building2 } from "lucide-react"
 import { useState } from "react"
@@ -12,7 +12,7 @@ import {
   SupplierSheet,
 } from "@/components/Suppliers/SupplierSheet"
 import { fold, formatAmount, formatDate, plural } from "@/lib/documents"
-import { suppliersQuery } from "@/lib/queries"
+import { purchasesQuery, supplierQuery, suppliersQuery } from "@/lib/queries"
 
 export const Route = createFileRoute("/_layout/suppliers")({
   // ?id=… opens a supplier's page, as from a purchase.
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_layout/suppliers")({
 function Suppliers() {
   const { id } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const queryClient = useQueryClient()
   const { data } = useSuspenseQuery(suppliersQuery)
   const [query, setQuery] = useState("")
 
@@ -34,6 +35,10 @@ function Suppliers() {
 
   const open = (supplierId: string) => {
     navigate({ search: { id: supplierId }, replace: true })
+  }
+  const prefetch = (supplierId: string) => {
+    queryClient.prefetchQuery(supplierQuery(supplierId))
+    queryClient.prefetchQuery(purchasesQuery)
   }
 
   if (data.count === 0) {
@@ -79,6 +84,7 @@ function Suppliers() {
             }
             chevron={Number(supplier.invoiced_incl_tax) === 0}
             onClick={() => open(supplier.id)}
+            onPrefetch={() => prefetch(supplier.id)}
           />
         ))}
       </ListGroup>

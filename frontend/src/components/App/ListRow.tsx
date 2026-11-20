@@ -30,6 +30,7 @@ interface ListRowProps {
   /** Lets the detail run on several lines (explanations, not lists). */
   wrap?: boolean
   onClick?: () => void
+  onPrefetch?: () => void
 }
 
 // A banking-app row: round icon, name and one line of detail on the left,
@@ -45,6 +46,7 @@ export function ListRow({
   chevron,
   wrap,
   onClick,
+  onPrefetch,
 }: ListRowProps) {
   const body = (
     <>
@@ -88,8 +90,14 @@ export function ListRow({
   )
   if (!onClick) return <Item className="flex-nowrap">{body}</Item>
   return (
-    <Item asChild className="flex-nowrap active:bg-muted">
-      <button type="button" onClick={onClick} className="text-left">
+    <Item asChild className="flex-nowrap transition-colors active:bg-muted">
+      <button
+        type="button"
+        onClick={onClick}
+        onPointerEnter={onPrefetch}
+        onFocus={onPrefetch}
+        className="text-left"
+      >
         {body}
       </button>
     </Item>

@@ -15,7 +15,7 @@ and the app now does by itself, as the matching rules of paperless-ngx:
 
 import re
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -117,19 +117,23 @@ def order_from_correction(raw: str | None, corrected: date | None) -> DateOrder 
     return readings[0] if len(readings) == 1 else None
 
 
-def find_supplier(session: Session, owner_id: uuid.UUID, name: str) -> Supplier | None:
-    key = supplier_key(name)
-    suppliers = session.exec(
-        select(Supplier).where(Supplier.owner_id == owner_id)
-    ).all()
+def match_supplier(suppliers: Sequence[Supplier], key: str) -> Supplier | None:
     for supplier in suppliers:
         if supplier.key == key:
             return supplier
-    scored = [
-        (fuzz.token_set_ratio(key, supplier.key), supplier) for supplier in suppliers
-    ]
-    best = max(scored, key=lambda pair: pair[0], default=None)
+    best = max(
+        ((fuzz.token_set_ratio(key, supplier.key), supplier) for supplier in suppliers),
+        key=lambda pair: pair[0],
+        default=None,
+    )
     return best[1] if best and best[0] >= SUPPLIER_MATCH else None
+
+
+def find_supplier(session: Session, owner_id: uuid.UUID, name: str) -> Supplier | None:
+    suppliers = session.exec(
+        select(Supplier).where(Supplier.owner_id == owner_id)
+    ).all()
+    return match_supplier(suppliers, supplier_key(name))
 
 
 def learned_name(session: Session, owner_id: uuid.UUID, name: str | None) -> str | None:

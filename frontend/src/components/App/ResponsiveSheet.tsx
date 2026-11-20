@@ -37,11 +37,25 @@ export function ResponsiveSheet({
   wide = false,
 }: ResponsiveSheetProps) {
   const isMobile = useIsMobile()
+  const ignoreToast = (event: {
+    target: EventTarget | null
+    preventDefault: () => void
+  }) => {
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.closest("[data-sonner-toaster]")
+    )
+      event.preventDefault()
+  }
 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent onOpenAutoFocus={(event) => event.preventDefault()}>
+        <DrawerContent
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onPointerDownOutside={ignoreToast}
+          onInteractOutside={ignoreToast}
+        >
           <DrawerHeader className="pb-0 group-data-[vaul-drawer-direction=bottom]/drawer-content:text-left">
             <DrawerTitle>{title}</DrawerTitle>
             {description && (
@@ -58,6 +72,8 @@ export function ResponsiveSheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDownOutside={ignoreToast}
+        onInteractOutside={ignoreToast}
         className={wide ? "sm:max-w-4xl" : "sm:max-w-lg"}
       >
         <DialogHeader>

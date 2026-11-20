@@ -194,7 +194,7 @@ function Purchases() {
           <SearchBox
             value={query}
             onChange={setQuery}
-            placeholder="Fournisseur ou n° de facture"
+            placeholder="Fournisseur, n°…"
           />
         </div>
         {/* Icons only on a phone, so the search keeps its room. */}

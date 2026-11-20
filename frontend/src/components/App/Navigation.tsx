@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   ChevronsUpDown,
@@ -46,7 +47,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Spinner } from "@/components/ui/spinner"
 import useAuth from "@/hooks/useAuth"
-import { DEMO_DOMAIN } from "@/lib/queries"
+import { DEMO_DOMAIN, purchasesQuery } from "@/lib/queries"
 import { getInitials } from "@/utils"
 
 type Path = "/" | "/documents" | "/reconciliations"
@@ -279,6 +280,10 @@ export function DemoBanner() {
 // Phone navigation: tabs at the bottom, within reach of the thumb.
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { data: purchases } = useQuery({ ...purchasesQuery, enabled: false })
+  const hasAlert = (purchases?.data ?? []).some(
+    (p) => p.status === "dispute" || !!p.iban_warning,
+  )
   const active = (to: Path) => isActive(pathname, to)
   const tab = (active: boolean) =>
     active
@@ -289,7 +294,15 @@ export function TabBar() {
       {NAV.map(({ to, label, icon: Icon }) => (
         <Button key={to} variant="ghost" className={tab(active(to))} asChild>
           <Link to={to} aria-current={active(to) ? "page" : undefined}>
-            <Icon className="size-5" />
+            <span className="relative">
+              <Icon className="size-5" />
+              {to === "/reconciliations" && hasAlert && (
+                <span
+                  aria-hidden
+                  className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-destructive"
+                />
+              )}
+            </span>
             {label}
           </Link>
         </Button>

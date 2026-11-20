@@ -120,9 +120,6 @@ def read_documents(
     if status:
         conditions.append(Document.status == status)
 
-    count = session.exec(
-        select(func.count()).select_from(Document).where(*conditions)
-    ).one()
     documents = session.exec(
         select(Document)
         .where(*conditions)
@@ -131,6 +128,12 @@ def read_documents(
         .offset(skip)
         .limit(limit)
     ).all()
+    if skip == 0 and len(documents) < limit:
+        count = len(documents)
+    else:
+        count = session.exec(
+            select(func.count()).select_from(Document).where(*conditions)
+        ).one()
     return DocumentsPublic(data=[to_public(d) for d in documents], count=count)
 
 

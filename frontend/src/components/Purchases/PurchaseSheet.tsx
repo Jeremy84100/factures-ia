@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
   Check,
@@ -16,6 +16,7 @@ import {
   Truck,
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
+import { toast } from "sonner"
 
 import {
   type DocumentRef,
@@ -27,7 +28,9 @@ import {
   type UnlinkedDocument,
 } from "@/client"
 import { ResponsiveSheet } from "@/components/App/ResponsiveSheet"
+import { DocumentSheet } from "@/components/Documents/DocumentSheet"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -47,6 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   afterLabel,
@@ -58,10 +62,12 @@ import {
   groupIban,
   KIND,
   KIND_LONG,
+  needsReview,
   PURCHASE_STATUS,
+  STATUS,
 } from "@/lib/documents"
 import { openPdf } from "@/lib/pdf"
-import { purchasesQuery } from "@/lib/queries"
+import { documentsQuery, purchasesQuery, supplierQuery } from "@/lib/queries"
 import { handleError } from "@/utils"
 import {
   allIssues,
@@ -124,12 +130,30 @@ function verdict(purchase: Purchase): [string, string, string | null] {
 
 function Summary({
   purchase,
+  copied,
+  onCopyIban,
   children,
 }: {
   purchase: Purchase
+  copied: string | null
+  onCopyIban: () => void
   children: ReactNode
 }) {
+  const [, copyAmount] = useCopyToClipboard()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
   const [label, amount, footer] = verdict(purchase)
+  const canCopyAmount =
+    purchase.status === "to_pay" &&
+    !isCredit(purchase) &&
+    purchase.to_pay_incl_tax != null
+  const handleCopyAmount = () => {
+    const plain = Number(purchase.to_pay_incl_tax).toFixed(2).replace(".", ",")
+    copyAmount(plain).then((ok) =>
+      ok
+        ? showSuccessToast(`Montant copié (${plain} €)`)
+        : showErrorToast("Impossible de copier le montant"),
+    )
+  }
   return (
     <section className="flex flex-col gap-1">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -138,23 +162,44 @@ function Summary({
           <span>{label}</span>
         )}
       </div>
-      <p
-        className={
-          footer
-            ? "text-3xl font-semibold tracking-tight tabular-nums"
-            : "text-lg font-semibold"
-        }
-      >
-        {amount}
-      </p>
+      {canCopyAmount ? (
+        <button
+          type="button"
+          onClick={handleCopyAmount}
+          title="Toucher pour copier le montant"
+          className="w-fit text-left text-3xl font-semibold tracking-tight tabular-nums transition-opacity hover:opacity-75"
+        >
+          {amount}
+        </button>
+      ) : (
+        <p
+          className={
+            footer
+              ? "text-3xl font-semibold tracking-tight tabular-nums"
+              : "text-lg font-semibold"
+          }
+        >
+          {amount}
+        </p>
+      )}
       {footer && <p className="text-sm text-muted-foreground">{footer}</p>}
       {purchase.iban && purchase.status === "to_pay" && !isCredit(purchase) && (
-        <p className="text-sm whitespace-nowrap text-muted-foreground">
-          IBAN{" "}
+        <button
+          type="button"
+          onClick={onCopyIban}
+          title="Toucher pour copier l'IBAN"
+          className="inline-flex w-fit items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground transition-opacity hover:opacity-75"
+        >
+          <span>IBAN</span>
           <span className="font-medium text-foreground tabular-nums">
             {groupIban(purchase.iban)}
           </span>
-        </p>
+          {copied === purchase.iban ? (
+            <Check className="size-3.5 shrink-0" />
+          ) : (
+            <Copy className="size-3.5 shrink-0" />
+          )}
+        </button>
       )}
       <div className="flex flex-wrap gap-2 pt-2">{children}</div>
     </section>
@@ -356,15 +401,18 @@ function Articles({ purchase }: { purchase: Purchase }) {
   )
 }
 
-// The PDFs, one thin row each.
+// The PDFs, one thin row each. A document flagged for review opens its detail
+// so it can be corrected without leaving the purchase.
 export function DocumentList({
   documents,
   title = "Documents",
   action,
+  onReview,
 }: {
   documents: DocumentRef[]
   title?: string
   action?: ReactNode
+  onReview?: (id: string) => void
 }) {
   const { showErrorToast } = useCustomToast()
   return (
@@ -378,16 +426,27 @@ export function DocumentList({
           {documents.map((document) => {
             const Icon =
               KIND_ICON[document.kind as keyof typeof KIND_ICON] ?? Receipt
+            const review = Boolean(onReview && needsReview(document))
+            const badge = STATUS[document.status]
             return (
-              <Item key={document.id} size="sm" asChild>
+              <Item
+                key={document.id}
+                size="sm"
+                asChild
+                className="transition-colors"
+              >
                 <button
                   type="button"
                   className="text-left active:bg-muted"
-                  onClick={() =>
+                  onClick={() => {
+                    if (review && onReview) {
+                      onReview(document.id)
+                      return
+                    }
                     openPdf(document.id).catch(() =>
                       showErrorToast("Impossible d'ouvrir le document"),
                     )
-                  }
+                  }}
                 >
                   <ItemMedia variant="icon" className="text-muted-foreground">
                     <Icon />
@@ -398,7 +457,11 @@ export function DocumentList({
                     </ItemTitle>
                   </ItemContent>
                   <ItemActions className="text-sm text-muted-foreground">
-                    {formatDate(document.document_date)}
+                    {review ? (
+                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                    ) : (
+                      formatDate(document.document_date)
+                    )}
                     <ChevronRight className="size-4" />
                   </ItemActions>
                 </button>
@@ -533,9 +596,10 @@ function LinkProposals({
 function usePurchaseAction(
   call: () => Promise<{ data: Purchase }>,
   message: string,
+  undo?: () => void,
 ) {
   const queryClient = useQueryClient()
-  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { showErrorToast } = useCustomToast()
   return useMutation({
     mutationFn: call,
     onSuccess: ({ data: updated }) => {
@@ -549,7 +613,10 @@ function usePurchaseAction(
             }
           : current,
       )
-      showSuccessToast(message)
+      toast.success(
+        message,
+        undo ? { action: { label: "Annuler", onClick: undo } } : undefined,
+      )
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["purchases"] }),
@@ -560,6 +627,7 @@ function ActionButton({
   icon: Icon,
   label,
   onClick,
+  onPrefetch,
   pending,
   disabled,
   main,
@@ -567,6 +635,7 @@ function ActionButton({
   icon: typeof Check
   label: string
   onClick: () => void
+  onPrefetch?: () => void
   pending?: boolean
   disabled?: boolean
   main?: boolean
@@ -577,6 +646,8 @@ function ActionButton({
       variant={main ? "default" : "secondary"}
       disabled={disabled || pending}
       onClick={onClick}
+      onPointerEnter={onPrefetch}
+      onFocus={onPrefetch}
     >
       {pending ? (
         <Spinner data-icon="inline-start" />
@@ -592,33 +663,46 @@ function ActionButton({
 function Actions({
   purchase,
   writing,
+  copied,
+  onCopyIban,
   onWrite,
 }: {
   purchase: Purchase
   writing: boolean
+  copied: string | null
+  onCopyIban: () => void
   onWrite: () => void
 }) {
-  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const queryClient = useQueryClient()
+  const { showErrorToast } = useCustomToast()
   const path = { path: { key: purchase.key } }
   const credit = isCredit(purchase)
+  const unpay = usePurchaseAction(
+    () => ReconciliationsService.unpayPurchase(path),
+    "L'achat est de nouveau à payer",
+  )
   const pay = usePurchaseAction(
     () => ReconciliationsService.payPurchase(path),
     credit
       ? "Avoir noté comme déduit"
       : "Payé : l'achat est rangé dans les payés",
-  )
-  const unpay = usePurchaseAction(
-    () => ReconciliationsService.unpayPurchase(path),
-    "L'achat est de nouveau à payer",
-  )
-  const settle = usePurchaseAction(
-    () => ReconciliationsService.settlePurchase(path),
-    "Litige réglé : l'achat passe dans les achats à payer",
+    () => unpay.mutate(),
   )
   const reopen = usePurchaseAction(
     () => ReconciliationsService.reopenPurchase(path),
     "Le litige est de nouveau ouvert",
   )
+  const settle = usePurchaseAction(
+    () => ReconciliationsService.settlePurchase(path),
+    "Litige réglé : l'achat passe dans les achats à payer",
+    () => reopen.mutate(),
+  )
+  const prefetchEmail = () =>
+    queryClient.prefetchQuery({
+      queryKey: ["purchases", purchase.key, "email"],
+      queryFn: async () =>
+        (await ReconciliationsService.readSupplierEmail(path)).data,
+    })
   const invoice = purchase.invoices?.[0]
   const seeInvoice = invoice && (
     <ActionButton
@@ -638,6 +722,7 @@ function Actions({
       main={main}
       disabled={writing}
       onClick={onWrite}
+      onPrefetch={prefetchEmail}
     />
   )
 
@@ -666,14 +751,9 @@ function Actions({
           />
           {purchase.iban && !credit && (
             <ActionButton
-              icon={Copy}
-              label="Copier l'IBAN"
-              onClick={() =>
-                navigator.clipboard
-                  .writeText(purchase.iban ?? "")
-                  .then(() => showSuccessToast("IBAN copié"))
-                  .catch(() => showErrorToast("Impossible de copier l'IBAN"))
-              }
+              icon={copied === purchase.iban ? Check : Copy}
+              label={copied === purchase.iban ? "IBAN copié" : "Copier l'IBAN"}
+              onClick={onCopyIban}
             />
           )}
           {seeInvoice}
@@ -720,7 +800,16 @@ export function PurchaseSheet({
   /** Opened from the supplier's page: no link back to it. */
   fromSupplier?: boolean
 }) {
+  const queryClient = useQueryClient()
   const [writing, setWriting] = useState<string | null>(null)
+  const [reviewId, setReviewId] = useState<string | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [copied, copy] = useCopyToClipboard()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { data: allDocuments } = useQuery({
+    ...documentsQuery,
+    enabled: !!reviewId,
+  })
   if (!purchase) return null
   const documents = [
     ...(purchase.orders ?? []),
@@ -730,46 +819,82 @@ export function PurchaseSheet({
   const canWrite =
     purchase.status === "dispute" ||
     (purchase.status === "waiting" && !!purchase.late)
+  const handleCopyIban = () => {
+    if (!purchase.iban) return
+    copy(purchase.iban).then((ok) =>
+      ok
+        ? showSuccessToast("IBAN copié")
+        : showErrorToast("Impossible de copier l'IBAN"),
+    )
+  }
+  const prefetchSupplier = () => {
+    if (purchase.supplier_id)
+      queryClient.prefetchQuery(supplierQuery(purchase.supplier_id))
+  }
   return (
-    <ResponsiveSheet
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) setWriting(null)
-        onOpenChange(next)
-      }}
-      title={purchaseTitle(purchase)}
-      description={purchaseSubtitle(purchase)}
-    >
-      <div className="flex flex-col gap-5">
-        <Summary purchase={purchase}>
-          <Actions
+    <>
+      <ResponsiveSheet
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) setWriting(null)
+          onOpenChange(next)
+        }}
+        title={purchaseTitle(purchase)}
+        description={purchaseSubtitle(purchase)}
+      >
+        <div className="flex flex-col gap-5">
+          <Summary
             purchase={purchase}
-            writing={writing === purchase.key}
-            onWrite={() => setWriting(purchase.key)}
+            copied={copied}
+            onCopyIban={handleCopyIban}
+          >
+            <Actions
+              purchase={purchase}
+              writing={writing === purchase.key}
+              copied={copied}
+              onCopyIban={handleCopyIban}
+              onWrite={() => setWriting(purchase.key)}
+            />
+          </Summary>
+          <IbanWarning purchase={purchase} />
+          <LinkProposals purchase={purchase} unlinked={unlinked} />
+          <Reasons purchase={purchase} />
+          {writing === purchase.key && canWrite && (
+            <SupplierEmailSection purchaseKey={purchase.key} />
+          )}
+          {(purchase.lines?.length ?? 0) > 0 && (
+            <Articles purchase={purchase} />
+          )}
+          <DocumentList
+            documents={documents}
+            onReview={(id) => {
+              setReviewId(id)
+              setReviewOpen(true)
+            }}
+            action={
+              purchase.supplier_id &&
+              !fromSupplier && (
+                <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                  <Link
+                    to="/suppliers"
+                    search={{ id: purchase.supplier_id }}
+                    onPointerEnter={prefetchSupplier}
+                    onFocus={prefetchSupplier}
+                  >
+                    Fiche fournisseur
+                    <ChevronRight data-icon="inline-end" />
+                  </Link>
+                </Button>
+              )
+            }
           />
-        </Summary>
-        <IbanWarning purchase={purchase} />
-        <LinkProposals purchase={purchase} unlinked={unlinked} />
-        <Reasons purchase={purchase} />
-        {writing === purchase.key && canWrite && (
-          <SupplierEmailSection purchaseKey={purchase.key} />
-        )}
-        {(purchase.lines?.length ?? 0) > 0 && <Articles purchase={purchase} />}
-        <DocumentList
-          documents={documents}
-          action={
-            purchase.supplier_id &&
-            !fromSupplier && (
-              <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                <Link to="/suppliers" search={{ id: purchase.supplier_id }}>
-                  Fiche fournisseur
-                  <ChevronRight data-icon="inline-end" />
-                </Link>
-              </Button>
-            )
-          }
-        />
-      </div>
-    </ResponsiveSheet>
+        </div>
+      </ResponsiveSheet>
+      <DocumentSheet
+        document={allDocuments?.data.find((d) => d.id === reviewId)}
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+      />
+    </>
   )
 }

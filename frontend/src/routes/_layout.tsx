@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-router"
 import { AxiosError } from "axios"
 import { Upload } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 
 import { AppSidebar, TabBar, TITLES } from "@/components/App/Navigation"
 import { Separator } from "@/components/ui/separator"
@@ -46,20 +46,19 @@ function hasFiles(event: DragEvent) {
 // Files can be dropped anywhere in the app from a computer.
 function GlobalDropZone() {
   const { upload } = useUpload()
-  const uploadRef = useRef(upload)
-  uploadRef.current = upload
+  const onFiles = useEffectEvent(upload)
   const [dragging, setDragging] = useState(false)
-  const dragDepth = useRef(0)
 
   useEffect(() => {
+    let depth = 0
     const reset = () => {
-      dragDepth.current = 0
+      depth = 0
       setDragging(false)
     }
     const onDragEnter = (event: DragEvent) => {
       if (!hasFiles(event)) return
       event.preventDefault()
-      dragDepth.current += 1
+      depth += 1
       setDragging(true)
     }
     const onDragOver = (event: DragEvent) => {
@@ -68,14 +67,14 @@ function GlobalDropZone() {
     }
     const onDragLeave = (event: DragEvent) => {
       if (!hasFiles(event)) return
-      dragDepth.current = Math.max(0, dragDepth.current - 1)
-      if (dragDepth.current === 0) setDragging(false)
+      depth = Math.max(0, depth - 1)
+      if (depth === 0) setDragging(false)
     }
     const onDrop = (event: DragEvent) => {
       if (!hasFiles(event)) return
       event.preventDefault()
       reset()
-      uploadRef.current(Array.from(event.dataTransfer?.files ?? []))
+      onFiles(Array.from(event.dataTransfer?.files ?? []))
     }
 
     window.addEventListener("dragenter", onDragEnter)

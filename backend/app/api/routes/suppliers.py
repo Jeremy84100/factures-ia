@@ -50,18 +50,34 @@ def get_owned_supplier(
     return supplier
 
 
-def summaries(session: SessionDep, owner_id: uuid.UUID) -> list[SupplierSummary]:
-    invoiced = func.sum(Document.amount_incl_tax).filter(
+def _invoiced_sum() -> Any:
+    return func.sum(Document.amount_incl_tax).filter(
         col(Document.kind) == DocumentKind.invoice,
         col(Document.status).in_(COUNTED),
     )
+
+
+def _to_summary(
+    supplier: Supplier, count: int, total: Decimal | None, last: Any
+) -> SupplierSummary:
+    return SupplierSummary.model_validate(
+        supplier,
+        update={
+            "documents": count,
+            "invoiced_incl_tax": total or Decimal(0),
+            "last_document_date": last,
+        },
+    )
+
+
+def summaries(session: SessionDep, owner_id: uuid.UUID) -> list[SupplierSummary]:
     stats = {
         supplier_id: (count, total, last)
         for supplier_id, count, total, last in session.exec(
             select(
                 Document.supplier_id,
                 func.count(),
-                invoiced,
+                _invoiced_sum(),
                 func.max(Document.document_date),
             )
             .where(
@@ -74,47 +90,23 @@ def summaries(session: SessionDep, owner_id: uuid.UUID) -> list[SupplierSummary]
     suppliers = session.exec(
         select(Supplier).where(Supplier.owner_id == owner_id)
     ).all()
-    result = []
-    for supplier in suppliers:
-        count, total, last = stats.get(supplier.id, (0, None, None))
-        if not count:
-            continue
-        result.append(
-            SupplierSummary.model_validate(
-                supplier,
-                update={
-                    "documents": count,
-                    "invoiced_incl_tax": total or Decimal(0),
-                    "last_document_date": last,
-                },
-            )
-        )
+    result = [
+        _to_summary(supplier, count, total, last)
+        for supplier in suppliers
+        for count, total, last in (stats.get(supplier.id, (0, None, None)),)
+        if count
+    ]
     return sorted(result, key=lambda s: fold(s.name))
 
 
 def summary_of(session: SessionDep, supplier: Supplier) -> SupplierSummary:
-    invoiced = func.sum(Document.amount_incl_tax).filter(
-        col(Document.kind) == DocumentKind.invoice,
-        col(Document.status).in_(COUNTED),
-    )
     count, total, last = session.exec(
-        select(
-            func.count(),
-            invoiced,
-            func.max(Document.document_date),
-        ).where(
+        select(func.count(), _invoiced_sum(), func.max(Document.document_date)).where(
             Document.owner_id == supplier.owner_id,
             Document.supplier_id == supplier.id,
         )
     ).one()
-    return SupplierSummary.model_validate(
-        supplier,
-        update={
-            "documents": count,
-            "invoiced_incl_tax": total or Decimal(0),
-            "last_document_date": last,
-        },
-    )
+    return _to_summary(supplier, count, total, last)
 
 
 def detail(session: SessionDep, supplier: Supplier) -> SupplierDetail:

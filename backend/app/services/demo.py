@@ -15,7 +15,6 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from rapidfuzz import fuzz
 from sqlmodel import Session, col, delete, func, select
 
 from app.core.security import get_password_hash
@@ -31,8 +30,7 @@ from app.models import (
 )
 from app.services.checks import check_document
 from app.services.iban import iban_change
-from app.services.reconciliation import SUPPLIER_MATCH
-from app.services.suppliers import country_of, fill_from, supplier_key
+from app.services.suppliers import country_of, fill_from, match_supplier, supplier_key
 
 DEMO_DIR = Path(__file__).parent.parent / "demo" / "purchases"
 DEMO_DOMAIN = "demo.example.com"
@@ -141,14 +139,7 @@ def _link_demo_suppliers(
         if not document.supplier:
             continue
         key = supplier_key(document.supplier)
-        supplier = next((s for s in suppliers if s.key == key), None)
-        if supplier is None:
-            best = max(
-                ((fuzz.token_set_ratio(key, s.key), s) for s in suppliers),
-                key=lambda pair: pair[0],
-                default=None,
-            )
-            supplier = best[1] if best and best[0] >= SUPPLIER_MATCH else None
+        supplier = match_supplier(suppliers, key)
         if supplier is None:
             supplier = Supplier(owner_id=owner_id, name=document.supplier, key=key)
             suppliers.append(supplier)

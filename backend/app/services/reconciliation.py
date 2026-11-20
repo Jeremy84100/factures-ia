@@ -4,6 +4,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
+from functools import lru_cache
 
 from rapidfuzz import fuzz
 
@@ -63,11 +64,18 @@ UNLINKED_DELIVERY = (
 )
 
 
+DECIMAL_COMMA = re.compile(r"(\d),(\d)")
+LETTER_DIGIT = re.compile(r"(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])")
+NON_WORD_DOT = re.compile(r"[^a-z0-9.]+")
+NON_ALNUM = re.compile(r"[^A-Z0-9]")
+
+
+@lru_cache(maxsize=4096)
 def fold(text: str) -> str:
     plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
-    plain = re.sub(r"(\d),(\d)", r"\1.\2", plain.lower())
-    plain = re.sub(r"(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])", " ", plain)
-    return re.sub(r"[^a-z0-9.]+", " ", plain).strip()
+    plain = DECIMAL_COMMA.sub(r"\1.\2", plain.lower())
+    plain = LETTER_DIGIT.sub(" ", plain)
+    return NON_WORD_DOT.sub(" ", plain).strip()
 
 
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
@@ -86,10 +94,12 @@ def similar(a: str, b: str) -> float:
     return fuzz.token_set_ratio(a, b)
 
 
+@lru_cache(maxsize=4096)
 def reference_key(value: str | None) -> str:
-    return re.sub(r"[^A-Z0-9]", "", fold(value or "").upper())
+    return NON_ALNUM.sub("", fold(value or "").upper())
 
 
+@lru_cache(maxsize=2048)
 def same_supplier(a: str, b: str) -> bool:
     return fuzz.token_set_ratio(fold(a), fold(b)) >= SUPPLIER_MATCH
 
@@ -125,10 +135,16 @@ class Item:
     invoiced: Decimal = ZERO
     invoice_prices: list[Decimal] = field(default_factory=list)
     from_order: bool = False
+    ref_key: str = field(init=False)
+    folded_description: str = field(init=False)
+    is_fee: bool = field(init=False)
 
-    @property
-    def is_fee(self) -> bool:
-        return bool(FEE.search(fold(f"{self.description} {self.reference or ''}")))
+    def __post_init__(self) -> None:
+        self.ref_key = reference_key(self.reference)
+        self.folded_description = fold(self.description)
+        self.is_fee = bool(
+            FEE.search(fold(f"{self.description} {self.reference or ''}"))
+        )
 
     def to_match(self, issues: list[str], notes: list[str]) -> LineMatch:
         return LineMatch(
@@ -153,13 +169,13 @@ def find_item(line: DocumentLine, items: list[Item]) -> Item | None:
     key = reference_key(line.reference)
     if key:
         for item in items:
-            if reference_key(item.reference) == key:
+            if item.ref_key == key:
                 return item
 
     text = fold(line.description or line.reference or "")
     if not text:
         return None
-    scored = [(similar(text, fold(item.description)), item) for item in items]
+    scored = [(similar(text, item.folded_description), item) for item in items]
     candidates = [(score, item) for score, item in scored if score >= DESCRIPTION_MATCH]
     if not candidates:
         return None
@@ -661,17 +677,13 @@ def suggestions_for(
     ]
 
 
-def build_purchases(
+def group_documents(
     documents: Iterable[Document],
-    today: date | None = None,
-    settlements: Mapping[str, Settlement] | None = None,
-    payments: Iterable[Payment] = (),
-) -> Purchases:
-    paid_on = {id: p.paid_at for p in payments for id in p.invoice_ids}
+) -> tuple[dict[str, list[Document]], list[Document]]:
     usable = [d for d in documents if d.kind in PURCHASE_KINDS and d.status in USABLE]
-    order_suppliers = [
+    order_suppliers = {
         d.supplier for d in usable if d.kind == DocumentKind.order and d.supplier
-    ]
+    }
 
     groups: dict[str, list[Document]] = {}
     unlinked: list[Document] = []
@@ -686,6 +698,37 @@ def build_purchases(
             unlinked.append(document)
         elif document.kind == DocumentKind.invoice:
             groups[invoice_key(document)] = [document]
+    return groups, unlinked
+
+
+def build_purchase(
+    documents: Iterable[Document],
+    key: str,
+    today: date | None = None,
+    settlements: Mapping[str, Settlement] | None = None,
+    payments: Iterable[Payment] = (),
+) -> Purchase | None:
+    """Reconcile a single purchase without line-matching every other one."""
+    groups, unlinked = group_documents(documents)
+    docs = groups.get(key)
+    if docs is None:
+        return None
+    paid_on = {id: p.paid_at for p in payments for id in p.invoice_ids}
+    purchase = reconcile(key, docs, today, (settlements or {}).get(key), paid_on)
+    if purchase.late and any(d.kind == DocumentKind.delivery for d in unlinked):
+        full = build_purchases(documents, today, settlements, payments)
+        return next((p for p in full.data if p.key == key), purchase)
+    return purchase
+
+
+def build_purchases(
+    documents: Iterable[Document],
+    today: date | None = None,
+    settlements: Mapping[str, Settlement] | None = None,
+    payments: Iterable[Payment] = (),
+) -> Purchases:
+    paid_on = {id: p.paid_at for p in payments for id in p.invoice_ids}
+    groups, unlinked = group_documents(documents)
 
     purchases = [
         reconcile(
@@ -697,6 +740,7 @@ def build_purchases(
         )
         for key, docs in groups.items()
     ]
+    by_key = {p.key: p for p in purchases}
 
     unlinked_refs = []
     for document in unlinked:
@@ -710,18 +754,15 @@ def build_purchases(
         )
         if document.kind == DocumentKind.delivery:
             for suggestion in suggestions:
-                explain_unlinked_delivery(document, purchases, suggestion.key)
+                explain_unlinked_delivery(document, by_key[suggestion.key])
 
     purchases.sort(key=sort_key)
     return Purchases(data=purchases, unlinked=unlinked_refs, count=len(purchases))
 
 
-def explain_unlinked_delivery(
-    delivery: Document, purchases: Sequence[Purchase], key: str
-) -> None:
+def explain_unlinked_delivery(delivery: Document, purchase: Purchase) -> None:
     """« Still not delivered » is wrong when the delivery note is right here,
     only not linked to its order yet."""
-    purchase = next(p for p in purchases if p.key == key)
     if not purchase.late:
         return
     purchase.late = False

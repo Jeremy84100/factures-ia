@@ -28,6 +28,7 @@ export function QuickAction({
         aria-label={label}
         onClick={onClick}
         disabled={disabled || pending}
+        className="transition-transform active:scale-95"
       >
         {pending ? <Spinner /> : <Icon />}
       </Button>

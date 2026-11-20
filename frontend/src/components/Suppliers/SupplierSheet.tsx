@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Lightbulb, Pencil, Trash2 } from "lucide-react"
+import { Check, Copy, Lightbulb, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 
 import { type Purchase, type SupplierDetail, SuppliersService } from "@/client"
@@ -20,6 +20,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatAmount, formatDate, groupIban, plural } from "@/lib/documents"
 import { purchasesQuery, supplierQuery } from "@/lib/queries"
@@ -58,11 +59,32 @@ export function dateOrderLabel(supplier: SupplierDetail) {
 // The account on file, then the others its invoices gave: the old ones, and
 // a new one nobody has confirmed yet.
 function Iban({ supplier }: { supplier: SupplierDetail }) {
+  const [copied, copy] = useCopyToClipboard()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
   if (!supplier.iban) return "—"
+  const iban = supplier.iban
+  const copyIban = () =>
+    copy(iban).then((ok) =>
+      ok
+        ? showSuccessToast("IBAN copié")
+        : showErrorToast("Impossible de copier l'IBAN"),
+    )
   return (
     <span className="flex flex-col gap-1">
       <span className="flex flex-col">
-        <span className="tabular-nums">{groupIban(supplier.iban)}</span>
+        <button
+          type="button"
+          onClick={copyIban}
+          title="Copier l'IBAN"
+          className="inline-flex w-fit items-center gap-1.5 text-left tabular-nums transition-opacity hover:opacity-75"
+        >
+          <span>{groupIban(iban)}</span>
+          {copied === iban ? (
+            <Check className="size-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <Copy className="size-3.5 shrink-0 text-muted-foreground" />
+          )}
+        </button>
         <span className="text-xs text-muted-foreground">
           {supplier.iban_confirmed_at
             ? `Confirmé le ${new Date(supplier.iban_confirmed_at).toLocaleDateString("fr-FR")}`

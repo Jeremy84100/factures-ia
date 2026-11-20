@@ -175,7 +175,11 @@ function Home() {
           "livraison en retard",
           "livraisons en retard",
         )}
-        subtitle="Pas encore reçues : relancez le fournisseur"
+        subtitle={
+          late.length > 1
+            ? "Pas encore reçues : relancez le fournisseur"
+            : "Pas encore reçue : relancez le fournisseur"
+        }
         chevron
         onClick={() => go("waiting")}
       />
@@ -189,7 +193,11 @@ function Home() {
           "document à ranger",
           "documents à ranger",
         )}
-        subtitle="Sans numéro de commande : touchez pour les ranger"
+        subtitle={
+          purchases.unlinked.length > 1
+            ? "Sans numéro de commande : touchez pour les ranger"
+            : "Sans numéro de commande : touchez pour le ranger"
+        }
         chevron
         onClick={() => go("waiting")}
       />
@@ -237,9 +245,13 @@ function Home() {
             : "rien de prêt à payer"}
         </p>
         {overdue.length > 0 && (
-          <p className="text-sm text-destructive">
+          <button
+            type="button"
+            className="text-sm text-destructive underline-offset-4 hover:underline"
+            onClick={() => go("to_pay")}
+          >
             Dont {formatAmount(sum(overdue))} en retard de paiement
-          </p>
+          </button>
         )}
       </section>
 
