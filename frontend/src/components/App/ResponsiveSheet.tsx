@@ -62,7 +62,7 @@ export function ResponsiveSheet({
               <DrawerDescription>{description}</DrawerDescription>
             )}
           </DrawerHeader>
-          <div className="overflow-y-auto p-4">{children}</div>
+          <div className="scroll-fade overflow-y-auto p-4">{children}</div>
         </DrawerContent>
       </Drawer>
     )

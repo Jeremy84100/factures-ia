@@ -19,7 +19,7 @@ export function FilterChips<T extends string>({
 }) {
   return (
     <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
-      <ScrollArea className="w-full whitespace-nowrap">
+      <ScrollArea fade="x" className="w-full whitespace-nowrap">
         <TabsList>
           {chips.map((chip) => (
             <TabsTrigger key={chip.value} value={chip.value}>
